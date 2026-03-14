@@ -161,4 +161,4 @@ def test_upsert_interface_sets_kind_property() -> None:
     conn = _conn()
     upsert_interface(conn, "Ns.IFoo", "IFoo")
     cypher = conn.execute.call_args[0][0]
-    assert "n.kind" in cypher, "upsert_interface must set n.kind in the SET clause"
+    assert "n.kind = 'interface'" in cypher, "upsert_interface must set n.kind = 'interface' in the SET clause"
