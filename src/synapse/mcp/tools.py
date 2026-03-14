@@ -180,26 +180,6 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         return service.execute_query(cypher)
 
     @mcp.tool()
-    def watch_project(path: str) -> str:
-        """Start a file watcher that automatically re-indexes changed .cs files.
-
-        The watcher keeps the LSP process alive between file changes, enabling
-        incremental re-indexing without a full index_project call. Use after
-        index_project during active development sessions.
-        """
-        service.watch_project(path)
-        return f"Watching {path}"
-
-    @mcp.tool()
-    def unwatch_project(path: str) -> str:
-        """Stop the file watcher for the given project path.
-
-        Call this when done with active development to release the LSP process.
-        """
-        service.unwatch_project(path)
-        return f"Stopped watching {path}"
-
-    @mcp.tool()
     def find_type_references(full_name: str) -> list[dict]:
         """Return all symbols that reference the given type as a parameter, return type, or property type. Each result includes a kind field indicating the relationship."""
         return service.find_type_references(full_name)

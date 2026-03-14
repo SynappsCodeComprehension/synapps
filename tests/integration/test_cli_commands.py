@@ -48,6 +48,18 @@ def test_callers_service_method(service: SynapseService) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Project management commands
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_delete(service: SynapseService) -> None:
+    result = _invoke(service, ["delete", "/tmp/nonexistent-project"])
+    assert result.exit_code == 0
+    assert "Deleted" in result.output
+
+
+# ---------------------------------------------------------------------------
 # Relationship commands
 # ---------------------------------------------------------------------------
 
