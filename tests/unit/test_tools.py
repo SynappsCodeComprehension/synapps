@@ -61,3 +61,9 @@ def test_get_symbol_source_returns_source_when_available():
     result = fns["get_symbol_source"]("Ns.Cls")
     assert result == "// src/Ns/Cls.cs:5\npublic class Cls {}"
     service.get_symbol.assert_not_called()
+
+
+def test_list_projects_has_description():
+    """list_projects must have a docstring so FastMCP generates a tool description."""
+    fns = _register(MagicMock())
+    assert fns["list_projects"].__doc__, "list_projects must have a docstring"

@@ -40,6 +40,7 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def list_projects() -> list[dict]:
+        """List all indexed projects. Returns path, language, and last-indexed timestamp for each."""
         return service.list_projects()
 
     @mcp.tool()
