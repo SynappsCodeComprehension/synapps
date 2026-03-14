@@ -50,29 +50,29 @@ def find_entry_points(
     max_depth: int = 8,
     exclude_pattern: str = "",
 ) -> dict:
-    """Walk backwards to find root callers with no incoming CALLS edges.
+    """Walk backwards to find root callers with no incoming CALLS edges from non-excluded sources.
 
+    exclude_pattern: optional regex applied to caller full_names during traversal.
+    Callers matching the pattern are invisible — so their callees become roots.
+    For example, passing ".*\\.Tests\\..*" promotes controller actions to roots
+    even when they are called by test methods.
     Returns up to 20 paths, deduplicated by entry point (shortest path wins).
-    exclude_pattern: optional regex applied to entry.full_name to filter out
-    unwanted callers (e.g. ".*\\.Tests\\..*" to exclude test namespaces).
     """
     depth = _clamp_depth(max_depth)
-    params: dict = {"method": method}
-    exclude_clause = ""
-    if exclude_pattern:
-        exclude_clause = "AND NOT entry.full_name =~ $exclude_pattern "
-        params["exclude_pattern"] = exclude_pattern
     rows = conn.query(
         f"MATCH p=(entry:Method)-[:CALLS|DISPATCHES_TO*1..{depth}]->(m:Method) "
-        "WHERE NOT ()-[:CALLS]->(entry) "
+        "WHERE NOT EXISTS { "
+        "    MATCH (caller)-[:CALLS]->(entry) "
+        "    WHERE $exclude_pattern = '' OR NOT caller.full_name =~ $exclude_pattern "
+        "} "
         "AND m.full_name = $method "
-        f"{exclude_clause}"
+        "AND ($exclude_pattern = '' OR NOT entry.full_name =~ $exclude_pattern) "
         "WITH entry, [n in nodes(p) | n.full_name] AS path "
         "ORDER BY size(path) ASC "
         "WITH entry, collect(path)[0] AS path "
         "RETURN path "
         "LIMIT 20",
-        params,
+        {"method": method, "exclude_pattern": exclude_pattern},
     )
     return {
         "entry_points": [

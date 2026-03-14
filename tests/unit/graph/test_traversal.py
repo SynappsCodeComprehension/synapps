@@ -93,21 +93,34 @@ def test_find_entry_points_traverses_dispatches_to() -> None:
 
 
 def test_find_entry_points_exclude_pattern_in_cypher() -> None:
-    """exclude_pattern adds a regex filter on entry.full_name to the Cypher query."""
+    """exclude_pattern uses NOT EXISTS to filter callers, not a post-filter on roots."""
     conn = _conn([])
     find_entry_points(conn, "Svc.Do", exclude_pattern=".*\\.Tests\\..*")
     cypher = conn.query.call_args[0][0]
     params = conn.query.call_args[0][1]
-    assert "NOT entry.full_name =~ $exclude_pattern" in cypher
+    assert "NOT EXISTS" in cypher
+    assert "$exclude_pattern" in cypher
     assert params["exclude_pattern"] == ".*\\.Tests\\..*"
 
 
 def test_find_entry_points_no_exclude_clause_when_pattern_empty() -> None:
-    """No exclude clause is added when exclude_pattern is empty (default)."""
+    """$exclude_pattern is always passed; empty string makes it a no-op."""
     conn = _conn([])
     find_entry_points(conn, "Svc.Do")
+    params = conn.query.call_args[0][1]
+    assert params["exclude_pattern"] == ""
+
+
+def test_find_entry_points_exclude_promotes_callers_to_roots() -> None:
+    """When a caller matches the exclude pattern, the Cypher uses NOT EXISTS so its
+    own callers (e.g. controller actions) are evaluated as potential roots instead."""
+    conn = _conn([[["Controller.Action", "Service.Method"]]])
+    result = find_entry_points(conn, "Service.Method", exclude_pattern=".*Test.*")
     cypher = conn.query.call_args[0][0]
-    assert "exclude_pattern" not in cypher
+    # NOT EXISTS is the structural indicator that callers are filtered during traversal
+    assert "NOT EXISTS" in cypher
+    # r[0][0] is the entry point
+    assert result["entry_points"][0]["entry"] == "Controller.Action"
 
 
 def test_find_entry_points_deduplicates_by_entry() -> None:
