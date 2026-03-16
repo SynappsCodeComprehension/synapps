@@ -532,3 +532,48 @@ def test_get_context_for_scope_method_interface_contract_only_matching(tmp_path)
     assert "Ns.IBar" in result
     assert "Ns.IBar.DoWork" in result
     assert "Baz" in result
+
+
+def test_get_context_for_default_scope_unchanged(tmp_path):
+    """Verify that scope=None produces identical output to the original get_context_for."""
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text(
+        "namespace Ns {\n"
+        "    class MyClass : IFoo {\n"
+        "        public UserDto GetUser(int id) {\n"
+        "            return _repo.Find(id);\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    )
+
+    conn = MagicMock()
+    svc = SynapseService(conn)
+
+    patches = dict(
+        get_symbol=MagicMock(return_value=_node(
+            ["Method"], {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "line": 2, "end_line": 4}
+        )),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 2, "end_line": 4,
+        }),
+        get_containing_type=MagicMock(return_value=_node(
+            ["Class"], {"full_name": "Ns.MyClass", "name": "MyClass", "kind": "class"}
+        )),
+        get_members_overview=MagicMock(return_value=[
+            {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "signature": "UserDto GetUser(int)"},
+        ]),
+        get_implemented_interfaces=MagicMock(return_value=[]),
+        find_callees=MagicMock(return_value=[]),
+        query_find_dependencies=MagicMock(return_value=[]),
+        get_summary=MagicMock(return_value=None),
+    )
+
+    with patch.multiple("synapse.service", **patches):
+        result_default = svc.get_context_for("Ns.MyClass.GetUser")
+    with patch.multiple("synapse.service", **patches):
+        result_explicit = svc.get_context_for("Ns.MyClass.GetUser", scope=None)
+
+    assert result_default == result_explicit
+    assert "## Target:" in result_default
+    assert "## Containing Type:" in result_default
