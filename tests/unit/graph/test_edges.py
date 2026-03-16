@@ -108,6 +108,35 @@ def test_upsert_method_implements_writes_dispatches_to_edge() -> None:
     assert dispatches_params["impl"] == "Ns.Impl.CreateAsync"
 
 
+def test_upsert_calls_with_line_col_sets_call_sites() -> None:
+    conn = _conn()
+    upsert_calls(conn, "Ns.A.Do()", "Ns.B.Run()", line=10, col=8)
+    cypher, params = conn.execute.call_args[0]
+    assert "call_sites" in cypher
+    assert "coalesce" in cypher
+    assert params["caller"] == "Ns.A.Do()"
+    assert params["callee"] == "Ns.B.Run()"
+    assert params["line"] == 10
+    assert params["col"] == 8
+
+
+def test_upsert_calls_without_line_col_uses_bare_merge() -> None:
+    conn = _conn()
+    upsert_calls(conn, "Ns.A.Do()", "Ns.B.Run()")
+    cypher, params = conn.execute.call_args[0]
+    assert "CALLS" in cypher
+    assert "call_sites" not in cypher
+
+
+def test_upsert_calls_line_only_still_stores_call_site() -> None:
+    conn = _conn()
+    upsert_calls(conn, "Ns.A.Do()", "Ns.B.Run()", line=5)
+    cypher, params = conn.execute.call_args[0]
+    assert "call_sites" in cypher
+    assert params["line"] == 5
+    assert params["col"] is None
+
+
 def test_upsert_repo_contains_dir_matches_repo_by_path() -> None:
     conn = MagicMock()
     upsert_repo_contains_dir(conn, "/proj", "/proj")

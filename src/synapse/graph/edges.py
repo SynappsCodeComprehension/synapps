@@ -33,12 +33,26 @@ def upsert_contains_symbol(conn: GraphConnection, from_full_name: str, to_full_n
     )
 
 
-def upsert_calls(conn: GraphConnection, caller_full_name: str, callee_full_name: str) -> None:
-    conn.execute(
-        "MATCH (src:Method {full_name: $caller}), (dst:Method {full_name: $callee}) "
-        "MERGE (src)-[:CALLS]->(dst)",
-        {"caller": caller_full_name, "callee": callee_full_name},
-    )
+def upsert_calls(
+    conn: GraphConnection,
+    caller_full_name: str,
+    callee_full_name: str,
+    line: int | None = None,
+    col: int | None = None,
+) -> None:
+    if line is not None:
+        conn.execute(
+            "MATCH (src:Method {full_name: $caller}), (dst:Method {full_name: $callee}) "
+            "MERGE (src)-[r:CALLS]->(dst) "
+            "SET r.call_sites = coalesce(r.call_sites, []) + [[$line, $col]]",
+            {"caller": caller_full_name, "callee": callee_full_name, "line": line, "col": col},
+        )
+    else:
+        conn.execute(
+            "MATCH (src:Method {full_name: $caller}), (dst:Method {full_name: $callee}) "
+            "MERGE (src)-[:CALLS]->(dst)",
+            {"caller": caller_full_name, "callee": callee_full_name},
+        )
 
 
 def upsert_inherits(conn: GraphConnection, child_full_name: str, parent_full_name: str) -> None:
