@@ -348,6 +348,25 @@ def test_get_context_for_scope_structure_on_interface():
     assert "## Constructor" not in result
 
 
+def test_get_context_for_scope_structure_empty_type_returns_message():
+    svc = _service()
+    symbol = _node(["Class"], {"full_name": "Ns.Empty", "name": "Empty", "kind": "class"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_constructor=MagicMock(return_value=None),
+        get_members_overview=MagicMock(return_value=[]),
+        get_implemented_interfaces=MagicMock(return_value=[]),
+        get_summary=MagicMock(return_value=None),
+    ):
+        result = svc.get_context_for("Ns.Empty", scope="structure")
+
+    assert result is not None
+    assert "No structure information available" in result
+    assert "Ns.Empty" in result
+
+
 def test_get_constructor_returns_constructor_node():
     from synapse.graph.lookups import get_constructor
     conn = MagicMock()

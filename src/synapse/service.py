@@ -370,6 +370,8 @@ class SynapseService:
         if summary_entries:
             sections.append("## Summaries\n\n" + "\n\n".join(summary_entries))
 
+        if not sections:
+            return f"No structure information available for `{full_name}`."
         return "\n\n---\n\n".join(sections)
 
     def _context_method(self, full_name: str) -> str:
