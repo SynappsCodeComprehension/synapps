@@ -210,6 +210,9 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         - None (default): full context — source, all members, interfaces, callees, dependencies, summaries
         - "structure": type overview — constructor, member signatures, interfaces, summaries (no method bodies)
         - "method": focused method context — source, interface contract, callees, dependencies, summaries
+        - "edit": task-oriented edit context — source, interface contract, direct callers with call-site
+          lines, constructor dependencies relevant to the symbol, test coverage, summaries.
+          Works for methods (filtered deps) and classes/interfaces (all deps, callers grouped by method).
         """
         result = service.get_context_for(full_name, scope=scope)
         if result:

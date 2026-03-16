@@ -230,7 +230,7 @@ def dependencies(full_name: str) -> None:
 @app.command()
 def context(
     full_name: str,
-    scope: Annotated[str | None, typer.Option(help="Scope: 'structure', 'method', or omit for full")] = None,
+    scope: Annotated[str | None, typer.Option(help="Scope: 'structure', 'method', 'edit', or omit for full")] = None,
 ) -> None:
     """Get the full context needed to understand or modify a symbol."""
     result = _get_service().get_context_for(full_name, scope=scope)
