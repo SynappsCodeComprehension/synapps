@@ -360,6 +360,92 @@ def check_staleness(conn: GraphConnection, file_path: str) -> dict | None:
     }
 
 
+def find_callers_with_sites(
+    conn: GraphConnection,
+    method_full_name: str,
+) -> list[dict]:
+    """Find non-test callers with call-site positions from CALLS edge properties."""
+    direct = conn.query(
+        "MATCH (caller:Method)-[r:CALLS]->(m:Method {full_name: $full_name}) "
+        "WHERE NOT caller.file_path =~ $test_pattern "
+        "RETURN caller, coalesce(r.call_sites, []) AS call_sites",
+        {"full_name": method_full_name, "test_pattern": _TEST_PATH_PATTERN},
+    )
+    via_iface = conn.query(
+        "MATCH (caller:Method)-[r:CALLS]->(im:Method)"
+        "<-[:IMPLEMENTS]-(m:Method {full_name: $full_name}) "
+        "WHERE NOT caller.file_path =~ $test_pattern "
+        "RETURN caller, coalesce(r.call_sites, []) AS call_sites",
+        {"full_name": method_full_name, "test_pattern": _TEST_PATH_PATTERN},
+    )
+    seen: set[str] = set()
+    result: list[dict] = []
+    for row in direct + via_iface:
+        node = row[0]
+        key = node.element_id
+        if key not in seen:
+            seen.add(key)
+            result.append({"caller": node, "call_sites": row[1]})
+    return result
+
+
+def find_relevant_deps(
+    conn: GraphConnection,
+    class_full_name: str,
+    method_full_name: str,
+) -> list[dict]:
+    """Find constructor deps the method actually calls into."""
+    rows = conn.query(
+        "MATCH (cls {full_name: $class})-[:CONTAINS]->(member)-[:REFERENCES]->(dep) "
+        "WHERE dep:Class OR dep:Interface "
+        "WITH DISTINCT dep "
+        "MATCH (m:Method {full_name: $method})-[:CALLS]->(callee:Method)<-[:CONTAINS]-(dep) "
+        "RETURN DISTINCT dep",
+        {"class": class_full_name, "method": method_full_name},
+    )
+    return [r[0] for r in rows]
+
+
+def find_test_coverage(
+    conn: GraphConnection,
+    method_full_name: str,
+) -> list[dict]:
+    """Find test methods that transitively call the given method (up to 4 hops)."""
+    direct = conn.query(
+        "MATCH (t:Method)-[:CALLS*1..4]->(m:Method {full_name: $method}) "
+        "WHERE t.file_path =~ $test_pattern "
+        "RETURN DISTINCT t.full_name, t.file_path",
+        {"method": method_full_name, "test_pattern": _TEST_PATH_PATTERN},
+    )
+    via_iface = conn.query(
+        "MATCH (t:Method)-[:CALLS*1..4]->(im:Method)<-[:IMPLEMENTS]-(m:Method {full_name: $method}) "
+        "WHERE t.file_path =~ $test_pattern "
+        "RETURN DISTINCT t.full_name, t.file_path",
+        {"method": method_full_name, "test_pattern": _TEST_PATH_PATTERN},
+    )
+    seen: set[str] = set()
+    result: list[dict] = []
+    for r in direct + via_iface:
+        if r[0] not in seen:
+            seen.add(r[0])
+            result.append({"full_name": r[0], "file_path": r[1]})
+    return result
+
+
+def find_all_deps(
+    conn: GraphConnection,
+    class_full_name: str,
+) -> list[dict]:
+    """Find all types referenced by members of the given class."""
+    rows = conn.query(
+        "MATCH (cls {full_name: $class})-[:CONTAINS]->(member)-[:REFERENCES]->(dep) "
+        "WHERE dep:Class OR dep:Interface "
+        "RETURN DISTINCT dep",
+        {"class": class_full_name},
+    )
+    return [r[0] for r in rows]
+
+
 def execute_readonly_query(conn: GraphConnection, cypher: str) -> list:
     """Prevents accidental writes via MCP by rejecting mutating Cypher statements."""
     if _MUTATING_PATTERN.search(cypher.upper()):

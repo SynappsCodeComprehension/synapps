@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from synapse.graph.lookups import find_callers, find_implementations, get_hierarchy, list_summarized, search_symbols, _VALID_KINDS, _TEST_PATH_PATTERN, find_dependencies as qs_find_deps
+from synapse.graph.lookups import find_callers, find_implementations, get_hierarchy, list_summarized, search_symbols, _VALID_KINDS, _TEST_PATH_PATTERN, find_dependencies as qs_find_deps, find_callers_with_sites, find_relevant_deps, find_test_coverage, find_all_deps
 
 qs_search = search_symbols
 
@@ -246,3 +246,115 @@ def test_find_dependencies_result_has_depth_field():
     result = qs_find_deps(conn, "Ns.Cls")
     assert "depth" in result[0]
     assert "type" in result[0]
+
+
+# --- find_callers_with_sites ---
+
+
+def test_find_callers_with_sites_returns_caller_and_sites():
+    caller = _node(["Method"], {"full_name": "A.Caller", "file_path": "/src/A.cs"}, element_id="c1")
+    conn = MagicMock()
+    conn.query.return_value = [[caller, [[10, 5], [20, 3]]]]
+    result = find_callers_with_sites(conn, "Svc.DoWork")
+    assert len(result) == 1
+    assert result[0]["caller"]["full_name"] == "A.Caller"
+    assert result[0]["call_sites"] == [[10, 5], [20, 3]]
+
+
+def test_find_callers_with_sites_deduplicates_across_direct_and_dispatch():
+    caller = _node(["Method"], {"full_name": "A.Caller", "file_path": "/src/A.cs"}, element_id="c1")
+    conn = MagicMock()
+    # Both direct and dispatch queries return the same caller
+    conn.query.side_effect = [
+        [[caller, [[10, 5]]]],
+        [[caller, [[10, 5]]]],
+    ]
+    result = find_callers_with_sites(conn, "Svc.DoWork")
+    assert len(result) == 1
+
+
+def test_find_callers_with_sites_handles_null_call_sites():
+    caller = _node(["Method"], {"full_name": "A.Caller", "file_path": "/src/A.cs"}, element_id="c1")
+    conn = MagicMock()
+    conn.query.return_value = [[caller, []]]  # coalesce returns [] for NULL
+    result = find_callers_with_sites(conn, "Svc.DoWork")
+    assert result[0]["call_sites"] == []
+
+
+def test_find_callers_with_sites_excludes_test_callers():
+    prod_caller = _node(["Method"], {"full_name": "A.Caller", "file_path": "/src/A.cs"}, element_id="c1")
+    conn = MagicMock()
+    conn.query.return_value = [[prod_caller, [[5, 0]]]]
+    result = find_callers_with_sites(conn, "Svc.DoWork")
+    # Verify the test_pattern parameter is passed in the query
+    call_args = conn.query.call_args
+    assert "test_pattern" in call_args[0][1]
+
+
+# --- find_relevant_deps ---
+
+
+def test_find_relevant_deps_returns_intersected_types():
+    dep = _node(["Interface"], {"full_name": "Ns.IRepo"}, element_id="d1")
+    conn = _conn([[dep]])
+    result = find_relevant_deps(conn, "Ns.MyClass", "Ns.MyClass.DoWork")
+    assert len(result) == 1
+    assert result[0]["full_name"] == "Ns.IRepo"
+
+
+def test_find_relevant_deps_returns_empty_when_no_match():
+    conn = _conn([])
+    result = find_relevant_deps(conn, "Ns.MyClass", "Ns.MyClass.DoWork")
+    assert result == []
+
+
+# --- find_test_coverage ---
+
+
+def test_find_test_coverage_returns_test_methods():
+    conn = MagicMock()
+    # Two queries: direct + via_iface (UNION pattern)
+    conn.query.side_effect = [
+        [["Ns.Tests.FooTests.TestBar", "/tests/FooTests.cs"]],
+        [],
+    ]
+    result = find_test_coverage(conn, "Ns.Foo.Bar")
+    assert len(result) == 1
+    assert result[0]["full_name"] == "Ns.Tests.FooTests.TestBar"
+    assert result[0]["file_path"] == "/tests/FooTests.cs"
+    # Verify both queries use _TEST_PATH_PATTERN
+    for call in conn.query.call_args_list:
+        assert "test_pattern" in call[0][1]
+
+
+def test_find_test_coverage_deduplicates_across_queries():
+    conn = MagicMock()
+    conn.query.side_effect = [
+        [["Ns.Tests.FooTests.TestBar", "/tests/FooTests.cs"]],
+        [["Ns.Tests.FooTests.TestBar", "/tests/FooTests.cs"]],  # same test from dispatch path
+    ]
+    result = find_test_coverage(conn, "Ns.Foo.Bar")
+    assert len(result) == 1
+
+
+def test_find_test_coverage_returns_empty_when_no_tests():
+    conn = MagicMock()
+    conn.query.side_effect = [[], []]
+    result = find_test_coverage(conn, "Ns.Foo.Bar")
+    assert result == []
+
+
+# --- find_all_deps ---
+
+
+def test_find_all_deps_returns_referenced_types():
+    dep = _node(["Interface"], {"full_name": "Ns.IRepo"}, element_id="d1")
+    conn = _conn([[dep]])
+    result = find_all_deps(conn, "Ns.MyClass")
+    assert len(result) == 1
+
+
+def test_find_all_deps_returns_empty_for_no_references():
+    conn = _conn([])
+    result = find_all_deps(conn, "Ns.MyClass")
+    assert result == []
