@@ -307,3 +307,33 @@ def test_index_method_implements_calls_indexer() -> None:
 
     mock_cls.assert_called_once_with(svc._conn)
     mock_instance.index.assert_called_once()
+
+
+def test_get_context_for_scope_structure_on_method_returns_error():
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.Foo.Bar", "name": "Bar", "kind": "method"})
+    with patch("synapse.service.get_symbol", return_value=symbol):
+        result = svc.get_context_for("Ns.Foo.Bar", scope="structure")
+    assert result is not None
+    assert "scope='structure' requires a type" in result
+    assert "method" in result
+
+
+def test_get_context_for_scope_method_on_class_returns_error():
+    svc = _service()
+    symbol = _node(["Class"], {"full_name": "Ns.Foo", "name": "Foo", "kind": "class"})
+    with patch("synapse.service.get_symbol", return_value=symbol):
+        result = svc.get_context_for("Ns.Foo", scope="method")
+    assert result is not None
+    assert "scope='method' requires a method or property" in result
+    assert "class" in result
+
+
+def test_get_context_for_unknown_scope_returns_error():
+    svc = _service()
+    symbol = _node(["Class"], {"full_name": "Ns.Foo", "name": "Foo", "kind": "class"})
+    with patch("synapse.service.get_symbol", return_value=symbol):
+        result = svc.get_context_for("Ns.Foo", scope="bogus")
+    assert result is not None
+    assert "Unknown scope" in result
+    assert "'bogus'" in result

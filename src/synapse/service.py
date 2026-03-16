@@ -227,12 +227,29 @@ class SynapseService:
                 result = parent + "\n\n" + result
         return result
 
-    def get_context_for(self, full_name: str) -> str | None:
+    def get_context_for(self, full_name: str, scope: str | None = None) -> str | None:
         full_name = self._resolve(full_name)
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
             return None
 
+        props = _p(symbol)
+        labels = set(props.get("_labels", []))
+
+        if scope == "structure":
+            if not labels & {"Class", "Interface"}:
+                return f"scope='structure' requires a type (class or interface), but '{full_name}' is a {props.get('kind', 'unknown')}."
+            return self._context_structure(full_name)
+        elif scope == "method":
+            if not labels & {"Method", "Property"}:
+                return f"scope='method' requires a method or property, but '{full_name}' is a {props.get('kind', 'unknown')}."
+            return self._context_method(full_name)
+        elif scope is not None:
+            return f"Unknown scope '{scope}'. Valid values: 'structure', 'method'."
+
+        return self._context_full(full_name)
+
+    def _context_full(self, full_name: str) -> str:
         sections: list[str] = []
 
         source = self.get_symbol_source(full_name)
@@ -307,6 +324,12 @@ class SynapseService:
             sections.append("## Summaries\n\n" + "\n\n".join(summary_entries))
 
         return "\n\n---\n\n".join(sections)
+
+    def _context_structure(self, full_name: str) -> str:
+        return ""  # stub
+
+    def _context_method(self, full_name: str) -> str:
+        return ""  # stub
 
     def trace_call_chain(self, start: str, end: str, max_depth: int = 6) -> dict:
         start = self._resolve(start)
