@@ -68,7 +68,10 @@ class CallIndexer:
         try:
             with self._ls.open_file(rel_path):
                 for caller_full_name, _callee_simple, call_line_1, call_col_0 in call_sites:
-                    self._resolve_and_write(caller_full_name, rel_path, call_line_1 - 1, call_col_0)
+                    self._resolve_and_write(
+                        caller_full_name, rel_path, call_line_1 - 1, call_col_0,
+                        call_line_1=call_line_1, call_col_0=call_col_0,
+                    )
         except Exception:
             log.warning("LSP open_file failed for %s, skipping", rel_path)
 
@@ -78,6 +81,8 @@ class CallIndexer:
         rel_path: str,
         line_0: int,
         col_0: int,
+        call_line_1: int,
+        call_col_0: int,
     ) -> None:
         try:
             symbol = self._ls.request_defining_symbol(rel_path, line_0, col_0)
@@ -89,7 +94,7 @@ class CallIndexer:
             return
         callee_full_name = build_full_name(symbol)
         if callee_full_name and callee_full_name != caller_full_name:
-            upsert_calls(self._conn, caller_full_name, callee_full_name)
+            upsert_calls(self._conn, caller_full_name, callee_full_name, line=call_line_1, col=call_col_0)
 
     @staticmethod
     def _iter_cs_files(root_path: str):
