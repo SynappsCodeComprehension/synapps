@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 
 from synapse.graph.connection import GraphConnection
@@ -18,6 +19,7 @@ from synapse.graph.lookups import (
     find_relevant_deps,
     find_all_deps,
     find_test_coverage,
+    _TEST_PATH_PATTERN,
 )
 from synapse.graph.traversal import trace_call_chain, find_entry_points, get_call_depth
 from synapse.graph.analysis import analyze_change_impact, find_interface_contract, find_type_impact, audit_architecture
@@ -189,6 +191,68 @@ class SynapseService:
     def find_type_references(self, full_name: str) -> list[dict]:
         full_name = self._resolve(full_name)
         return [{"symbol": _p(r["symbol"]), "kind": r["kind"]} for r in query_find_type_references(self._conn, full_name)]
+
+    _USAGES_SUPPORTED_LABELS = {"Method", "Property", "Field", "Class", "Interface"}
+
+    def find_usages(self, full_name: str, exclude_test_callers: bool = True) -> dict:
+        full_name = self._resolve(full_name)
+        symbol = get_symbol(self._conn, full_name)
+        if symbol is None:
+            return {"error": f"Symbol not found: {full_name}"}
+
+        props = _p(symbol)
+        labels = set(props.get("_labels", []))
+
+        supported = labels & self._USAGES_SUPPORTED_LABELS
+        if not supported:
+            label = next(iter(labels), "unknown")
+            return {"error": f"find_usages does not support {label} symbols"}
+
+        # Method/Property/Field — return callers
+        if labels & {"Method", "Property", "Field"}:
+            callers = self.find_callers(full_name, exclude_test_callers=exclude_test_callers)
+            kind = "Method" if "Method" in labels else ("Property" if "Property" in labels else "Field")
+            return {"symbol": full_name, "kind": kind, "callers": callers}
+
+        # Class or Interface — return type refs + method callers
+        kind = "Interface" if "Interface" in labels else "Class"
+        test_re = re.compile(_TEST_PATH_PATTERN) if exclude_test_callers else None
+
+        # Type references
+        raw_refs = [
+            {"symbol": _p(r["symbol"]), "kind": r["kind"]}
+            for r in query_find_type_references(self._conn, full_name)
+        ]
+        if test_re:
+            raw_refs = [
+                r for r in raw_refs
+                if not test_re.match(r["symbol"].get("file_path", ""))
+            ]
+
+        # Method callers — use self.find_callers (service layer, returns plain dicts)
+        members = get_members_overview(self._conn, full_name)
+        all_members = [_p(m) for m in members]
+        methods = [m for m in all_members if "Method" in set(m.get("_labels", []))]
+        method_callers: dict[str, list[dict]] = {}
+        seen_fns: set[str] = set()
+        for method in methods:
+            method_fn = method["full_name"]
+            callers = self.find_callers(method_fn, exclude_test_callers=exclude_test_callers)
+            unique_callers = []
+            for c in callers:
+                fn = c["full_name"]
+                if fn not in seen_fns:
+                    seen_fns.add(fn)
+                    unique_callers.append(c)
+            if unique_callers:
+                method_callers[method_fn] = unique_callers
+
+        return {
+            "symbol": full_name,
+            "kind": kind,
+            "type_references": raw_refs,
+            "method_callers": method_callers,
+        }
 
     def find_dependencies(self, full_name: str, depth: int = 1) -> list[dict]:
         full_name = self._resolve(full_name)

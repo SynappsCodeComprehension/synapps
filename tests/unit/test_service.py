@@ -875,3 +875,123 @@ def test_get_context_for_scope_edit_class_no_methods_shows_note():
         result = svc.get_context_for("Ns.Empty", scope="edit")
 
     assert "No public methods found" in result
+
+
+# --- find_usages tests ---
+
+
+def test_find_usages_method_returns_callers() -> None:
+    """For a Method symbol, find_usages returns callers."""
+    svc = _service()
+    method_node = _node(["Method"], {"full_name": "Ns.Svc.DoWork", "name": "DoWork"})
+    caller = {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "_labels": ["Method"]}
+
+    with patch("synapse.service.get_symbol", return_value=method_node):
+        svc.find_callers = MagicMock(return_value=[caller])
+        result = svc.find_usages("Ns.Svc.DoWork")
+
+    assert result["symbol"] == "Ns.Svc.DoWork"
+    assert result["kind"] == "Method"
+    assert len(result["callers"]) == 1
+    assert "type_references" not in result
+    assert "method_callers" not in result
+
+
+def test_find_usages_class_returns_type_refs_and_method_callers() -> None:
+    """For a Class symbol, find_usages returns type_references and method_callers."""
+    svc = _service()
+    class_node = _node(["Class"], {"full_name": "Ns.MyService", "name": "MyService", "kind": "class"})
+    method_member = _node(["Method"], {"full_name": "Ns.MyService.DoWork", "name": "DoWork"})
+    ref_symbol = _node(["Field"], {"full_name": "Ns.Controller._svc", "file_path": "/src/Controller.cs"})
+    caller = {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "_labels": ["Method"]}
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=class_node),
+        get_members_overview=MagicMock(return_value=[method_member]),
+        query_find_type_references=MagicMock(return_value=[{"symbol": ref_symbol, "kind": "field_type"}]),
+    ):
+        svc.find_callers = MagicMock(return_value=[caller])
+        result = svc.find_usages("Ns.MyService")
+
+    assert result["kind"] == "Class"
+    assert len(result["type_references"]) == 1
+    assert "Ns.MyService.DoWork" in result["method_callers"]
+    assert len(result["method_callers"]["Ns.MyService.DoWork"]) == 1
+    assert "callers" not in result
+
+
+def test_find_usages_symbol_not_found() -> None:
+    svc = _service()
+    with patch("synapse.service.get_symbol", return_value=None):
+        result = svc.find_usages("Ns.Missing")
+    assert "error" in result
+    assert "not found" in result["error"].lower()
+
+
+def test_find_usages_unsupported_label() -> None:
+    svc = _service()
+    file_node = _node(["File"], {"full_name": "/src/Foo.cs", "name": "Foo.cs"})
+    with patch("synapse.service.get_symbol", return_value=file_node):
+        result = svc.find_usages("/src/Foo.cs")
+    assert "error" in result
+    assert "does not support" in result["error"].lower()
+
+
+def test_find_usages_class_filters_test_type_references() -> None:
+    """Type references from test files should be excluded by default."""
+    svc = _service()
+    class_node = _node(["Class"], {"full_name": "Ns.MyService", "name": "MyService", "kind": "class"})
+    prod_ref = _node(["Field"], {"full_name": "Ns.Controller._svc", "file_path": "/src/Controller.cs"})
+    test_ref = _node(["Field"], {"full_name": "Ns.Tests.Setup._svc", "file_path": "/proj/MyApp.Tests/Setup.cs"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=class_node),
+        get_members_overview=MagicMock(return_value=[]),
+        query_find_type_references=MagicMock(return_value=[
+            {"symbol": prod_ref, "kind": "field_type"},
+            {"symbol": test_ref, "kind": "field_type"},
+        ]),
+    ):
+        svc.find_callers = MagicMock(return_value=[])
+        result = svc.find_usages("Ns.MyService")
+
+    assert len(result["type_references"]) == 1
+    assert result["type_references"][0]["symbol"]["full_name"] == "Ns.Controller._svc"
+
+
+def test_find_usages_class_includes_test_refs_when_requested() -> None:
+    """exclude_test_callers=False should include test type references."""
+    svc = _service()
+    class_node = _node(["Class"], {"full_name": "Ns.MyService", "name": "MyService", "kind": "class"})
+    prod_ref = _node(["Field"], {"full_name": "Ns.Controller._svc", "file_path": "/src/Controller.cs"})
+    test_ref = _node(["Field"], {"full_name": "Ns.Tests.Setup._svc", "file_path": "/proj/MyApp.Tests/Setup.cs"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=class_node),
+        get_members_overview=MagicMock(return_value=[]),
+        query_find_type_references=MagicMock(return_value=[
+            {"symbol": prod_ref, "kind": "field_type"},
+            {"symbol": test_ref, "kind": "field_type"},
+        ]),
+    ):
+        svc.find_callers = MagicMock(return_value=[])
+        result = svc.find_usages("Ns.MyService", exclude_test_callers=False)
+
+    assert len(result["type_references"]) == 2
+
+
+def test_find_usages_property_returns_callers() -> None:
+    """For a Property symbol, find_usages returns callers with kind=Property."""
+    svc = _service()
+    prop_node = _node(["Property"], {"full_name": "Ns.Svc.Name", "name": "Name"})
+    caller = {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "_labels": ["Method"]}
+
+    with patch("synapse.service.get_symbol", return_value=prop_node):
+        svc.find_callers = MagicMock(return_value=[caller])
+        result = svc.find_usages("Ns.Svc.Name")
+
+    assert result["kind"] == "Property"
+    assert len(result["callers"]) == 1
