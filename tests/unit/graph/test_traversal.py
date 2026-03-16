@@ -205,8 +205,8 @@ def test_find_entry_points_test_pattern_filters_callers_in_not_exists() -> None:
     )
 
 
-def test_find_entry_points_no_test_pattern_in_not_exists_when_disabled() -> None:
-    """When exclude_test_callers=False, test_pattern is empty so the clause is a no-op."""
+def test_find_entry_points_test_pattern_is_empty_when_disabled() -> None:
+    """When exclude_test_callers=False, test_pattern is empty string, making all test-path clauses no-ops."""
     conn = _conn([])
     find_entry_points(conn, "Svc.Do", exclude_test_callers=False)
     params = conn.query.call_args[0][1]

@@ -58,13 +58,13 @@ def find_entry_points(
     Callers matching the pattern are invisible — so their callees become roots.
     For example, passing ".*\\.Tests\\..*" promotes controller actions to roots
     even when they are called by test methods.
-    exclude_test_callers: when True (default), filters out entry points whose file_path
-    matches the test path pattern (directories named Tests/tests/Test/test).
+    exclude_test_callers: when True (default), filters test callers from root detection
+    and excludes entry points whose file_path matches the test path pattern.
     Returns up to 20 paths, deduplicated by entry point (shortest path wins).
     """
     depth = _clamp_depth(max_depth)
     test_pattern = _TEST_PATH_PATTERN if exclude_test_callers else ""
-    test_clause = "AND ($test_pattern = '' OR NOT entry.file_path =~ $test_pattern) " if exclude_test_callers else ""
+    test_clause = "AND ($test_pattern = '' OR NOT entry.file_path =~ $test_pattern) "
     rows = conn.query(
         f"MATCH p=(entry:Method)-[:CALLS|DISPATCHES_TO*1..{depth}]->(m:Method) "
         "WHERE NOT EXISTS { "
