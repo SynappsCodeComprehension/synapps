@@ -407,3 +407,128 @@ def test_get_context_for_unknown_scope_returns_error():
     assert result is not None
     assert "Unknown scope" in result
     assert "'bogus'" in result
+
+
+def test_get_context_for_scope_method_returns_focused_context(tmp_path):
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text(
+        "namespace Ns {\n"
+        "    class MyClass : IFoo {\n"
+        "        public UserDto GetUser(int id) {\n"
+        "            return _repo.Find(id);\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    )
+
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "kind": "method"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 2, "end_line": 4,
+        }),
+        find_interface_contract=MagicMock(return_value={
+            "method": "Ns.MyClass.GetUser",
+            "interface": "Ns.IFoo",
+            "contract_method": "Ns.IFoo.GetUser",
+            "sibling_implementations": [],
+        }),
+        find_callees=MagicMock(return_value=[
+            {"full_name": "Ns.Repo.Find", "name": "Find", "signature": "User Find(int)"},
+        ]),
+        query_find_dependencies=MagicMock(return_value=[
+            {"type": _node(["Class"], {"full_name": "Ns.UserDto", "name": "UserDto"}), "depth": 1},
+        ]),
+        get_containing_type=MagicMock(return_value=_node(
+            ["Class"], {"full_name": "Ns.MyClass", "name": "MyClass"}
+        )),
+        get_summary=MagicMock(return_value="Fetches user by ID"),
+        get_members_overview=MagicMock(return_value=[
+            {"full_name": "Ns.UserDto.Id", "name": "Id", "signature": "int"},
+        ]),
+    ):
+        result = svc.get_context_for("Ns.MyClass.GetUser", scope="method")
+
+    assert result is not None
+    assert "## Target:" in result
+    assert "GetUser" in result
+    assert "## Interface Contract" in result
+    assert "Ns.IFoo.GetUser" in result
+    assert "## Called Methods" in result
+    assert "`Ns.Repo.Find`" in result
+    assert "## Parameter & Return Types" in result
+    assert "Ns.UserDto" in result
+    assert "## Summaries" in result
+    # Must NOT contain full containing type member list
+    assert "## Containing Type:" not in result
+    assert "## Members:" not in result
+
+
+def test_get_context_for_scope_method_empty_callees_and_no_interface(tmp_path):
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text("class Foo { void Simple() {} }\n")
+
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.Foo.Simple", "name": "Simple", "kind": "method"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 0, "end_line": 0,
+        }),
+        find_interface_contract=MagicMock(return_value={
+            "method": "Ns.Foo.Simple",
+            "interface": None,
+            "contract_method": None,
+            "sibling_implementations": [],
+        }),
+        find_callees=MagicMock(return_value=[]),
+        query_find_dependencies=MagicMock(return_value=[]),
+        get_containing_type=MagicMock(return_value=None),
+        get_summary=MagicMock(return_value=None),
+    ):
+        result = svc.get_context_for("Ns.Foo.Simple", scope="method")
+
+    assert result is not None
+    assert "## Target:" in result
+    # Sections with no data should be omitted
+    assert "## Interface Contract" not in result
+    assert "## Called Methods" not in result
+    assert "## Parameter & Return Types" not in result
+    assert "## Summaries" not in result
+
+
+def test_get_context_for_scope_method_interface_contract_only_matching(tmp_path):
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text("class Foo : IBar { void DoWork() {} }\n")
+
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.Foo.DoWork", "name": "DoWork", "kind": "method"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 0, "end_line": 0,
+        }),
+        find_interface_contract=MagicMock(return_value={
+            "method": "Ns.Foo.DoWork",
+            "interface": "Ns.IBar",
+            "contract_method": "Ns.IBar.DoWork",
+            "sibling_implementations": [{"class_name": "Baz", "file_path": "Baz.cs"}],
+        }),
+        find_callees=MagicMock(return_value=[]),
+        query_find_dependencies=MagicMock(return_value=[]),
+        get_containing_type=MagicMock(return_value=None),
+        get_summary=MagicMock(return_value=None),
+    ):
+        result = svc.get_context_for("Ns.Foo.DoWork", scope="method")
+
+    assert "## Interface Contract" in result
+    assert "Ns.IBar" in result
+    assert "Ns.IBar.DoWork" in result
+    assert "Baz" in result

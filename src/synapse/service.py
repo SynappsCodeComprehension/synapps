@@ -373,7 +373,66 @@ class SynapseService:
         return "\n\n---\n\n".join(sections)
 
     def _context_method(self, full_name: str) -> str:
-        return ""  # stub
+        sections: list[str] = []
+
+        # Method source
+        source = self.get_symbol_source(full_name)
+        sections.append(f"## Target: {full_name}\n\n{source or 'Source not available (re-index may be required)'}")
+
+        # Interface contract (reuse existing service method)
+        contract = find_interface_contract(self._conn, full_name)
+        if contract["interface"] is not None:
+            contract_lines = [
+                f"Interface: `{contract['interface']}`",
+                f"Contract method: `{contract['contract_method']}`",
+            ]
+            if contract["sibling_implementations"]:
+                siblings = ", ".join(
+                    f"{s['class_name']} ({s['file_path']})"
+                    for s in contract["sibling_implementations"]
+                )
+                contract_lines.append(f"Other implementations: {siblings}")
+            sections.append("## Interface Contract\n\n" + "\n".join(contract_lines))
+
+        # Callees (already scoped to this method via CALLS edges)
+        callees = self.find_callees(full_name)
+        if callees:
+            callee_lines = [f"- `{c['full_name']}` — {c.get('signature', '')}" for c in callees]
+            sections.append("## Called Methods\n\n" + "\n".join(callee_lines))
+
+        # Parameter & return types (scoped via REFERENCES from this method)
+        deps = self.find_dependencies(full_name)
+        if deps:
+            dep_lines = []
+            seen_types: set[str] = set()
+            for dep in deps:
+                type_fn = dep["type"]["full_name"]
+                if type_fn in seen_types:
+                    continue
+                seen_types.add(type_fn)
+                type_members = get_members_overview(self._conn, type_fn)
+                member_sigs = [
+                    f"  {_p(m).get('name', '?')}: {_p(m).get('signature', '') or _p(m).get('type_name', '')}"
+                    for m in type_members
+                ]
+                dep_lines.append(f"### {type_fn}\n" + "\n".join(member_sigs))
+            sections.append("## Parameter & Return Types\n\n" + "\n\n".join(dep_lines))
+
+        # Summaries (method + containing type)
+        summary_entries: list[str] = []
+        sym_summary = get_summary(self._conn, full_name)
+        if sym_summary:
+            summary_entries.append(f"**{full_name}:** {sym_summary}")
+        parent = get_containing_type(self._conn, full_name)
+        if parent:
+            parent_fn = _p(parent)["full_name"]
+            parent_summary = get_summary(self._conn, parent_fn)
+            if parent_summary:
+                summary_entries.append(f"**{parent_fn}:** {parent_summary}")
+        if summary_entries:
+            sections.append("## Summaries\n\n" + "\n\n".join(summary_entries))
+
+        return "\n\n---\n\n".join(sections)
 
     def trace_call_chain(self, start: str, end: str, max_depth: int = 6) -> dict:
         start = self._resolve(start)
