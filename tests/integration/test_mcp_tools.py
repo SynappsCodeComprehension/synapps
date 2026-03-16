@@ -304,6 +304,44 @@ def test_get_context_for_method_scope(mcp_server: FastMCP) -> None:
     assert "## Members:" not in ctx
 
 
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_get_context_for_edit_scope_method(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("get_context_for", {
+        "full_name": "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "scope": "edit",
+    }))
+    ctx = text(result)
+    assert "## Target:" in ctx
+    assert "CreateTaskAsync" in ctx
+    # Edit scope should NOT contain full containing type member list or callees
+    assert "## Containing Type:" not in ctx
+    assert "## Called Methods" not in ctx
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_get_context_for_edit_scope_class(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("get_context_for", {
+        "full_name": "SynapseTest.Services.TaskService",
+        "scope": "edit",
+    }))
+    ctx = text(result)
+    assert "## Target:" in ctx
+    assert "TaskService" in ctx
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("get_context_for", {
+        "full_name": "SynapseTest.Models.TaskItem._title",
+        "scope": "edit",
+    }))
+    ctx = text(result)
+    assert "scope='edit' requires" in ctx
+
+
 # ---------------------------------------------------------------------------
 # Call chain / entry point / impact tools
 # ---------------------------------------------------------------------------
