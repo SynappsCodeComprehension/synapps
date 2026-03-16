@@ -553,6 +553,95 @@ def test_get_context_for_scope_method_interface_contract_only_matching(tmp_path)
     assert "Baz" in result
 
 
+def test_callers_section_formats_callers_with_sites():
+    svc = _service()
+    caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
+    with patch("synapse.service.find_callers_with_sites", return_value=[
+        {"caller": caller, "call_sites": [[32, 5], [58, 8]]},
+    ]):
+        result = svc._callers_section("Ns.Svc.DoWork")
+    assert "## Direct Callers" in result
+    assert "`A.Ctrl.Create`" in result
+    assert "lines 32, 58" in result
+
+
+def test_callers_section_single_line_uses_singular():
+    svc = _service()
+    caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
+    with patch("synapse.service.find_callers_with_sites", return_value=[
+        {"caller": caller, "call_sites": [[32, 5]]},
+    ]):
+        result = svc._callers_section("Ns.Svc.DoWork")
+    assert "line 32" in result
+    assert "lines" not in result
+
+
+def test_callers_section_no_sites_omits_parenthetical():
+    svc = _service()
+    caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
+    with patch("synapse.service.find_callers_with_sites", return_value=[
+        {"caller": caller, "call_sites": []},
+    ]):
+        result = svc._callers_section("Ns.Svc.DoWork")
+    assert "`A.Ctrl.Create`" in result
+    assert "(" not in result
+
+
+def test_callers_section_returns_none_when_no_callers():
+    svc = _service()
+    with patch("synapse.service.find_callers_with_sites", return_value=[]):
+        result = svc._callers_section("Ns.Svc.DoWork")
+    assert result is None
+
+
+def test_callers_section_limits_to_15_callers():
+    svc = _service()
+    callers = [
+        {"caller": _node(["Method"], {"full_name": f"A.C{i}", "file_path": f"/src/{i}.cs"}), "call_sites": []}
+        for i in range(20)
+    ]
+    with patch("synapse.service.find_callers_with_sites", return_value=callers):
+        result = svc._callers_section("Ns.Svc.DoWork")
+    assert "... and 5 more callers" in result
+
+
+def test_test_coverage_section_formats_test_methods():
+    svc = _service()
+    with patch("synapse.service.find_test_coverage", return_value=[
+        {"full_name": "Ns.Tests.FooTests.TestBar", "file_path": "/tests/FooTests.cs"},
+    ]):
+        result = svc._test_coverage_section("Ns.Foo.Bar")
+    assert "## Test Coverage" in result
+    assert "Ns.Tests.FooTests.TestBar" in result
+
+
+def test_test_coverage_section_returns_none_when_empty():
+    svc = _service()
+    with patch("synapse.service.find_test_coverage", return_value=[]):
+        result = svc._test_coverage_section("Ns.Foo.Bar")
+    assert result is None
+
+
+def test_relevant_deps_section_shows_member_signatures():
+    svc = _service()
+    dep = _node(["Interface"], {"full_name": "Ns.IRepo"})
+    with patch("synapse.service.find_relevant_deps", return_value=[dep]):
+        with patch("synapse.service.get_members_overview", return_value=[
+            {"full_name": "Ns.IRepo.Save", "name": "Save", "signature": "Task Save(Entity)"},
+        ]):
+            result = svc._relevant_deps_section("Ns.MyClass", "Ns.MyClass.DoWork")
+    assert "## Constructor Dependencies (used by this method)" in result
+    assert "Ns.IRepo" in result
+    assert "Save" in result
+
+
+def test_relevant_deps_section_returns_none_when_empty():
+    svc = _service()
+    with patch("synapse.service.find_relevant_deps", return_value=[]):
+        result = svc._relevant_deps_section("Ns.MyClass", "Ns.MyClass.DoWork")
+    assert result is None
+
+
 def test_get_context_for_default_scope_unchanged(tmp_path):
     """Verify that scope=None produces identical output to the original get_context_for."""
     source_file = tmp_path / "Foo.cs"

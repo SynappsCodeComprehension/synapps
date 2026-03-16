@@ -14,6 +14,10 @@ from synapse.graph.lookups import (
     get_constructor, resolve_full_name,
     find_type_references as query_find_type_references,
     find_dependencies as query_find_dependencies,
+    find_callers_with_sites,
+    find_relevant_deps,
+    find_all_deps,
+    find_test_coverage,
 )
 from synapse.graph.traversal import trace_call_chain, find_entry_points, get_call_depth
 from synapse.graph.analysis import analyze_change_impact, find_interface_contract, find_type_impact, audit_architecture
@@ -272,6 +276,56 @@ class SynapseService:
             lines = [_member_line(m) for m in iface_members]
             iface_blocks.append(f"### {iface_fn}\n" + "\n".join(lines))
         return "## Implemented Interfaces\n\n" + "\n\n".join(iface_blocks)
+
+    _CALLER_LIMIT = 15
+
+    def _callers_section(self, full_name: str, limit: int = _CALLER_LIMIT) -> str | None:
+        results = find_callers_with_sites(self._conn, full_name)
+        if not results:
+            return None
+        lines = []
+        for entry in results[:limit]:
+            caller_props = _p(entry["caller"])
+            sites = entry["call_sites"]
+            line_str = self._format_call_sites(sites)
+            fp = caller_props.get("file_path", "")
+            fn = caller_props["full_name"]
+            if line_str:
+                lines.append(f"- `{fn}` — {fp} ({line_str})")
+            else:
+                lines.append(f"- `{fn}` — {fp}")
+        if len(results) > limit:
+            lines.append(f"... and {len(results) - limit} more callers")
+        return "## Direct Callers\n\n" + "\n".join(lines)
+
+    @staticmethod
+    def _format_call_sites(sites: list) -> str:
+        if not sites:
+            return ""
+        line_numbers = sorted({s[0] for s in sites if s and s[0] is not None})
+        if not line_numbers:
+            return ""
+        if len(line_numbers) == 1:
+            return f"line {line_numbers[0]}"
+        return f"lines {', '.join(str(n) for n in line_numbers)}"
+
+    def _test_coverage_section(self, full_name: str) -> str | None:
+        tests = find_test_coverage(self._conn, full_name)
+        if not tests:
+            return None
+        lines = [f"- `{t['full_name']}` — {t['file_path']}" for t in tests]
+        return "## Test Coverage\n\n" + "\n".join(lines)
+
+    def _relevant_deps_section(self, class_full_name: str, method_full_name: str) -> str | None:
+        deps = find_relevant_deps(self._conn, class_full_name, method_full_name)
+        if not deps:
+            return None
+        dep_lines = []
+        for dep_node in deps:
+            dep_fn = _p(dep_node)["full_name"]
+            members = get_members_overview(self._conn, dep_fn)
+            dep_lines.append(f"### {dep_fn}\n" + "\n".join(_member_line(m) for m in members))
+        return "## Constructor Dependencies (used by this method)\n\n" + "\n\n".join(dep_lines)
 
     def _callees_section(self, full_name: str) -> str | None:
         callees = self.find_callees(full_name)
