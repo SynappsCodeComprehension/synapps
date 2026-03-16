@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+from synapse.graph.lookups import _TEST_PATH_PATTERN
 from synapse.graph.traversal import find_entry_points, get_call_depth, trace_call_chain
 
 
@@ -149,3 +150,30 @@ def test_trace_call_chain_crosses_interface_boundary() -> None:
     assert result["paths"] == [
         ["A.Controller.Create", "A.IService.CreateAsync", "A.Service.CreateAsync"]
     ]
+
+
+def test_find_entry_points_excludes_tests_by_default() -> None:
+    """By default, entry points whose file_path matches the test path pattern are excluded."""
+    conn = _conn([])
+    find_entry_points(conn, "Svc.Do")
+    params = conn.query.call_args[0][1]
+    cypher = conn.query.call_args[0][0]
+    assert params["test_pattern"] == _TEST_PATH_PATTERN
+    assert "$test_pattern" in cypher
+
+
+def test_find_entry_points_include_tests_when_requested() -> None:
+    """When exclude_test_callers=False, test_pattern is empty and no test filtering occurs."""
+    conn = _conn([])
+    find_entry_points(conn, "Svc.Do", exclude_test_callers=False)
+    params = conn.query.call_args[0][1]
+    assert params["test_pattern"] == ""
+
+
+def test_find_entry_points_exclude_tests_composes_with_exclude_pattern() -> None:
+    """Both exclude_pattern and test_pattern can be active simultaneously."""
+    conn = _conn([])
+    find_entry_points(conn, "Svc.Do", exclude_pattern=".*\\.Tests\\..*", exclude_test_callers=True)
+    params = conn.query.call_args[0][1]
+    assert params["exclude_pattern"] == ".*\\.Tests\\..*"
+    assert params["test_pattern"] == _TEST_PATH_PATTERN

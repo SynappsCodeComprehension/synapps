@@ -260,10 +260,11 @@ def trace_chain(
 def entry_points(
     method: str = typer.Argument(help="Target method"),
     max_depth: int = typer.Option(8, "--depth", "-d"),
+    include_tests: bool = typer.Option(False, "--include-tests", help="Include test entry points"),
 ) -> None:
     """Find all entry points that eventually call a method."""
     svc = _get_service()
-    result = svc.find_entry_points(method, max_depth)
+    result = svc.find_entry_points(method, max_depth, exclude_test_callers=not include_tests)
     if not result["entry_points"]:
         typer.echo("No entry points found.")
         return

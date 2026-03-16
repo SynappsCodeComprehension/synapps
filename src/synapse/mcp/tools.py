@@ -239,16 +239,22 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         return service.trace_call_chain(start, end, max_depth)
 
     @mcp.tool()
-    def find_entry_points(method: str, max_depth: int = 8, exclude_pattern: str = "") -> dict:
+    def find_entry_points(
+        method: str,
+        max_depth: int = 8,
+        exclude_pattern: str = "",
+        exclude_test_callers: bool = True,
+    ) -> dict:
         """Find all root callers (no incoming CALLS edges) that eventually call a method.
 
         Useful for finding controller/API entry points that reach a given service method.
         exclude_pattern: optional regex on full_name to filter unwanted entry points
         (e.g. ".*\\.Tests\\..*" excludes test methods, ".*Controller.*" narrows to controllers).
+        Test entry points are excluded by default. Set exclude_test_callers=False to include them.
         Returns {entry_points: [{entry, path}], target, max_depth}.
         Each entry point appears once with the shortest path to the target.
         """
-        return service.find_entry_points(method, max_depth, exclude_pattern)
+        return service.find_entry_points(method, max_depth, exclude_pattern, exclude_test_callers)
 
     @mcp.tool()
     def get_call_depth(method: str, depth: int = 3) -> dict:

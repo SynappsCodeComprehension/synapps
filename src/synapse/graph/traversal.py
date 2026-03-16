@@ -11,6 +11,7 @@ so the depth integer is inlined into the Cypher string after validation
 """
 
 from synapse.graph.connection import GraphConnection
+from synapse.graph.lookups import _TEST_PATH_PATTERN
 
 
 def _clamp_depth(depth: int, max_allowed: int = 10) -> int:
@@ -49,6 +50,7 @@ def find_entry_points(
     method: str,
     max_depth: int = 8,
     exclude_pattern: str = "",
+    exclude_test_callers: bool = True,
 ) -> dict:
     """Walk backwards to find root callers with no incoming CALLS edges from non-excluded sources.
 
@@ -56,9 +58,13 @@ def find_entry_points(
     Callers matching the pattern are invisible — so their callees become roots.
     For example, passing ".*\\.Tests\\..*" promotes controller actions to roots
     even when they are called by test methods.
+    exclude_test_callers: when True (default), filters out entry points whose file_path
+    matches the test path pattern (directories named Tests/tests/Test/test).
     Returns up to 20 paths, deduplicated by entry point (shortest path wins).
     """
     depth = _clamp_depth(max_depth)
+    test_pattern = _TEST_PATH_PATTERN if exclude_test_callers else ""
+    test_clause = "AND ($test_pattern = '' OR NOT entry.file_path =~ $test_pattern) " if exclude_test_callers else ""
     rows = conn.query(
         f"MATCH p=(entry:Method)-[:CALLS|DISPATCHES_TO*1..{depth}]->(m:Method) "
         "WHERE NOT EXISTS { "
@@ -67,12 +73,13 @@ def find_entry_points(
         "} "
         "AND m.full_name = $method "
         "AND ($exclude_pattern = '' OR NOT entry.full_name =~ $exclude_pattern) "
+        f"{test_clause}"
         "WITH entry, [n in nodes(p) | n.full_name] AS path "
         "ORDER BY size(path) ASC "
         "WITH entry, collect(path)[0] AS path "
         "RETURN path "
         "LIMIT 20",
-        {"method": method, "exclude_pattern": exclude_pattern},
+        {"method": method, "exclude_pattern": exclude_pattern, "test_pattern": test_pattern},
     )
     return {
         "entry_points": [
