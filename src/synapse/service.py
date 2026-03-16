@@ -11,7 +11,7 @@ from synapse.graph.lookups import (
     list_projects, get_index_status, execute_readonly_query,
     get_method_symbol_map, get_symbol_source_info, check_staleness,
     get_containing_type, get_members_overview, get_implemented_interfaces,
-    resolve_full_name,
+    get_constructor, resolve_full_name,
     find_type_references as query_find_type_references,
     find_dependencies as query_find_dependencies,
 )
@@ -326,7 +326,51 @@ class SynapseService:
         return "\n\n---\n\n".join(sections)
 
     def _context_structure(self, full_name: str) -> str:
-        return ""  # stub
+        sections: list[str] = []
+
+        # Constructor source (if exists)
+        ctor = get_constructor(self._conn, full_name)
+        if ctor is not None:
+            ctor_fn = _p(ctor)["full_name"]
+            ctor_source = self.get_symbol_source(ctor_fn)
+            if ctor_source:
+                sections.append(f"## Constructor\n\n{ctor_source}")
+
+        # Member signatures
+        members = get_members_overview(self._conn, full_name)
+        if members:
+            member_lines = []
+            for m in members:
+                mp = _p(m)
+                sig = mp.get("signature") or mp.get("type_name") or ""
+                member_lines.append(f"  {mp.get('name', '?')}: {sig}")
+            sections.append(f"## Members: {full_name}\n\n" + "\n".join(member_lines))
+
+        # Implemented interfaces
+        interfaces = get_implemented_interfaces(self._conn, full_name)
+        if interfaces:
+            iface_lines = []
+            for iface in interfaces:
+                iface_fn = _p(iface)["full_name"]
+                iface_members = get_members_overview(self._conn, iface_fn)
+                iface_sigs = [f"  {_p(m).get('name', '?')}: {_p(m).get('signature', '')}" for m in iface_members]
+                iface_lines.append(f"### {iface_fn}\n" + "\n".join(iface_sigs))
+            sections.append("## Implemented Interfaces\n\n" + "\n\n".join(iface_lines))
+
+        # Summaries (type + interfaces only, no method-level)
+        summary_entries: list[str] = []
+        type_summary = get_summary(self._conn, full_name)
+        if type_summary:
+            summary_entries.append(f"**{full_name}:** {type_summary}")
+        for iface in interfaces:
+            iface_fn = _p(iface)["full_name"]
+            iface_summary = get_summary(self._conn, iface_fn)
+            if iface_summary:
+                summary_entries.append(f"**{iface_fn}:** {iface_summary}")
+        if summary_entries:
+            sections.append("## Summaries\n\n" + "\n\n".join(summary_entries))
+
+        return "\n\n---\n\n".join(sections)
 
     def _context_method(self, full_name: str) -> str:
         return ""  # stub

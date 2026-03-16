@@ -278,6 +278,76 @@ def test_get_hierarchy_unwraps_nodes():
     assert result["implements"] == [{"full_name": "A.IFoo", "_labels": ["Interface"]}]
 
 
+def test_get_context_for_scope_structure_returns_signatures_only(tmp_path):
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text(
+        "namespace Ns {\n"
+        "    class MyClass : IFoo {\n"
+        "        public MyClass(IRepo repo) { _repo = repo; }\n"
+        "        public UserDto GetUser(int id) { return _repo.Find(id); }\n"
+        "    }\n"
+        "}\n"
+    )
+
+    svc = _service()
+    symbol = _node(["Class"], {"full_name": "Ns.MyClass", "name": "MyClass", "kind": "class"})
+    ctor_node = _node(["Method"], {"full_name": "Ns.MyClass.MyClass", "name": "MyClass",
+                                    "line": 2, "end_line": 2})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_constructor=MagicMock(return_value=ctor_node),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 2, "end_line": 2,
+        }),
+        get_members_overview=MagicMock(return_value=[
+            {"full_name": "Ns.MyClass.MyClass", "name": "MyClass", "signature": "MyClass(IRepo)"},
+            {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "signature": "UserDto GetUser(int)"},
+        ]),
+        get_implemented_interfaces=MagicMock(return_value=[
+            _node(["Interface"], {"full_name": "Ns.IFoo", "name": "IFoo"}),
+        ]),
+        get_summary=MagicMock(return_value="Main service class"),
+    ):
+        result = svc.get_context_for("Ns.MyClass", scope="structure")
+
+    assert result is not None
+    assert "## Constructor" in result
+    assert "public MyClass(IRepo repo)" in result
+    assert "## Members" in result
+    assert "GetUser: UserDto GetUser(int)" in result
+    assert "## Implemented Interfaces" in result
+    assert "## Summaries" in result
+    # Must NOT contain full source or callees
+    assert "## Target:" not in result
+    assert "## Called Methods" not in result
+    assert "## Parameter & Return Types" not in result
+
+
+def test_get_context_for_scope_structure_on_interface():
+    svc = _service()
+    symbol = _node(["Interface"], {"full_name": "Ns.IFoo", "name": "IFoo", "kind": "interface"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_constructor=MagicMock(return_value=None),
+        get_members_overview=MagicMock(return_value=[
+            {"full_name": "Ns.IFoo.DoWork", "name": "DoWork", "signature": "void DoWork()"},
+        ]),
+        get_implemented_interfaces=MagicMock(return_value=[]),
+        get_summary=MagicMock(return_value=None),
+    ):
+        result = svc.get_context_for("Ns.IFoo", scope="structure")
+
+    assert result is not None
+    assert "## Members" in result
+    assert "DoWork: void DoWork()" in result
+    # No constructor section for an interface with no constructor
+    assert "## Constructor" not in result
+
+
 def test_get_constructor_returns_constructor_node():
     from synapse.graph.lookups import get_constructor
     conn = MagicMock()
