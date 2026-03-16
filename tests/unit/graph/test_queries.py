@@ -183,6 +183,30 @@ def test_find_type_references_returns_empty_for_no_refs() -> None:
     assert results == []
 
 
+def test_find_type_references_with_kind_filter() -> None:
+    conn = _conn([[{"full_name": "Ns.C.M()", "name": "M"}, "parameter"]])
+    results = find_type_references(conn, "Ns.UserDto", kind="parameter")
+    assert len(results) == 1
+    _, params = conn.query.call_args[0]
+    assert params["kind"] == "parameter"
+
+
+def test_find_type_references_without_kind_returns_all() -> None:
+    conn = _conn([
+        [{"full_name": "Ns.C.M()", "name": "M"}, "parameter"],
+        [{"full_name": "Ns.C.P", "name": "P"}, "property_type"],
+    ])
+    results = find_type_references(conn, "Ns.UserDto")
+    assert len(results) == 2
+
+
+def test_find_type_references_kind_in_query() -> None:
+    conn = _conn([])
+    find_type_references(conn, "Ns.UserDto", kind="return_type")
+    cypher = conn.query.call_args[0][0]
+    assert "r.kind" in cypher
+
+
 def test_find_dependencies_returns_referenced_types() -> None:
     conn = _conn([[{"full_name": "Ns.UserDto", "name": "UserDto"}, 1]])
     results = find_dependencies(conn, "Ns.C.M()")

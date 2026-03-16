@@ -199,9 +199,16 @@ class SynapseService:
         raw = execute_readonly_query(self._conn, cypher)
         return [{"row": [_p(cell) if hasattr(cell, "element_id") else cell for cell in row]} for row in raw]
 
-    def find_type_references(self, full_name: str) -> list[dict]:
+    _VALID_REF_KINDS = frozenset({"parameter", "return_type", "property_type"})
+
+    def find_type_references(self, full_name: str, kind: str | None = None) -> list[dict]:
+        if kind is not None and kind not in self._VALID_REF_KINDS:
+            raise ValueError(
+                f"Unknown reference kind: {kind!r}. "
+                f"Valid values: {sorted(self._VALID_REF_KINDS)}"
+            )
         full_name = self._resolve(full_name)
-        return [{"symbol": _p(r["symbol"]), "kind": r["kind"]} for r in query_find_type_references(self._conn, full_name)]
+        return [{"symbol": _p(r["symbol"]), "kind": r["kind"]} for r in query_find_type_references(self._conn, full_name, kind=kind)]
 
     _USAGES_SUPPORTED_LABELS = {"Method", "Property", "Field", "Class", "Interface"}
 

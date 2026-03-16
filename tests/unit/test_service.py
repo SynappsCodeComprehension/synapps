@@ -215,6 +215,23 @@ def test_find_type_references_unwraps_nested_nodes():
     assert result == [{"symbol": {"full_name": "A.Caller", "_labels": ["Method"]}, "kind": "parameter"}]
 
 
+def test_find_type_references_rejects_invalid_kind() -> None:
+    conn = MagicMock()
+    svc = SynapseService(conn)
+    with patch("synapse.service.resolve_full_name", return_value="Ns.Dto"):
+        with pytest.raises(ValueError, match="Unknown reference kind"):
+            svc.find_type_references("Dto", kind="invalid")
+
+
+def test_find_type_references_passes_valid_kind() -> None:
+    conn = MagicMock()
+    svc = SynapseService(conn)
+    with patch("synapse.service.resolve_full_name", return_value="Ns.Dto"), \
+         patch("synapse.service.query_find_type_references", return_value=[]) as mock_query:
+        svc.find_type_references("Dto", kind="parameter")
+    mock_query.assert_called_once_with(conn, "Ns.Dto", kind="parameter")
+
+
 def test_find_dependencies_unwraps_nested_nodes():
     svc = _service()
     node = _node(["Class"], {"full_name": "A.Dep"})

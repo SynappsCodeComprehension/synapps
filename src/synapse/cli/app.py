@@ -209,9 +209,12 @@ def query(cypher: str) -> None:
 
 
 @app.command("type-refs")
-def type_refs(full_name: str) -> None:
-    """Find all symbols that reference a type."""
-    results = _get_service().find_type_references(full_name)
+def type_refs(
+    full_name: str,
+    kind: Annotated[str | None, typer.Option("--kind", "-k", help="Filter by kind: parameter, return_type, property_type")] = None,
+) -> None:
+    """Find all symbols that reference a type. Use --kind to filter by reference kind."""
+    results = _get_service().find_type_references(full_name, kind=kind)
     if not results:
         typer.echo("No results.")
         return

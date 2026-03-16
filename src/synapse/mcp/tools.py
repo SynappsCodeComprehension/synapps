@@ -200,9 +200,13 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         return service.execute_query(cypher)
 
     @mcp.tool()
-    def find_type_references(full_name: str) -> list[dict]:
-        """Return all symbols that reference the given type as a parameter, return type, or property type. Each result includes a kind field indicating the relationship."""
-        return service.find_type_references(full_name)
+    def find_type_references(full_name: str, kind: str | None = None) -> list[dict]:
+        """Return all symbols that reference the given type as a parameter, return type, or property type.
+
+        kind: optional filter — one of 'parameter', 'return_type', 'property_type'.
+        Each result includes a kind field indicating the relationship.
+        """
+        return service.find_type_references(full_name, kind=kind)
 
     @mcp.tool()
     def find_usages(full_name: str, exclude_test_callers: bool = True) -> dict:

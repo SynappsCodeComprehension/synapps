@@ -240,10 +240,14 @@ def get_symbol_source_info(conn: GraphConnection, full_name: str) -> dict | None
     return {"file_path": rows[0][0], "line": rows[0][1], "end_line": rows[0][2]}
 
 
-def find_type_references(conn: GraphConnection, full_name: str) -> list[dict]:
+def find_type_references(conn: GraphConnection, full_name: str, kind: str | None = None) -> list[dict]:
+    # Build WHERE clause conditionally — Memgraph may not support `$param IS NULL`
+    kind_clause = "WHERE r.kind = $kind " if kind else ""
     rows = conn.query(
-        "MATCH (src)-[r:REFERENCES]->(t {full_name: $full_name}) RETURN src, r.kind",
-        {"full_name": full_name},
+        "MATCH (src)-[r:REFERENCES]->(t {full_name: $full_name}) "
+        f"{kind_clause}"
+        "RETURN src, r.kind",
+        {"full_name": full_name, "kind": kind},
     )
     return [{"symbol": row[0], "kind": row[1]} for row in rows]
 
