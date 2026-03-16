@@ -43,7 +43,7 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def index_project(path: str, language: str = "csharp") -> str:
-        """Index a project's codebase into the graph. Destructive: drops all existing graph data for this project and re-indexes from scratch.
+        """Index a project's codebase into the graph. Uses MERGE (upsert) so nodes are updated in place rather than deleted and recreated. Summaries and other non-structural properties are preserved.
 
         Uses LSP for structural analysis (symbols, inheritance, implementations) and tree-sitter for call site detection.
         Currently only supports C# projects (language='csharp').
