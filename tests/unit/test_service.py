@@ -685,3 +685,101 @@ def test_get_context_for_default_scope_unchanged(tmp_path):
     assert result_default == result_explicit
     assert "## Target:" in result_default
     assert "## Containing Type:" in result_default
+
+
+def test_get_context_for_scope_edit_method_includes_all_sections(tmp_path):
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text(
+        "namespace Ns {\n"
+        "    class Svc : ISvc {\n"
+        "        public Result DoWork(int id) {\n"
+        "            return _repo.Find(id);\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    )
+
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.Svc.DoWork", "name": "DoWork", "kind": "method"})
+    caller = _node(["Method"], {"full_name": "Ns.Ctrl.Action", "file_path": "/src/Ctrl.cs"})
+    dep = _node(["Interface"], {"full_name": "Ns.IRepo"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 2, "end_line": 4,
+        }),
+        find_interface_contract=MagicMock(return_value={
+            "method": "Ns.Svc.DoWork",
+            "interface": "Ns.ISvc",
+            "contract_method": "Ns.ISvc.DoWork",
+            "sibling_implementations": [],
+        }),
+        find_callers_with_sites=MagicMock(return_value=[
+            {"caller": caller, "call_sites": [[32, 5]]},
+        ]),
+        get_containing_type=MagicMock(return_value=_node(
+            ["Class"], {"full_name": "Ns.Svc", "name": "Svc"}
+        )),
+        find_relevant_deps=MagicMock(return_value=[dep]),
+        get_members_overview=MagicMock(return_value=[
+            {"full_name": "Ns.IRepo.Find", "name": "Find", "signature": "Result Find(int)"},
+        ]),
+        find_test_coverage=MagicMock(return_value=[
+            {"full_name": "Ns.Tests.SvcTests.TestDoWork", "file_path": "/tests/SvcTests.cs"},
+        ]),
+        get_summary=MagicMock(return_value=None),
+        get_implemented_interfaces=MagicMock(return_value=[]),
+    ):
+        result = svc.get_context_for("Ns.Svc.DoWork", scope="edit")
+
+    assert result is not None
+    assert "## Target:" in result
+    assert "## Interface Contract" in result
+    assert "## Direct Callers" in result
+    assert "line 32" in result
+    assert "## Constructor Dependencies (used by this method)" in result
+    assert "Ns.IRepo" in result
+    assert "## Test Coverage" in result
+    assert "Ns.Tests.SvcTests.TestDoWork" in result
+
+
+def test_get_context_for_scope_edit_method_omits_empty_sections(tmp_path):
+    source_file = tmp_path / "Foo.cs"
+    source_file.write_text("class Foo { void Simple() {} }\n")
+
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.Foo.Simple", "name": "Simple", "kind": "method"})
+
+    with patch.multiple(
+        "synapse.service",
+        get_symbol=MagicMock(return_value=symbol),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 0, "end_line": 0,
+        }),
+        find_interface_contract=MagicMock(return_value={
+            "method": "Ns.Foo.Simple", "interface": None,
+            "contract_method": None, "sibling_implementations": [],
+        }),
+        find_callers_with_sites=MagicMock(return_value=[]),
+        get_containing_type=MagicMock(return_value=None),
+        find_test_coverage=MagicMock(return_value=[]),
+        get_summary=MagicMock(return_value=None),
+    ):
+        result = svc.get_context_for("Ns.Foo.Simple", scope="edit")
+
+    assert "## Target:" in result
+    assert "## Interface Contract" not in result
+    assert "## Direct Callers" not in result
+    assert "## Constructor Dependencies" not in result
+    assert "## Test Coverage" not in result
+
+
+def test_get_context_for_scope_edit_rejects_property():
+    svc = _service()
+    symbol = _node(["Property"], {"full_name": "Ns.Foo.Name", "name": "Name", "kind": "property"})
+    with patch("synapse.service.get_symbol", return_value=symbol):
+        result = svc.get_context_for("Ns.Foo.Name", scope="edit")
+    assert "scope='edit' requires" in result
+    assert "property" in result

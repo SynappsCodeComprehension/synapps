@@ -254,8 +254,16 @@ class SynapseService:
             if not labels & {"Method", "Property"}:
                 return f"scope='method' requires a method or property, but '{full_name}' is a {props.get('kind', 'unknown')}."
             return self._context_method(full_name)
+        elif scope == "edit":
+            if labels & {"Method"}:
+                return self._context_edit_method(full_name)
+            elif labels & {"Class", "Interface"}:
+                return self._context_edit_type(full_name, is_interface=bool(labels & {"Interface"}))
+            else:
+                kind = props.get("kind", "unknown")
+                return f"scope='edit' requires a method, class, or interface, but '{full_name}' is a {kind}."
         elif scope is not None:
-            return f"Unknown scope '{scope}'. Valid values: 'structure', 'method'."
+            return f"Unknown scope '{scope}'. Valid values: 'structure', 'method', 'edit'."
 
         return self._context_full(full_name)
 
@@ -474,6 +482,61 @@ class SynapseService:
             sections.append(summaries_section)
 
         return "\n\n---\n\n".join(sections)
+
+    def _context_edit_method(self, full_name: str) -> str:
+        sections: list[str] = []
+
+        sections.append(self._target_section(full_name))
+
+        # Interface contract
+        contract = find_interface_contract(self._conn, full_name)
+        if contract["interface"] is not None:
+            contract_lines = [
+                f"Interface: `{contract['interface']}`",
+                f"Contract method: `{contract['contract_method']}`",
+            ]
+            if contract["sibling_implementations"]:
+                siblings = ", ".join(
+                    f"{s['class_name']} ({s['file_path']})"
+                    for s in contract["sibling_implementations"]
+                )
+                contract_lines.append(f"Other implementations: {siblings}")
+            sections.append("## Interface Contract\n\n" + "\n".join(contract_lines))
+
+        # Direct callers
+        callers_section = self._callers_section(full_name)
+        if callers_section:
+            sections.append(callers_section)
+
+        # Relevant constructor deps
+        parent = get_containing_type(self._conn, full_name)
+        if parent:
+            parent_fn = _p(parent)["full_name"]
+            deps_section = self._relevant_deps_section(parent_fn, full_name)
+            if deps_section:
+                sections.append(deps_section)
+
+        # Test coverage
+        test_section = self._test_coverage_section(full_name)
+        if test_section:
+            sections.append(test_section)
+
+        # Summaries
+        summary_fns = [full_name]
+        if parent:
+            parent_fn = _p(parent)["full_name"]
+            summary_fns.append(parent_fn)
+            for iface in get_implemented_interfaces(self._conn, parent_fn):
+                summary_fns.append(_p(iface)["full_name"])
+        summaries_section = self._summaries_section(summary_fns)
+        if summaries_section:
+            sections.append(summaries_section)
+
+        return "\n\n---\n\n".join(sections)
+
+    def _context_edit_type(self, full_name: str, is_interface: bool = False) -> str:
+        # Placeholder — implemented in Task 10
+        return self._target_section(full_name)
 
     def trace_call_chain(self, start: str, end: str, max_depth: int = 6) -> dict:
         start = self._resolve(start)
