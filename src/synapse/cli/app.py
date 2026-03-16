@@ -110,7 +110,9 @@ def callers(
     method_full_name: str,
     include_tests: bool = typer.Option(False, "--include-tests", help="Include test callers"),
 ) -> None:
-    """Find all methods that call a given method."""
+    """Find all methods that call a given method.
+
+    When a short name matches both an interface and concrete class, the concrete implementation is selected automatically."""
     svc = _get_service()
     if not _require_label(
         svc, method_full_name, "Method",
@@ -144,7 +146,9 @@ def callees(method_full_name: str) -> None:
 
 @app.command()
 def implementations(interface_name: str) -> None:
-    """Find all concrete implementations of an interface."""
+    """Find all concrete implementations of an interface.
+
+    When a short name matches both an interface and concrete class, the interface is selected automatically."""
     svc = _get_service()
     if not _require_label(
         svc, interface_name, "Interface",
@@ -260,7 +264,9 @@ def context(
     scope: Annotated[str | None, typer.Option(help="Scope: 'structure', 'method', 'edit', or omit for full")] = None,
     max_lines: int = typer.Option(200, "--max-lines", help="Auto-fallback to structure if source exceeds this many lines (-1 = unlimited)"),
 ) -> None:
-    """Get the full context needed to understand or modify a symbol."""
+    """Get the full context needed to understand or modify a symbol.
+
+    When a short name matches both an interface and concrete class, the concrete implementation is selected automatically."""
     result = _get_service().get_context_for(full_name, scope=scope, max_lines=max_lines)
     typer.echo(result or "Not found")
 
@@ -287,7 +293,9 @@ def entry_points(
     max_depth: int = typer.Option(8, "--depth", "-d"),
     include_tests: bool = typer.Option(False, "--include-tests", help="Include test entry points"),
 ) -> None:
-    """Find all entry points that eventually call a method."""
+    """Find all entry points that eventually call a method.
+
+    When a short name matches both an interface and concrete class, the concrete implementation is selected automatically."""
     svc = _get_service()
     result = svc.find_entry_points(method, max_depth, exclude_test_callers=not include_tests)
     if not result["entry_points"]:
@@ -317,7 +325,9 @@ def call_depth(
 def impact(
     method: str = typer.Argument(help="Method to analyze"),
 ) -> None:
-    """Analyze the blast radius of changing a method."""
+    """Analyze the blast radius of changing a method.
+
+    When a short name matches both an interface and concrete class, the concrete implementation is selected automatically."""
     svc = _get_service()
     result = svc.analyze_change_impact(method)
     typer.echo(f"Impact analysis for: {result['target']}")
@@ -340,7 +350,9 @@ def impact(
 def contract(
     method: str = typer.Argument(help="Implementation method"),
 ) -> None:
-    """Find the interface contract and sibling implementations for a method."""
+    """Find the interface contract and sibling implementations for a method.
+
+    When a short name matches both an interface and concrete class, the interface is selected automatically."""
     svc = _get_service()
     result = svc.find_interface_contract(method)
     if not result["interface"]:

@@ -1124,3 +1124,45 @@ def test_get_context_for_negative_max_lines_disables_fallback(tmp_path) -> None:
 
     assert "Source exceeds" not in result
     assert "// line 0" in result
+
+
+def test_resolve_preference_concrete_selects_class() -> None:
+    conn = MagicMock()
+    svc = SynapseService(conn)
+    with patch("synapse.service.resolve_full_name") as mock_resolve, \
+         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+        mock_resolve.return_value = ["Ns.ITaskService", "Ns.TaskService"]
+        mock_labels.return_value = [("Ns.ITaskService", ["Interface"]), ("Ns.TaskService", ["Class"])]
+        result = svc._resolve("TaskService", preference="concrete")
+    assert result == "Ns.TaskService"
+
+
+def test_resolve_preference_interface_selects_interface() -> None:
+    conn = MagicMock()
+    svc = SynapseService(conn)
+    with patch("synapse.service.resolve_full_name") as mock_resolve, \
+         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+        mock_resolve.return_value = ["Ns.ITaskService", "Ns.TaskService"]
+        mock_labels.return_value = [("Ns.ITaskService", ["Interface"]), ("Ns.TaskService", ["Class"])]
+        result = svc._resolve("TaskService", preference="interface")
+    assert result == "Ns.ITaskService"
+
+
+def test_resolve_preference_none_raises_on_ambiguity() -> None:
+    conn = MagicMock()
+    svc = SynapseService(conn)
+    with patch("synapse.service.resolve_full_name") as mock_resolve:
+        mock_resolve.return_value = ["Ns.ITaskService", "Ns.TaskService"]
+        with pytest.raises(ValueError, match="Ambiguous"):
+            svc._resolve("TaskService")
+
+
+def test_resolve_preference_still_raises_if_multiple_match() -> None:
+    conn = MagicMock()
+    svc = SynapseService(conn)
+    with patch("synapse.service.resolve_full_name") as mock_resolve, \
+         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+        mock_resolve.return_value = ["Ns.A.TaskService", "Ns.B.TaskService"]
+        mock_labels.return_value = [("Ns.A.TaskService", ["Class"]), ("Ns.B.TaskService", ["Class"])]
+        with pytest.raises(ValueError, match="Ambiguous"):
+            svc._resolve("TaskService", preference="concrete")

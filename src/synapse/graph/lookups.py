@@ -328,6 +328,33 @@ def resolve_full_name(conn: GraphConnection, name: str) -> str | list[str]:
     return [r[0] for r in candidates]
 
 
+def resolve_full_name_with_labels(
+    conn: GraphConnection, name: str,
+) -> str | list[tuple[str, list[str]]]:
+    """Like resolve_full_name but preserves label information for ambiguous results."""
+    rows = conn.query(
+        "MATCH (n {full_name: $name}) RETURN n.full_name LIMIT 1",
+        {"name": name},
+    )
+    if rows:
+        return rows[0][0]
+
+    rows = conn.query(
+        "MATCH (n) WHERE n.full_name ENDS WITH $suffix "
+        "RETURN n.full_name, labels(n)",
+        {"suffix": "." + name},
+    )
+    if not rows:
+        return name
+
+    type_nodes = [r for r in rows if any(lbl in ("Class", "Interface") for lbl in r[1])]
+    candidates = type_nodes if type_nodes else rows
+
+    if len(candidates) == 1:
+        return candidates[0][0]
+    return [(r[0], list(r[1])) for r in candidates]
+
+
 def check_staleness(conn: GraphConnection, file_path: str) -> dict | None:
     """Check if a file's graph data is stale relative to disk.
 

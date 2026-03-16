@@ -12,7 +12,7 @@ from synapse.graph.lookups import (
     list_projects, get_index_status, execute_readonly_query,
     get_method_symbol_map, get_symbol_source_info, check_staleness,
     get_containing_type, get_members_overview, get_implemented_interfaces,
-    get_constructor, resolve_full_name,
+    get_constructor, resolve_full_name, resolve_full_name_with_labels,
     find_type_references as query_find_type_references,
     find_dependencies as query_find_dependencies,
     find_callers_with_sites,
@@ -53,19 +53,29 @@ class SynapseService:
         self._conn = conn
         self._watchers: dict[str, FileWatcher] = {}
 
-    def _resolve(self, name: str) -> str:
+    def _resolve(self, name: str, preference: str | None = None) -> str:
         """Resolve a possibly-short name to a fully qualified name.
 
-        Raises ValueError if the name is ambiguous (matches multiple symbols).
+        preference: 'concrete' prefers :Class, 'interface' prefers :Interface.
+        Raises ValueError if the name is ambiguous after applying preference.
         """
         result = resolve_full_name(self._conn, name)
-        if isinstance(result, list):
-            options = ", ".join(result[:10])
-            raise ValueError(
-                f"Ambiguous name '{name}' — matches: {options}. "
-                "Use the fully qualified name."
-            )
-        return result
+        if not isinstance(result, list):
+            return result
+
+        if preference in ("concrete", "interface"):
+            labeled = resolve_full_name_with_labels(self._conn, name)
+            if isinstance(labeled, list):
+                target_label = "Class" if preference == "concrete" else "Interface"
+                filtered = [fn for fn, labels in labeled if target_label in labels]
+                if len(filtered) == 1:
+                    return filtered[0]
+
+        options = ", ".join(result[:10])
+        raise ValueError(
+            f"Ambiguous name '{name}' — matches: {options}. "
+            "Use the fully qualified name."
+        )
 
     def _staleness_warning(self, full_name: str) -> str | None:
         """Return a warning string if the symbol's file is stale, else None."""
@@ -149,11 +159,11 @@ class SynapseService:
         return _p(result) if result is not None else None
 
     def find_implementations(self, interface_name: str) -> list[dict]:
-        interface_name = self._resolve(interface_name)
+        interface_name = self._resolve(interface_name, preference="interface")
         return [_p(item) for item in find_implementations(self._conn, interface_name)]
 
     def find_callers(self, method_full_name: str, include_interface_dispatch: bool = True, exclude_test_callers: bool = True) -> list[dict]:
-        method_full_name = self._resolve(method_full_name)
+        method_full_name = self._resolve(method_full_name, preference="concrete")
         return [_p(item) for item in find_callers(self._conn, method_full_name, include_interface_dispatch, exclude_test_callers)]
 
     def find_callees(self, method_full_name: str, include_interface_dispatch: bool = True) -> list[dict]:
@@ -302,7 +312,7 @@ class SynapseService:
         return result
 
     def get_context_for(self, full_name: str, scope: str | None = None, max_lines: int = 200) -> str | None:
-        full_name = self._resolve(full_name)
+        full_name = self._resolve(full_name, preference="concrete")
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
             return None
@@ -711,7 +721,7 @@ class SynapseService:
         exclude_pattern: str = "",
         exclude_test_callers: bool = True,
     ) -> dict:
-        method = self._resolve(method)
+        method = self._resolve(method, preference="concrete")
         return find_entry_points(self._conn, method, max_depth, exclude_pattern, exclude_test_callers)
 
     def get_call_depth(self, method: str, depth: int = 3) -> dict:
@@ -719,11 +729,11 @@ class SynapseService:
         return get_call_depth(self._conn, method, depth)
 
     def analyze_change_impact(self, method: str) -> dict:
-        method = self._resolve(method)
+        method = self._resolve(method, preference="concrete")
         return analyze_change_impact(self._conn, method)
 
     def find_interface_contract(self, method: str) -> dict:
-        method = self._resolve(method)
+        method = self._resolve(method, preference="interface")
         return find_interface_contract(self._conn, method)
 
     def find_type_impact(self, type_name: str) -> dict:

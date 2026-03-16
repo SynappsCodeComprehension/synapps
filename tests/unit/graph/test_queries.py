@@ -8,6 +8,7 @@ from synapse.graph.lookups import (
     find_type_references, find_dependencies,
     get_containing_type, get_members_overview,
     get_implemented_interfaces,
+    resolve_full_name_with_labels,
     _TEST_PATH_PATTERN,
 )
 
@@ -241,3 +242,24 @@ def test_get_index_status_returns_counts() -> None:
     conn.query.side_effect = [[[repo_node]], [[5]], [[99]]]
     result = get_index_status(conn, "/proj")
     assert result == {"path": "/proj", "last_indexed": "2026-01-01", "file_count": 5, "symbol_count": 99}
+
+
+def test_resolve_with_labels_exact_match() -> None:
+    conn = _conn([["Ns.TaskService"]])
+    result = resolve_full_name_with_labels(conn, "Ns.TaskService")
+    assert result == "Ns.TaskService"
+
+
+def test_resolve_with_labels_suffix_match_single() -> None:
+    conn = MagicMock()
+    conn.query.side_effect = [[], [["Ns.TaskService", ["Class"]]]]
+    result = resolve_full_name_with_labels(conn, "TaskService")
+    assert result == "Ns.TaskService"
+
+
+def test_resolve_with_labels_suffix_match_ambiguous() -> None:
+    conn = MagicMock()
+    conn.query.side_effect = [[], [["Ns.ITaskService", ["Interface"]], ["Ns.TaskService", ["Class"]]]]
+    result = resolve_full_name_with_labels(conn, "TaskService")
+    assert isinstance(result, list)
+    assert len(result) == 2
