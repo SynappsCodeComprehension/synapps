@@ -230,3 +230,72 @@ def test_set_attributes_uses_match_not_merge() -> None:
     cypher = conn.execute.call_args[0][0]
     assert "MATCH" in cypher
     assert "MERGE" not in cypher
+
+
+# --- language parameter tests ---
+
+def test_upsert_class_language_param_sets_node_language() -> None:
+    conn = _conn()
+    upsert_class(conn, "MyNs.MyClass", "MyClass", "class", language="python")
+    cypher, params = conn.execute.call_args[0][0], conn.execute.call_args[0][1]
+    assert "n.language = $language" in cypher
+    assert params["language"] == "python"
+
+
+def test_upsert_method_language_param_sets_node_language() -> None:
+    conn = _conn()
+    upsert_method(conn, "MyNs.MyClass.MyMethod()", "MyMethod", "void MyMethod()", False, False, language="python")
+    cypher, params = conn.execute.call_args[0][0], conn.execute.call_args[0][1]
+    assert "n.language = $language" in cypher
+    assert params["language"] == "python"
+
+
+def test_upsert_property_language_param_sets_node_language() -> None:
+    conn = _conn()
+    upsert_property(conn, "MyNs.MyClass.Prop", "Prop", "str", language="python")
+    cypher, params = conn.execute.call_args[0][0], conn.execute.call_args[0][1]
+    assert "n.language = $language" in cypher
+    assert params["language"] == "python"
+
+
+def test_upsert_field_language_param_sets_node_language() -> None:
+    conn = _conn()
+    upsert_field(conn, "MyNs.MyClass._field", "_field", "int", language="python")
+    cypher, params = conn.execute.call_args[0][0], conn.execute.call_args[0][1]
+    assert "n.language = $language" in cypher
+    assert params["language"] == "python"
+
+
+def test_upsert_interface_language_param_sets_node_language() -> None:
+    conn = _conn()
+    upsert_interface(conn, "MyNs.IAnimal", "IAnimal", language="python")
+    cypher, params = conn.execute.call_args[0][0], conn.execute.call_args[0][1]
+    assert "n.language = $language" in cypher
+    assert params["language"] == "python"
+
+
+def test_upsert_functions_default_language_to_empty_string() -> None:
+    conn = _conn()
+    upsert_class(conn, "MyNs.MyClass", "MyClass", "class")
+    _, params = conn.execute.call_args[0][0], conn.execute.call_args[0][1]
+    assert params["language"] == ""
+
+    conn2 = _conn()
+    upsert_method(conn2, "MyNs.MyClass.MyMethod()", "MyMethod", "void MyMethod()", False, False)
+    _, params2 = conn2.execute.call_args[0][0], conn2.execute.call_args[0][1]
+    assert params2["language"] == ""
+
+    conn3 = _conn()
+    upsert_property(conn3, "MyNs.MyClass.Prop", "Prop", "str")
+    _, params3 = conn3.execute.call_args[0][0], conn3.execute.call_args[0][1]
+    assert params3["language"] == ""
+
+    conn4 = _conn()
+    upsert_field(conn4, "MyNs.MyClass._field", "_field", "int")
+    _, params4 = conn4.execute.call_args[0][0], conn4.execute.call_args[0][1]
+    assert params4["language"] == ""
+
+    conn5 = _conn()
+    upsert_interface(conn5, "MyNs.IAnimal", "IAnimal")
+    _, params5 = conn5.execute.call_args[0][0], conn5.execute.call_args[0][1]
+    assert params5["language"] == ""
