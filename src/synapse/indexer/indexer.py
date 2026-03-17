@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from synapse.graph.connection import GraphConnection
 from synapse.graph.edges import (
     upsert_contains_symbol, upsert_dir_contains, upsert_file_contains_symbol,
-    upsert_imports, upsert_inherits, upsert_interface_inherits, upsert_implements,
+    upsert_imports, upsert_symbol_imports, upsert_inherits, upsert_interface_inherits, upsert_implements,
     upsert_repo_contains_dir,
 )
 from synapse.graph.nodes import (
@@ -34,6 +34,7 @@ class Indexer:
     def __init__(self, conn: GraphConnection, lsp: LSPAdapter, plugin: LanguagePlugin | None = None) -> None:
         self._conn = conn
         self._lsp = lsp
+        self._root_path: str = ""
         if plugin is not None:
             self._import_extractor = plugin.create_import_extractor()
             self._base_type_extractor = plugin.create_base_type_extractor()
@@ -60,6 +61,7 @@ class Indexer:
         on_progress: Callable[[str], None] | None = None,
     ) -> None:
         root_path = root_path.rstrip("/")
+        self._root_path = root_path
         files = self._lsp.get_workspace_files(root_path)
         symbols_by_file: dict[str, list[IndexSymbol]] = {}
 
@@ -146,6 +148,7 @@ class Indexer:
             self._lsp.shutdown()
 
     def reindex_file(self, file_path: str, root_path: str) -> None:
+        self._root_path = root_path
         saved_summaries = collect_summaries(self._conn, file_path)
         delete_file_nodes(self._conn, file_path)
         symbols = self._lsp.get_document_symbols(file_path)
@@ -215,10 +218,34 @@ class Indexer:
         except OSError:
             log.warning("Could not read %s for import extraction", file_path)
             return
-        # IMPORTS edges only write when the Package node exists; external namespaces (e.g. System)
-        # are not indexed, so their using directives are tracked but produce no graph edge.
-        for pkg_name in self._import_extractor.extract(file_path, source):
-            upsert_imports(self._conn, file_path, pkg_name)
+
+        # For Python, lazily wire source_root into the extractor on first file processed.
+        # detect_source_root walks up from the file to find the package boundary.
+        if self._language == "python" and not self._import_extractor._source_root:
+            from synapse.lsp.python import detect_source_root
+            self._import_extractor._source_root = detect_source_root(
+                file_path, self._root_path or ""
+            )
+
+        results = self._import_extractor.extract(file_path, source)
+        if not results:
+            return
+
+        for item in results:
+            if isinstance(item, tuple):
+                # Python: (module_path, imported_symbol_or_None)
+                module_path, imported_name = item
+                if imported_name:
+                    # from X import Y -> edge to Y's full_name
+                    upsert_symbol_imports(self._conn, file_path, f"{module_path}.{imported_name}")
+                else:
+                    # import X -> edge to module node
+                    upsert_symbol_imports(self._conn, file_path, module_path)
+            else:
+                # C#: plain string package name
+                # IMPORTS edges only write when the Package node exists; external namespaces
+                # (e.g. System) are not indexed, so their using directives produce no graph edge.
+                upsert_imports(self._conn, file_path, item)
 
     def _upsert_directory_chain(self, file_path: str, root_path: str) -> None:
         dirs: list[str] = []
@@ -240,19 +267,31 @@ class Indexer:
         upsert_dir_contains(self._conn, dirs[-1], file_path)
 
     def _upsert_symbol(self, symbol: IndexSymbol) -> None:
+        kind_str = symbol.kind.value
+        # Python-specific kind overrides (C# kind_str stays as symbol.kind.value)
+        if self._language == "python":
+            if symbol.name == "__init__" and symbol.kind == SymbolKind.METHOD:
+                kind_str = "constructor"
+            elif symbol.kind == SymbolKind.METHOD and symbol.parent_full_name is None:
+                # Top-level function (no parent = not inside a class)
+                kind_str = "function"
+            elif symbol.signature == "module" and symbol.kind == SymbolKind.CLASS:
+                # LSP kind 2 (Module) -> :Class with kind='module' (per user decision)
+                kind_str = "module"
+
         match symbol.kind:
             case SymbolKind.NAMESPACE:
                 upsert_package(self._conn, symbol.full_name, symbol.name)
             case SymbolKind.INTERFACE:
-                upsert_interface(self._conn, symbol.full_name, symbol.name, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line)
+                upsert_interface(self._conn, symbol.full_name, symbol.name, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line, language=self._language)
             case SymbolKind.CLASS | SymbolKind.ABSTRACT_CLASS | SymbolKind.ENUM | SymbolKind.RECORD:
-                upsert_class(self._conn, symbol.full_name, symbol.name, symbol.kind.value, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line)
+                upsert_class(self._conn, symbol.full_name, symbol.name, kind_str, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line, language=self._language)
             case SymbolKind.METHOD:
-                upsert_method(self._conn, symbol.full_name, symbol.name, symbol.signature, symbol.is_abstract, symbol.is_static, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line)
+                upsert_method(self._conn, symbol.full_name, symbol.name, symbol.signature, symbol.is_abstract, symbol.is_static, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line, language=self._language)
             case SymbolKind.PROPERTY:
-                upsert_property(self._conn, symbol.full_name, symbol.name, "", file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line)
+                upsert_property(self._conn, symbol.full_name, symbol.name, "", file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line, language=self._language)
             case SymbolKind.FIELD:
-                upsert_field(self._conn, symbol.full_name, symbol.name, "", file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line)
+                upsert_field(self._conn, symbol.full_name, symbol.name, "", file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line, language=self._language)
             case _:
                 log.debug("Skipping symbol of unhandled kind: %s", symbol.kind)
 
@@ -263,6 +302,8 @@ class Indexer:
         symbols: list[IndexSymbol],
         extractor,
     ) -> None:
+        if extractor is None:
+            return
         results = extractor.extract(file_path, source)
         if not results:
             return
@@ -295,7 +336,10 @@ class Indexer:
             for type_full in type_candidates:
                 type_kind = kind_map.get(type_full)
                 for base_full in base_candidates:
-                    if type_kind == SymbolKind.INTERFACE:
+                    if self._language == "python":
+                        # Python has no interface distinction; all bases produce INHERITS edges
+                        upsert_inherits(self._conn, type_full, base_full)
+                    elif type_kind == SymbolKind.INTERFACE:
                         # Interfaces only extend other interfaces
                         upsert_interface_inherits(self._conn, type_full, base_full)
                     elif is_first:
