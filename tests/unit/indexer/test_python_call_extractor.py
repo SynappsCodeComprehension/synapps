@@ -189,3 +189,69 @@ def caller():
     lines = [line for _, _, line, _ in results]
     # helper() is on line 2 (1-indexed)
     assert 2 in lines
+
+
+# ---------------------------------------------------------------------------
+# _sites_seen counter
+# ---------------------------------------------------------------------------
+
+
+def test_sites_seen_counts_function_scope_calls(extractor):
+    # 3 methods each making 1 call + 1 class-body field assignment call (skipped)
+    source = """\
+class MyClass:
+    field = some_func()
+
+    def method_a(self):
+        foo()
+
+    def method_b(self):
+        bar()
+
+    def method_c(self):
+        baz()
+"""
+    symbol_map = {
+        ("/proj/foo.py", 3): "pkg.MyClass.method_a",
+        ("/proj/foo.py", 6): "pkg.MyClass.method_b",
+        ("/proj/foo.py", 9): "pkg.MyClass.method_c",
+    }
+    extractor.extract("/proj/foo.py", source, symbol_map)
+    assert extractor._sites_seen == 3
+
+
+def test_sites_seen_counts_module_scope_calls(module_extractor):
+    source = """\
+first_call()
+second_call()
+"""
+    symbol_map = {}
+    module_extractor.extract("/proj/foo.py", source, symbol_map)
+    assert module_extractor._sites_seen == 2
+
+
+def test_sites_seen_zero_for_empty_source(extractor):
+    extractor.extract("/proj/foo.py", "", {})
+    assert extractor._sites_seen == 0
+
+
+def test_sites_seen_resets_per_extract_call(extractor):
+    source_three = """\
+def caller():
+    a()
+    b()
+    c()
+"""
+    source_one = """\
+def caller():
+    x()
+"""
+    symbol_map_three = {("/proj/foo.py", 0): "pkg.caller"}
+    symbol_map_one = {("/proj/bar.py", 0): "pkg.caller"}
+
+    extractor.extract("/proj/foo.py", source_three, symbol_map_three)
+    assert extractor._sites_seen == 3
+
+    extractor.extract("/proj/bar.py", source_one, symbol_map_one)
+    # Must reflect only the second call, not cumulative
+    assert extractor._sites_seen == 1
