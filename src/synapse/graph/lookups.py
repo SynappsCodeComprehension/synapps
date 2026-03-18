@@ -141,6 +141,7 @@ def search_symbols(
     kind: str | None = None,
     namespace: str | None = None,
     file_path: str | None = None,
+    language: str | None = None,
 ) -> list[dict]:
     if kind and kind not in _VALID_KINDS:
         raise ValueError(
@@ -155,6 +156,9 @@ def search_symbols(
     if file_path:
         conditions.append("n.file_path = $file_path")
         params["file_path"] = file_path
+    if language:
+        conditions.append("n.language = $language")
+        params["language"] = language
     where = " AND ".join(conditions)
     rows = conn.query(f"MATCH (n{label}) WHERE {where} RETURN n", params)
     return [r[0] for r in rows]

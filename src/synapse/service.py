@@ -244,8 +244,9 @@ class SynapseService:
         kind: str | None = None,
         namespace: str | None = None,
         file_path: str | None = None,
+        language: str | None = None,
     ) -> list[dict]:
-        return [_p(item) for item in search_symbols(self._conn, query, kind, namespace, file_path)]
+        return [_p(item) for item in search_symbols(self._conn, query, kind, namespace, file_path, language)]
 
     def list_projects(self) -> list[dict]:
         return [_p(item) for item in list_projects(self._conn)]
