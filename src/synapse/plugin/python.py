@@ -28,7 +28,8 @@ class PythonPlugin:
         return PythonBaseTypeExtractor()
 
     def create_attribute_extractor(self):
-        return None  # Phase 4
+        from synapse.indexer.python_attribute_extractor import PythonAttributeExtractor
+        return PythonAttributeExtractor()
 
     def create_type_ref_extractor(self):
         return None  # Not needed for Python

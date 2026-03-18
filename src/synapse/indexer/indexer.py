@@ -16,7 +16,7 @@ from synapse.graph.nodes import (
     upsert_interface, upsert_method, upsert_package, upsert_property,
     upsert_repository, delete_file_nodes,
     collect_summaries, restore_summaries,
-    set_attributes,
+    set_attributes, set_metadata_flags,
 )
 from synapse.indexer.base_type_extractor import CSharpBaseTypeExtractor
 from synapse.indexer.call_indexer import CallIndexer
@@ -364,10 +364,14 @@ class Indexer:
             full_names = name_to_full.get(simple_name, [])
             if len(full_names) == 1:
                 set_attributes(self._conn, full_names[0], attrs)
+                if self._language == "python":
+                    set_metadata_flags(self._conn, full_names[0], _attrs_to_flags(attrs))
             else:
                 # Multiple symbols with same simple name in this file — set on all matches
                 for fn in full_names:
                     set_attributes(self._conn, fn, attrs)
+                    if self._language == "python":
+                        set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
 
     def _index_base_types(
         self,
@@ -398,3 +402,22 @@ class Indexer:
                     else:
                         # Non-first entries in a class base list are always interfaces
                         upsert_implements(self._conn, type_full, base_full)
+
+
+_ATTR_TO_FLAG: dict[str, str] = {
+    "abstractmethod": "is_abstract",
+    "staticmethod": "is_static",
+    "classmethod": "is_classmethod",
+    "async": "is_async",
+    "ABC": "is_abstract",
+}
+
+
+def _attrs_to_flags(attrs: list[str]) -> dict:
+    """Convert Python attribute markers (from PythonAttributeExtractor) to boolean flag dict."""
+    flags: dict[str, bool] = {}
+    for attr in attrs:
+        flag_key = _ATTR_TO_FLAG.get(attr)
+        if flag_key:
+            flags[flag_key] = True
+    return flags

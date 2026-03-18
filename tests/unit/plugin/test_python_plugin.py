@@ -46,8 +46,10 @@ def test_create_call_extractor_returns_python_call_extractor():
     assert isinstance(extractor, PythonCallExtractor)
 
 
-def test_create_attribute_extractor_returns_none():
-    assert PythonPlugin().create_attribute_extractor() is None
+def test_create_attribute_extractor_returns_python_attribute_extractor():
+    from synapse.indexer.python_attribute_extractor import PythonAttributeExtractor
+    extractor = PythonPlugin().create_attribute_extractor()
+    assert isinstance(extractor, PythonAttributeExtractor)
 
 
 def test_create_type_ref_extractor_returns_none():
