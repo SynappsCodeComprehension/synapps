@@ -7,6 +7,16 @@ import pytest
 from synapse.watcher.watcher import FileWatcher
 
 
+def wait_for_call(mock: MagicMock, *, timeout: float = 2.0, interval: float = 0.05) -> None:
+    """Poll a mock until it has been called, or raise after timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if mock.called:
+            return
+        time.sleep(interval)
+    raise AssertionError(f"Mock {mock} was not called within {timeout}s")
+
+
 @pytest.mark.timeout(5)
 def test_watcher_calls_on_change_for_cs_file() -> None:
     on_change = MagicMock()
@@ -23,8 +33,7 @@ def test_watcher_calls_on_change_for_cs_file() -> None:
         try:
             test_file = Path(tmpdir) / "Test.cs"
             test_file.write_text("// hello")
-            time.sleep(0.3)
-            assert on_change.called
+            wait_for_call(on_change)
             args = on_change.call_args[0]
             assert args[0].endswith(".cs")
         finally:
