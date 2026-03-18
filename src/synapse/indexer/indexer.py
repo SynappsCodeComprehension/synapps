@@ -234,6 +234,17 @@ class Indexer:
         }
         call_ext = self._call_extractor_factory() if self._call_extractor_factory else None
         type_ref_ext = self._type_ref_extractor_factory() if self._type_ref_extractor_factory else None
+
+        module_full_names: set[str] = set()
+        if self._language == "python":
+            module_map: dict[str, str] = {}
+            for sym in symbols:
+                if sym.signature == "module" and sym.kind == SymbolKind.CLASS:
+                    module_full_names.add(sym.full_name)
+                    module_map[sym.file_path] = sym.full_name
+            if call_ext is not None and hasattr(call_ext, "_module_name_resolver"):
+                call_ext._module_name_resolver = lambda fp, _m=module_map: _m.get(fp)
+
         SymbolResolver(
             self._conn,
             self._lsp.language_server,
@@ -241,7 +252,11 @@ class Indexer:
             type_ref_extractor=type_ref_ext,
             name_to_full_names=name_to_full_names,
             file_extensions=self._file_extensions,
+            module_full_names=module_full_names,
         ).resolve_single_file(file_path, symbol_map, class_symbol_map=class_symbol_map)
+
+        if self._language == "python":
+            OverridesIndexer(self._conn).index()
 
     def delete_file(self, file_path: str) -> None:
         delete_file_nodes(self._conn, file_path)
