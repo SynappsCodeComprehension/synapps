@@ -22,6 +22,10 @@ FIXTURE_PATH = str(
     (pathlib.Path(__file__).parent.parent / "fixtures" / "SynapseTest").resolve()
 )
 
+PYTHON_FIXTURE_PATH = str(
+    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynapsePyTest").resolve()
+)
+
 
 def run(coro):
     """Run an async coroutine from a synchronous test."""
@@ -73,4 +77,24 @@ def service():
 def mcp_server(service):
     mcp = FastMCP("synapse-test")
     register_tools(mcp, service)
+    return mcp
+
+
+@pytest.fixture(scope="session")
+def python_service():
+    """Index the Python fixture project and yield SynapseService."""
+    conn = GraphConnection.create(database="memgraph")
+    ensure_schema(conn)
+    conn.execute("MATCH (n) DETACH DELETE n")
+    svc = SynapseService(conn=conn)
+    svc.index_project(PYTHON_FIXTURE_PATH, "python")
+    yield svc
+    conn.execute("MATCH (n) DETACH DELETE n")
+
+
+@pytest.fixture(scope="session")
+def python_mcp(python_service):
+    """Return MCP server instance wired to the Python-indexed graph."""
+    mcp = FastMCP("synapse-python-test")
+    register_tools(mcp, python_service)
     return mcp
