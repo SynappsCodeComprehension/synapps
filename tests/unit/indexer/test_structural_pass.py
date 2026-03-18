@@ -479,3 +479,100 @@ def test_reindex_file_python(mock_conn):
     lsp.get_document_symbols.assert_called_once_with("/src/mymod.py")
     calls = [str(c) for c in mock_conn.execute.call_args_list]
     assert any("mymod.MyClass" in c for c in calls), "Expected MyClass node to be upserted"
+
+
+def _make_python_plugin_with_call_ext():
+    """Build a Python plugin mock that exposes a call extractor with _module_name_resolver."""
+    plugin = MagicMock()
+    plugin.name = "python"
+    plugin.file_extensions = frozenset({".py"})
+    mock_extractor = MagicMock(_source_root="/src")
+    mock_extractor.extract.return_value = []
+    plugin.create_import_extractor.return_value = mock_extractor
+    mock_base = MagicMock()
+    mock_base.extract.return_value = []
+    plugin.create_base_type_extractor.return_value = mock_base
+    plugin.create_attribute_extractor = MagicMock(return_value=None)
+    call_ext = MagicMock()
+    call_ext._module_name_resolver = None
+    plugin.create_call_extractor = MagicMock(return_value=call_ext)
+    plugin.create_type_ref_extractor = MagicMock(return_value=None)
+    return plugin, call_ext
+
+
+def _make_python_symbols():
+    """Return a module symbol + a method symbol for /src/mymod.py."""
+    module_sym = IndexSymbol(
+        name="mymod",
+        full_name="mymod",
+        kind=SymbolKind.CLASS,
+        file_path="/src/mymod.py",
+        line=0,
+        signature="module",
+    )
+    method_sym = IndexSymbol(
+        name="foo",
+        full_name="mymod.foo",
+        kind=SymbolKind.METHOD,
+        file_path="/src/mymod.py",
+        line=5,
+    )
+    return [module_sym, method_sym]
+
+
+def test_reindex_file_python_call_wiring(mock_conn):
+    """PCAL-02: reindex_file() must pass module_full_names to SymbolResolver for Python."""
+    plugin, call_ext = _make_python_plugin_with_call_ext()
+    lsp = MagicMock()
+    lsp.get_document_symbols.return_value = _make_python_symbols()
+
+    with patch("synapse.indexer.indexer.SymbolResolver") as mock_resolver_cls, \
+         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapse.indexer.indexer.restore_summaries"), \
+         patch("builtins.open", mock_open(read_data="def foo(): pass")):
+        indexer = Indexer(mock_conn, lsp, plugin)
+        indexer.reindex_file("/src/mymod.py", "/src")
+
+    _, kwargs = mock_resolver_cls.call_args
+    assert "module_full_names" in kwargs, "SymbolResolver must receive module_full_names kwarg"
+    assert "mymod" in kwargs["module_full_names"], "module_full_names must contain the module full_name"
+
+
+def test_reindex_file_python_overrides(mock_conn):
+    """PCAL-03: reindex_file() must call OverridesIndexer for Python files."""
+    plugin, _call_ext = _make_python_plugin_with_call_ext()
+    lsp = MagicMock()
+    lsp.get_document_symbols.return_value = _make_python_symbols()
+
+    with patch("synapse.indexer.indexer.SymbolResolver"), \
+         patch("synapse.indexer.indexer.OverridesIndexer") as mock_oi_cls, \
+         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapse.indexer.indexer.restore_summaries"), \
+         patch("builtins.open", mock_open(read_data="def foo(): pass")):
+        mock_oi_instance = MagicMock()
+        mock_oi_cls.return_value = mock_oi_instance
+        indexer = Indexer(mock_conn, lsp, plugin)
+        indexer.reindex_file("/src/mymod.py", "/src")
+
+    mock_oi_cls.assert_called_once_with(mock_conn)
+    mock_oi_instance.index.assert_called_once()
+
+
+def test_reindex_file_python_module_name_resolver(mock_conn):
+    """PCAL-02: reindex_file() must wire _module_name_resolver on the call extractor."""
+    plugin, call_ext = _make_python_plugin_with_call_ext()
+    lsp = MagicMock()
+    lsp.get_document_symbols.return_value = _make_python_symbols()
+
+    with patch("synapse.indexer.indexer.SymbolResolver"), \
+         patch("synapse.indexer.indexer.OverridesIndexer"), \
+         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapse.indexer.indexer.restore_summaries"), \
+         patch("builtins.open", mock_open(read_data="def foo(): pass")):
+        indexer = Indexer(mock_conn, lsp, plugin)
+        indexer.reindex_file("/src/mymod.py", "/src")
+
+    assert call_ext._module_name_resolver is not None, "_module_name_resolver must be set after reindex_file"
+    assert call_ext._module_name_resolver("/src/mymod.py") == "mymod", (
+        "_module_name_resolver must map file_path to module full_name"
+    )
