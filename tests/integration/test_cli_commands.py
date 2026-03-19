@@ -42,7 +42,7 @@ def test_callees_controller_create(service: SynapseService) -> None:
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_callers_service_method(service: SynapseService) -> None:
-    result = _invoke(service, ["callers", "SynapseTest.Services.TaskService.CreateTaskAsync"])
+    result = _invoke(service, ["callers", "--include-tests", "SynapseTest.Services.TaskService.CreateTaskAsync"])
     assert result.exit_code == 0
     assert "Create" in result.output
 
@@ -96,6 +96,7 @@ def test_trace(service: SynapseService) -> None:
 def test_entry_points(service: SynapseService) -> None:
     result = _invoke(service, [
         "entry-points",
+        "--include-tests",
         "SynapseTest.Services.ProjectService.ValidateProjectAsync",
     ])
     assert result.exit_code == 0

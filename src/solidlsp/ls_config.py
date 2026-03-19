@@ -485,8 +485,11 @@ class Language(str, Enum):
         :raises ValueError: If the language server class is not supported
         """
         for enum_instance in cls:
-            if enum_instance.get_ls_class() == ls_class:
-                return enum_instance
+            try:
+                if enum_instance.get_ls_class() == ls_class:
+                    return enum_instance
+            except (ImportError, ModuleNotFoundError):
+                continue
         raise ValueError(f"Unhandled language server class: {ls_class}")
 
 

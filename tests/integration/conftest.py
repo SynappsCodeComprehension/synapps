@@ -59,18 +59,30 @@ def result_json(result):
     return None
 
 
+def _delete_project(conn: GraphConnection, path: str) -> None:
+    """Delete only the specified project's nodes from the graph."""
+    conn.execute(
+        "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(n) DETACH DELETE n",
+        {"path": path},
+    )
+    conn.execute(
+        "MATCH (r:Repository {path: $path}) DELETE r",
+        {"path": path},
+    )
+
+
 @pytest.fixture(scope="session")
 def service():
     conn = GraphConnection.create(database="memgraph")
     ensure_schema(conn)
-    conn.execute("MATCH (n) DETACH DELETE n")
+    _delete_project(conn, FIXTURE_PATH)
 
     svc = SynapseService(conn=conn)
     svc.index_project(FIXTURE_PATH, "csharp")
 
     yield svc
 
-    conn.execute("MATCH (n) DETACH DELETE n")
+    _delete_project(conn, FIXTURE_PATH)
 
 
 @pytest.fixture(scope="session")
@@ -85,11 +97,11 @@ def python_service():
     """Index the Python fixture project and yield SynapseService."""
     conn = GraphConnection.create(database="memgraph")
     ensure_schema(conn)
-    conn.execute("MATCH (n) DETACH DELETE n")
+    _delete_project(conn, PYTHON_FIXTURE_PATH)
     svc = SynapseService(conn=conn)
     svc.index_project(PYTHON_FIXTURE_PATH, "python")
     yield svc
-    conn.execute("MATCH (n) DETACH DELETE n")
+    _delete_project(conn, PYTHON_FIXTURE_PATH)
 
 
 @pytest.fixture(scope="session")
@@ -110,11 +122,11 @@ def typescript_service():
     """Index the TypeScript fixture project and yield SynapseService."""
     conn = GraphConnection.create(database="memgraph")
     ensure_schema(conn)
-    conn.execute("MATCH (n) DETACH DELETE n")
+    _delete_project(conn, TYPESCRIPT_FIXTURE_PATH)
     svc = SynapseService(conn=conn)
     svc.index_project(TYPESCRIPT_FIXTURE_PATH, "typescript")
     yield svc
-    conn.execute("MATCH (n) DETACH DELETE n")
+    _delete_project(conn, TYPESCRIPT_FIXTURE_PATH)
 
 
 @pytest.fixture(scope="session")

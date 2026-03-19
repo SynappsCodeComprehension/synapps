@@ -419,5 +419,6 @@ def test_execute_query(python_mcp: FastMCP) -> None:
     rows = result_json(result)
     assert isinstance(rows, list)
     assert len(rows) > 0
-    count = rows[0].get("cnt", 0)
+    # execute_query wraps each row as {"row": [cell, ...]}
+    count = rows[0]["row"][0]
     assert count > 0, f"Expected at least one Python Class node, got count={count}"
