@@ -16,10 +16,12 @@ class TypeScriptPlugin:
         return TypeScriptLSPAdapter.create(root_path)
 
     def create_call_extractor(self):
-        return None  # Stub for Phase 10
+        from synapse.indexer.typescript_call_extractor import TypeScriptCallExtractor
+        return TypeScriptCallExtractor()
 
-    def create_import_extractor(self):
-        return None  # Stub for Phase 10
+    def create_import_extractor(self, source_root: str = ""):
+        from synapse.indexer.typescript_import_extractor import TypeScriptImportExtractor
+        return TypeScriptImportExtractor(source_root=source_root)
 
     def create_base_type_extractor(self):
         from synapse.indexer.typescript_base_type_extractor import TypeScriptBaseTypeExtractor

@@ -35,14 +35,18 @@ def test_create_lsp_adapter_delegates_to_typescript_adapter(tmp_path) -> None:
         assert result is mock_adapter
 
 
-def test_create_call_extractor_returns_none() -> None:
+def test_create_call_extractor_returns_typescript_call_extractor() -> None:
     from synapse.plugin.typescript import TypeScriptPlugin
-    assert TypeScriptPlugin().create_call_extractor() is None
+    from synapse.indexer.typescript_call_extractor import TypeScriptCallExtractor
+    result = TypeScriptPlugin().create_call_extractor()
+    assert isinstance(result, TypeScriptCallExtractor)
 
 
-def test_create_import_extractor_returns_none() -> None:
+def test_create_import_extractor_returns_typescript_import_extractor() -> None:
     from synapse.plugin.typescript import TypeScriptPlugin
-    assert TypeScriptPlugin().create_import_extractor() is None
+    from synapse.indexer.typescript_import_extractor import TypeScriptImportExtractor
+    result = TypeScriptPlugin().create_import_extractor(source_root="src")
+    assert isinstance(result, TypeScriptImportExtractor)
 
 
 def test_create_base_type_extractor_returns_typescript_base_type_extractor() -> None:
