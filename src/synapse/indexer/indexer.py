@@ -299,13 +299,17 @@ class Indexer:
             log.warning("Could not read %s for import extraction", file_path)
             return
 
-        # For Python, lazily wire source_root into the extractor on first file processed.
-        # detect_source_root walks up from the file to find the package boundary.
-        if self._language == "python" and not self._import_extractor._source_root:
-            from synapse.lsp.python import detect_source_root
-            self._import_extractor._source_root = detect_source_root(
-                file_path, self._root_path or ""
-            )
+        # Lazily wire source_root into the extractor on first file processed.
+        # Python uses detect_source_root to find the package boundary;
+        # TypeScript uses the repository root directly.
+        if hasattr(self._import_extractor, "_source_root") and not self._import_extractor._source_root:
+            if self._language == "python":
+                from synapse.lsp.python import detect_source_root
+                self._import_extractor._source_root = detect_source_root(
+                    file_path, self._root_path or ""
+                )
+            elif self._language == "typescript":
+                self._import_extractor._source_root = self._root_path or ""
 
         results = self._import_extractor.extract(file_path, source)
         if not results:
