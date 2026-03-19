@@ -7,7 +7,8 @@ from synapse.indexer.typescript_import_extractor import TypeScriptImportExtracto
 
 @pytest.fixture()
 def extractor() -> TypeScriptImportExtractor:
-    return TypeScriptImportExtractor()
+    # source_root="src" so that imports from "src/index.ts" resolve relative to src/
+    return TypeScriptImportExtractor(source_root="src")
 
 
 # ---------------------------------------------------------------------------
@@ -36,6 +37,7 @@ def test_named_import_single(extractor: TypeScriptImportExtractor) -> None:
 
 def test_default_import(extractor: TypeScriptImportExtractor) -> None:
     source = "import Animal from '../animal';"
+    # source_root="src", file at src/services/index.ts -> ../animal resolves to src/animal -> relpath = "animal"
     result = extractor.extract("src/services/index.ts", source)
     assert ("animal", None) in result
 
@@ -68,6 +70,7 @@ def test_type_import(extractor: TypeScriptImportExtractor) -> None:
 
 
 def test_require(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts, ./fs -> fs
     source = "const fs = require('./fs');"
     result = extractor.extract("src/index.ts", source)
     assert ("fs", None) in result
@@ -85,6 +88,7 @@ def test_require_package(extractor: TypeScriptImportExtractor) -> None:
 
 
 def test_reexport_named(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts, ./foo -> foo
     source = "export { Foo, Bar } from './foo';"
     result = extractor.extract("src/index.ts", source)
     assert ("foo", "Foo") in result
@@ -104,6 +108,7 @@ def test_reexport_named_single(extractor: TypeScriptImportExtractor) -> None:
 
 
 def test_reexport_star(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts, ./barrel -> barrel
     source = "export * from './barrel';"
     result = extractor.extract("src/index.ts", source)
     assert ("barrel", None) in result
@@ -167,6 +172,7 @@ def test_scoped_package_import_unchanged(extractor: TypeScriptImportExtractor) -
 
 
 def test_aliased_import_uses_original_name(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts, ./animals -> animals
     source = "import { Dog as D } from './animals';"
     result = extractor.extract("src/index.ts", source)
     # Must use original name "Dog", not alias "D"
@@ -190,6 +196,7 @@ def test_whitespace_only_returns_empty(extractor: TypeScriptImportExtractor) -> 
 
 
 def test_deduplicates(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts, ./animals -> animals
     source = "import { Dog } from './animals';\nimport { Dog } from './animals';"
     result = extractor.extract("src/index.ts", source)
     assert result.count(("animals", "Dog")) == 1
@@ -220,6 +227,7 @@ def test_js_file_parses(extractor: TypeScriptImportExtractor) -> None:
 
 
 def test_ts_file_parses(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts, ./animals -> animals
     source = "import { Dog } from './animals';"
     result = extractor.extract("src/index.ts", source)
     assert ("animals", "Dog") in result
@@ -231,6 +239,8 @@ def test_ts_file_parses(extractor: TypeScriptImportExtractor) -> None:
 
 
 def test_mixed_import_styles(extractor: TypeScriptImportExtractor) -> None:
+    # source_root="src", file at src/index.ts
+    # ./animals -> animals, ./barrel -> barrel, 'react' -> 'react'
     source = "\n".join([
         "import React from 'react';",
         "import { useState, useEffect } from 'react';",
