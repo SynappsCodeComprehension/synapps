@@ -45,9 +45,11 @@ def test_create_import_extractor_returns_none() -> None:
     assert TypeScriptPlugin().create_import_extractor() is None
 
 
-def test_create_base_type_extractor_returns_none() -> None:
+def test_create_base_type_extractor_returns_typescript_base_type_extractor() -> None:
     from synapse.plugin.typescript import TypeScriptPlugin
-    assert TypeScriptPlugin().create_base_type_extractor() is None
+    from synapse.indexer.typescript_base_type_extractor import TypeScriptBaseTypeExtractor
+    result = TypeScriptPlugin().create_base_type_extractor()
+    assert isinstance(result, TypeScriptBaseTypeExtractor)
 
 
 def test_create_attribute_extractor_returns_none() -> None:

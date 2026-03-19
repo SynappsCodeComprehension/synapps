@@ -340,6 +340,12 @@ class Indexer:
             elif symbol.signature == "module" and symbol.kind == SymbolKind.CLASS:
                 # LSP kind 2 (Module) -> :Class with kind='module' (per user decision)
                 kind_str = "module"
+        elif self._language == "typescript":
+            if symbol.name == "constructor" and symbol.kind == SymbolKind.METHOD:
+                kind_str = "constructor"
+            elif symbol.kind == SymbolKind.METHOD and symbol.parent_full_name is None:
+                # Module-scope function — same treatment as Python top-level function
+                kind_str = "function"
 
         match symbol.kind:
             case SymbolKind.NAMESPACE:
