@@ -45,6 +45,44 @@ def test_watch_project_registers_watcher() -> None:
         assert "/proj" in svc._watchers
 
 
+def test_watch_project_creates_watcher_per_detected_language() -> None:
+    """When a repo has both .cs and .py files, watch_project should create one watcher per language."""
+    conn = MagicMock()
+
+    py_plugin = MagicMock()
+    py_plugin.name = "python"
+    py_plugin.file_extensions = frozenset({".py"})
+    py_plugin.create_lsp_adapter.return_value = MagicMock(get_workspace_files=MagicMock(return_value=[]))
+
+    cs_plugin = MagicMock()
+    cs_plugin.name = "csharp"
+    cs_plugin.file_extensions = frozenset({".cs"})
+    cs_plugin.create_lsp_adapter.return_value = MagicMock(get_workspace_files=MagicMock(return_value=[]))
+
+    registry = MagicMock()
+    registry.detect.return_value = [cs_plugin, py_plugin]
+
+    svc = SynapseService(conn=conn, registry=registry)
+
+    mock_watchers = []
+
+    def make_watcher(**kwargs):
+        w = MagicMock()
+        w.watched_extensions = kwargs.get("watched_extensions")
+        mock_watchers.append(w)
+        return w
+
+    with patch("synapse.service.FileWatcher", side_effect=make_watcher), \
+         patch("synapse.service.Indexer"):
+        svc.watch_project("/proj")
+
+    assert len(svc._watchers["/proj"]) == 2
+    assert all(w.start.called for w in mock_watchers)
+    watched = {w.watched_extensions for w in mock_watchers}
+    assert frozenset({".cs"}) in watched
+    assert frozenset({".py"}) in watched
+
+
 def test_unwatch_project_stops_watcher() -> None:
     svc = _service()
     mock_watcher = MagicMock()
