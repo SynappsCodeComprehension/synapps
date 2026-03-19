@@ -137,9 +137,9 @@ class Indexer:
         call_ext = self._call_extractor_factory() if self._call_extractor_factory else None
         type_ref_ext = self._type_ref_extractor_factory() if self._type_ref_extractor_factory else None
 
-        # Build module_full_names set and wire module_name_resolver for Python
+        # Build module_full_names set and wire module_name_resolver for Python and TypeScript
         module_full_names: set[str] = set()
-        if self._language == "python":
+        if self._language in ("python", "typescript"):
             module_map: dict[str, str] = {}
             for fp, syms in symbols_by_file.items():
                 for sym in syms:
@@ -236,7 +236,7 @@ class Indexer:
         type_ref_ext = self._type_ref_extractor_factory() if self._type_ref_extractor_factory else None
 
         module_full_names: set[str] = set()
-        if self._language == "python":
+        if self._language in ("python", "typescript"):
             module_map: dict[str, str] = {}
             for sym in symbols:
                 if sym.signature == "module" and sym.kind == SymbolKind.CLASS:
