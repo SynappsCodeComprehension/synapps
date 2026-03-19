@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from pathlib import Path
 
 from synapse.graph.connection import GraphConnection
@@ -26,6 +27,25 @@ def _build_class_lines_per_file(
     for entries in per_file.values():
         entries.sort()
     return per_file
+
+
+class _ResolveStats:
+    """Accumulates timing and count stats for resolution logging."""
+    __slots__ = (
+        "calls_resolved", "calls_unresolved", "type_refs_resolved",
+        "lsp_definition_time", "lsp_containing_time", "callee_name_time",
+        "extraction_calls_time", "extraction_typerefs_time",
+    )
+
+    def __init__(self) -> None:
+        self.calls_resolved = 0
+        self.calls_unresolved = 0
+        self.type_refs_resolved = 0
+        self.lsp_definition_time = 0.0
+        self.lsp_containing_time = 0.0
+        self.callee_name_time = 0.0
+        self.extraction_calls_time = 0.0
+        self.extraction_typerefs_time = 0.0
 
 
 class SymbolResolver:
@@ -60,13 +80,40 @@ class SymbolResolver:
         class_symbol_map: dict[tuple[str, int], str] | None = None,
     ) -> None:
         class_lines_per_file = _build_class_lines_per_file(class_symbol_map or {})
-        for file_path in self._iter_files(root_path):
+        files = list(self._iter_files(root_path))
+        total_files = len(files)
+        log.info("Call/type-ref resolution: %d files to process, %d method symbols in map", total_files, len(symbol_map))
+
+        resolve_start = time.monotonic()
+        self._stats = _ResolveStats()
+
+        for i, file_path in enumerate(files, 1):
             try:
                 source = Path(file_path).read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 log.warning("Could not read %s", file_path)
                 continue
             self._resolve_file(file_path, source, symbol_map, class_lines_per_file.get(file_path, []))
+            if i % 50 == 0 or i == total_files:
+                elapsed = time.monotonic() - resolve_start
+                log.info(
+                    "Progress: %d/%d files (%.1fs elapsed, %d calls resolved, %d unresolved, %d type refs)",
+                    i, total_files, elapsed,
+                    self._stats.calls_resolved, self._stats.calls_unresolved, self._stats.type_refs_resolved,
+                )
+
+        elapsed = time.monotonic() - resolve_start
+        s = self._stats
+        log.info(
+            "Resolution complete in %.1fs — %d files, %d call sites (%d resolved, %d unresolved), "
+            "%d type refs resolved. LSP: %.1fs definition, %.1fs containing_symbol, "
+            "%.1fs callee_name. Extraction: %.1fs calls, %.1fs type_refs",
+            elapsed, total_files,
+            s.calls_resolved + s.calls_unresolved, s.calls_resolved, s.calls_unresolved,
+            s.type_refs_resolved,
+            s.lsp_definition_time, s.lsp_containing_time,
+            s.callee_name_time, s.extraction_calls_time, s.extraction_typerefs_time,
+        )
 
     def resolve_single_file(
         self,
@@ -79,6 +126,8 @@ class SymbolResolver:
         except OSError:
             log.warning("Could not read %s", file_path)
             return
+        if not hasattr(self, "_stats"):
+            self._stats = _ResolveStats()
         class_lines_per_file = _build_class_lines_per_file(class_symbol_map or {})
         self._resolve_file(file_path, source, symbol_map, class_lines_per_file.get(file_path, []))
 
@@ -91,12 +140,25 @@ class SymbolResolver:
     ) -> None:
         root = self._ls.repository_root_path
         rel_path = os.path.relpath(file_path, root)
+        stats = getattr(self, "_stats", None)
 
+        t0 = time.monotonic()
         call_sites = self._call_extractor.extract(file_path, source, symbol_map)
+        t1 = time.monotonic()
         type_refs = self._type_ref_extractor.extract(file_path, source, symbol_map, class_lines or [])
+        t2 = time.monotonic()
+        if stats:
+            stats.extraction_calls_time += t1 - t0
+            stats.extraction_typerefs_time += t2 - t1
 
         if not call_sites and not type_refs:
             return
+
+        log.debug(
+            "Resolving %s: %d call sites, %d type refs",
+            rel_path, len(call_sites), len(type_refs),
+        )
+        file_start = time.monotonic()
 
         try:
             with self._ls.open_file(rel_path):
@@ -111,6 +173,13 @@ class SymbolResolver:
         except Exception:
             log.warning("LSP open_file failed for %s, skipping", rel_path)
 
+        file_elapsed = time.monotonic() - file_start
+        if file_elapsed > 2.0:
+            log.info(
+                "Slow file: %s took %.1fs (%d call sites, %d type refs)",
+                rel_path, file_elapsed, len(call_sites), len(type_refs),
+            )
+
     def _resolve_call(
         self, caller_full_name: str, rel_path: str, line_0: int, col_0: int,
         callee_simple_name: str | None = None,
@@ -118,14 +187,25 @@ class SymbolResolver:
         call_line_1: int | None = None,
         call_col_0: int | None = None,
     ) -> None:
+        stats = getattr(self, "_stats", None)
+
+        t0 = time.monotonic()
         try:
             definitions = self._ls.request_definition(rel_path, line_0, col_0)
         except Exception:
+            if stats:
+                stats.lsp_definition_time += time.monotonic() - t0
+                stats.calls_unresolved += 1
             return
+        if stats:
+            stats.lsp_definition_time += time.monotonic() - t0
+
         if not definitions:
             self._unresolved_sites.append(
-                f"Unresolved: {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
+                f"Unresolved (no definitions): {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
             )
+            if stats:
+                stats.calls_unresolved += 1
             return
 
         # Direct symbol_map lookup by definition location.
@@ -138,12 +218,18 @@ class SymbolResolver:
                 if abs_path is not None and def_line is not None:
                     callee_full_name = symbol_map.get((abs_path, def_line))
                     if callee_full_name:
+                        t_name = time.monotonic()
                         callee_full_name = self._resolve_callee_name(callee_full_name)
+                        if stats:
+                            stats.callee_name_time += time.monotonic() - t_name
                         if callee_full_name and callee_full_name != caller_full_name:
                             self._upsert_call(caller_full_name, callee_full_name, call_line_1, call_col_0)
+                            if stats:
+                                stats.calls_resolved += 1
                             return
 
         # Fallback: resolve via containing symbol (may fail for single-line declarations)
+        t_cs = time.monotonic()
         try:
             definition = definitions[0]
             def_path = definition["relativePath"]
@@ -151,16 +237,26 @@ class SymbolResolver:
             def_col = definition["range"]["start"]["character"]
             symbol = self._ls.request_containing_symbol(def_path, def_line, def_col, strict=False)
         except Exception:
+            if stats:
+                stats.lsp_containing_time += time.monotonic() - t_cs
+                stats.calls_unresolved += 1
             return
+        if stats:
+            stats.lsp_containing_time += time.monotonic() - t_cs
+
         if symbol is None:
             self._unresolved_sites.append(
-                f"Unresolved: {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
+                f"Unresolved (no containing symbol): {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
             )
+            if stats:
+                stats.calls_unresolved += 1
             return
         # Roslyn sometimes returns the containing class rather than the method itself.
         # When that happens, find the matching method among the class's children.
         if symbol.get("kind") not in _METHOD_KINDS:
             if not callee_simple_name:
+                if stats:
+                    stats.calls_unresolved += 1
                 return
             method_children = [
                 c for c in symbol.get("children", [])
@@ -168,14 +264,24 @@ class SymbolResolver:
             ]
             if len(method_children) != 1:
                 self._unresolved_sites.append(
-                    f"Unresolved: {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
+                    f"Unresolved (class not method): {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
                 )
+                if stats:
+                    stats.calls_unresolved += 1
                 return
             symbol = method_children[0]
         callee_full_name = build_full_name(symbol)
+        t_name = time.monotonic()
         callee_full_name = self._resolve_callee_name(callee_full_name)
+        if stats:
+            stats.callee_name_time += time.monotonic() - t_name
         if callee_full_name and callee_full_name != caller_full_name:
             self._upsert_call(caller_full_name, callee_full_name, call_line_1, call_col_0)
+            if stats:
+                stats.calls_resolved += 1
+        else:
+            if stats:
+                stats.calls_unresolved += 1
 
     def _upsert_call(
         self, caller_full_name: str, callee_full_name: str,
@@ -210,13 +316,17 @@ class SymbolResolver:
     def _resolve_type_ref(self, ref: TypeRef, rel_path: str) -> None:
         if not ref.owner_full_name:
             return
+        stats = getattr(self, "_stats", None)
         target_full_name: str | None = None
+        t0 = time.monotonic()
         try:
             symbol = self._ls.request_defining_symbol(rel_path, ref.line, ref.col)
             if symbol and symbol.get("kind") in _TYPE_KINDS:
                 target_full_name = build_full_name(symbol)
         except Exception:
             pass
+        if stats:
+            stats.lsp_definition_time += time.monotonic() - t0
         # LSP does not resolve all type reference positions (e.g. field types);
         # fall back to the project's own symbol name map for unambiguous cases.
         if not target_full_name and self._name_to_full_names:
@@ -225,6 +335,8 @@ class SymbolResolver:
                 target_full_name = candidates[0]
         if target_full_name:
             upsert_references(self._conn, ref.owner_full_name, target_full_name, ref.ref_kind)
+            if stats:
+                stats.type_refs_resolved += 1
 
     def _iter_files(self, root_path: str):
         for ext in self._file_extensions:

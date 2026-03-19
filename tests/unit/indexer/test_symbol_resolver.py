@@ -342,7 +342,7 @@ def test_resolver_tracks_unresolved_sites(tmp_path) -> None:
 
     assert len(resolver._unresolved_sites) == 1
     entry = resolver._unresolved_sites[0]
-    assert "Unresolved:" in entry
+    assert "Unresolved" in entry
     assert "mymod.run" in entry
     assert "foo" in entry
     assert "mymod.py" in entry
