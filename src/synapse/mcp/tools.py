@@ -12,7 +12,7 @@ AuditRuleLiteral = Literal["layering_violations", "untested_services"]
 
 _GRAPH_SCHEMA = {
     "node_labels": {
-        "Repository": ["path", "name", "language", "last_indexed"],
+        "Repository": ["path", "name", "languages", "last_indexed"],
         "Directory": ["path", "name"],
         "File": ["path", "name", "language", "last_indexed"],
         "Package": ["name"],
@@ -53,12 +53,19 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         Uses LSP for structural analysis (symbols, inheritance, implementations) and tree-sitter for call site detection.
         Supports C# (language='csharp'), Python (language='python'), and TypeScript/JavaScript (language='typescript') projects. Language is auto-detected from file extensions when not specified.
         """
-        service.index_project(path, language)
+        try:
+            service.index_project(path, language)
+        except ModuleNotFoundError as e:
+            return (
+                f"Error: Missing dependency — {e}\n"
+                "Your synapse installation may be incomplete. "
+                "Reinstall with:  pip install -e ."
+            )
         return f"Indexed {path}"
 
     @mcp.tool()
     def list_projects() -> list[dict]:
-        """List all indexed projects. Returns path, language, and last-indexed timestamp for each."""
+        """List all indexed projects. Returns path, languages (list), and last-indexed timestamp for each."""
         return service.list_projects()
 
     @mcp.tool()

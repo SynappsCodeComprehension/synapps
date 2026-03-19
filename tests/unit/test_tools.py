@@ -107,7 +107,9 @@ def test_graph_schema_has_imports_relationship() -> None:
 
 
 def test_graph_schema_nodes_have_language_property() -> None:
-    for label in ("Repository", "File", "Class", "Interface", "Method", "Property", "Field"):
+    # Repository uses 'languages' (list) for polyglot support; all others use 'language' (string)
+    assert "languages" in _GRAPH_SCHEMA["node_labels"]["Repository"], "Repository missing 'languages'"
+    for label in ("File", "Class", "Interface", "Method", "Property", "Field"):
         assert "language" in _GRAPH_SCHEMA["node_labels"][label], f"{label} missing 'language'"
 
 

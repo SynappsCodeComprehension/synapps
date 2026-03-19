@@ -255,7 +255,7 @@ def test_get_index_status_returns_none_when_not_found() -> None:
 
 
 def test_get_index_status_strips_trailing_slash() -> None:
-    repo_node = _MockNode(["Repository"], {"last_indexed": "2026-01-01"})
+    repo_node = _MockNode(["Repository"], {"last_indexed": "2026-01-01", "languages": ["typescript"]})
     conn = MagicMock()
     conn.query.side_effect = [[[repo_node]], [[3]], [[42]]]
     get_index_status(conn, "/proj/")
@@ -264,11 +264,17 @@ def test_get_index_status_strips_trailing_slash() -> None:
 
 
 def test_get_index_status_returns_counts() -> None:
-    repo_node = _MockNode(["Repository"], {"last_indexed": "2026-01-01"})
+    repo_node = _MockNode(["Repository"], {"last_indexed": "2026-01-01", "languages": ["csharp"]})
     conn = MagicMock()
     conn.query.side_effect = [[[repo_node]], [[5]], [[99]]]
     result = get_index_status(conn, "/proj")
-    assert result == {"path": "/proj", "last_indexed": "2026-01-01", "file_count": 5, "symbol_count": 99}
+    assert result == {
+        "path": "/proj",
+        "languages": ["csharp"],
+        "last_indexed": "2026-01-01",
+        "file_count": 5,
+        "symbol_count": 99,
+    }
 
 
 def test_resolve_with_labels_exact_match() -> None:

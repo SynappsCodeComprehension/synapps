@@ -7,7 +7,15 @@ from synapse.graph.connection import GraphConnection
 def upsert_repository(conn: GraphConnection, path: str, language: str) -> None:
     path = path.rstrip("/")
     conn.execute(
-        "MERGE (n:Repository {path: $path}) SET n.language = $language, n.last_indexed = $ts",
+        "MERGE (n:Repository {path: $path}) "
+        "WITH n, "
+        "CASE "
+        "WHEN n.languages IS NULL THEN [$language] "
+        "WHEN NOT ($language IN n.languages) THEN n.languages + [$language] "
+        "ELSE n.languages "
+        "END AS langs "
+        "SET n.languages = langs, n.last_indexed = $ts "
+        "REMOVE n.language",
         {"path": path, "language": language, "ts": _now()},
     )
 

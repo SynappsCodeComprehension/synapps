@@ -21,6 +21,16 @@ def test_upsert_repository_calls_merge() -> None:
     assert "Repository" in cypher
     assert params["path"] == "/proj"
     assert params["language"] == "csharp"
+    assert "languages" in cypher
+
+
+def test_upsert_repository_uses_languages_list() -> None:
+    """upsert_repository must write a 'languages' list, not a singular 'language' string."""
+    conn = _conn()
+    upsert_repository(conn, "/proj", "csharp")
+    cypher = conn.execute.call_args[0][0]
+    assert "languages" in cypher, "Must use 'languages' (list), not 'language' (string)"
+    assert "REMOVE n.language" in cypher, "Must clean up old singular 'language' property"
 
 
 def test_upsert_class_includes_kind() -> None:
