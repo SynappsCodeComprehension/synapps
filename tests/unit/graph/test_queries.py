@@ -257,7 +257,7 @@ def test_get_index_status_returns_none_when_not_found() -> None:
 def test_get_index_status_strips_trailing_slash() -> None:
     repo_node = _MockNode(["Repository"], {"last_indexed": "2026-01-01", "languages": ["typescript"]})
     conn = MagicMock()
-    conn.query.side_effect = [[[repo_node]], [[3]], [[42]]]
+    conn.query.side_effect = [[[repo_node]], [[3]], [[42]], []]
     get_index_status(conn, "/proj/")
     path_arg = conn.query.call_args_list[0][0][1]["path"]
     assert path_arg == "/proj"
@@ -266,7 +266,12 @@ def test_get_index_status_strips_trailing_slash() -> None:
 def test_get_index_status_returns_counts() -> None:
     repo_node = _MockNode(["Repository"], {"last_indexed": "2026-01-01", "languages": ["csharp"]})
     conn = MagicMock()
-    conn.query.side_effect = [[[repo_node]], [[5]], [[99]]]
+    conn.query.side_effect = [
+        [[repo_node]],  # repo
+        [[5]],          # file_count
+        [[99]],         # symbol_count
+        [["Class", 60], ["Method", 39]],  # breakdown
+    ]
     result = get_index_status(conn, "/proj")
     assert result == {
         "path": "/proj",
@@ -274,7 +279,27 @@ def test_get_index_status_returns_counts() -> None:
         "last_indexed": "2026-01-01",
         "file_count": 5,
         "symbol_count": 99,
+        "symbol_breakdown": {"Class": 60, "Method": 39},
     }
+
+
+def test_get_index_status_includes_symbol_breakdown() -> None:
+    repo_node = _MockNode(["Repository"], {"path": "/proj", "last_indexed": "2026-01-01", "languages": ["csharp"]})
+    conn = MagicMock()
+    conn.query.side_effect = [
+        [[repo_node]],       # repo query
+        [[42]],              # file_count
+        [[100]],             # symbol_count
+        [                    # breakdown query
+            ["Class", 40],
+            ["Method", 50],
+            ["Property", 10],
+        ],
+    ]
+    result = get_index_status(conn, "/proj")
+    assert result is not None
+    assert "symbol_breakdown" in result
+    assert result["symbol_breakdown"] == {"Class": 40, "Method": 50, "Property": 10}
 
 
 def test_resolve_with_labels_exact_match() -> None:

@@ -76,7 +76,7 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def get_index_status(path: str) -> dict | None:
-        """Return indexing status for a project. The path parameter is the project root path, as returned by list_projects."""
+        """Return indexing status for a project including file count, symbol count, and per-label symbol breakdown. The path parameter is the project root path, as returned by list_projects."""
         return service.get_index_status(path)
 
     @mcp.tool()

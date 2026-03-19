@@ -228,12 +228,23 @@ def get_index_status(conn: GraphConnection, project_path: str) -> dict | None:
         "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(n) WHERE NOT n:File AND NOT n:Directory RETURN count(n)",
         {"path": project_path},
     )
+    breakdown_rows = conn.query(
+        "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(n) "
+        "WHERE NOT n:File AND NOT n:Directory "
+        "UNWIND labels(n) AS label "
+        "WITH label WHERE label <> 'Summarized' "
+        "RETURN label, count(*) AS cnt "
+        "ORDER BY cnt DESC",
+        {"path": project_path},
+    )
+    symbol_breakdown = {row[0]: row[1] for row in breakdown_rows}
     return {
         "path": project_path,
         "languages": repo.get("languages", [repo.get("language", "unknown")]),
         "last_indexed": repo.get("last_indexed"),
         "file_count": file_count[0][0] if file_count else 0,
         "symbol_count": symbol_count[0][0] if symbol_count else 0,
+        "symbol_breakdown": symbol_breakdown,
     }
 
 
