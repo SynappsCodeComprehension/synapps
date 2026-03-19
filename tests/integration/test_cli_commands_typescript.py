@@ -214,6 +214,61 @@ def test_contract(typescript_service: SynapseService) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Analysis commands
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_entry_points(typescript_service: SynapseService) -> None:
+    """entry-points command returns exit code 0 for a TypeScript method."""
+    result = _invoke(typescript_service, [
+        "entry-points",
+        "src/services.AnimalService.getGreeting",
+    ])
+    assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_call_depth(typescript_service: SynapseService) -> None:
+    """call-depth command returns exit code 0 for a TypeScript method."""
+    result = _invoke(typescript_service, [
+        "call-depth",
+        "src/services.Greeter.greet",
+    ])
+    assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_type_impact(typescript_service: SynapseService) -> None:
+    """type-impact command returns exit code 0 and names the TypeScript interface."""
+    result = _invoke(typescript_service, [
+        "type-impact",
+        "src/animals.IAnimal",
+    ])
+    assert result.exit_code == 0
+    assert "IAnimal" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_audit(typescript_service: SynapseService) -> None:
+    """audit command returns exit code 0 (empty violations for TypeScript is OK)."""
+    result = _invoke(typescript_service, ["audit", "layering_violations"])
+    assert result.exit_code == 0
+    assert "layering_violations" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_summarize(typescript_service: SynapseService) -> None:
+    """summarize command returns exit code 0 for a TypeScript class."""
+    result = _invoke(typescript_service, ["summarize", "src/animals.Dog"])
+    assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
 # Summary subcommands
 # ---------------------------------------------------------------------------
 
