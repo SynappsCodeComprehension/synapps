@@ -89,13 +89,25 @@ class ContainerManager:
 
     @staticmethod
     def _wait_for_bolt(port: int, timeout: float = 30.0) -> None:
+        # Bolt v1 handshake preamble: magic + 4 version proposals
+        _BOLT_MAGIC = b"\x60\x60\xb0\x17"
+        _BOLT_VERSIONS = (
+            b"\x00\x00\x04\x04"  # Bolt 4.4
+            b"\x00\x00\x03\x04"  # Bolt 4.3
+            b"\x00\x00\x00\x04"  # Bolt 4.0
+            b"\x00\x00\x00\x03"  # Bolt 3.0
+        )
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
-                with socket.create_connection(("localhost", port), timeout=1.0):
-                    return
+                with socket.create_connection(("localhost", port), timeout=2.0) as s:
+                    s.sendall(_BOLT_MAGIC + _BOLT_VERSIONS)
+                    resp = s.recv(4)
+                    if len(resp) == 4:
+                        return
             except OSError:
-                time.sleep(0.2)
+                pass
+            time.sleep(0.3)
         raise TimeoutError(
             f"Memgraph on port {port} did not become ready within {timeout}s"
         )

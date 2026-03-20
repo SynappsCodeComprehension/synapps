@@ -142,11 +142,14 @@ def test_config_reused(manager, mock_docker, tmp_path):
 # --- Readiness polling ---
 
 def test_wait_for_bolt_success(manager):
+    mock_sock = MagicMock()
+    mock_sock.recv.return_value = b"\x00\x00\x04\x04"  # 4-byte Bolt version response
     with patch("synapse.container.manager.socket.create_connection") as mock_conn:
-        mock_conn.return_value.__enter__ = MagicMock()
+        mock_conn.return_value.__enter__ = MagicMock(return_value=mock_sock)
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
         manager._wait_for_bolt(12345, timeout=5.0)
     mock_conn.assert_called()
+    mock_sock.sendall.assert_called_once()
 
 
 def test_wait_for_bolt_timeout(manager):
