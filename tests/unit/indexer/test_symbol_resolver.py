@@ -70,7 +70,7 @@ def test_resolver_writes_references_edge():
     conn = MagicMock()
     ls = _make_ls()
 
-    from synapse.indexer.type_ref_extractor import TypeRef
+    from synapse.indexer.type_ref import TypeRef
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = [
         TypeRef(owner_full_name="Ns.C.M", type_name="UserDto", line=5, col=15, ref_kind="parameter")
@@ -150,7 +150,7 @@ def test_resolver_writes_references_edge_via_name_map_fallback():
     ls = _make_ls()
     ls.request_defining_symbol.return_value = None
 
-    from synapse.indexer.type_ref_extractor import TypeRef
+    from synapse.indexer.type_ref import TypeRef
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = [
         TypeRef(owner_full_name="Ns.TaskService", type_name="ITaskService", line=4, col=21, ref_kind="field_type")
@@ -175,7 +175,7 @@ def test_resolver_skips_references_when_name_map_ambiguous():
     ls = _make_ls()
     ls.request_defining_symbol.return_value = None
 
-    from synapse.indexer.type_ref_extractor import TypeRef
+    from synapse.indexer.type_ref import TypeRef
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = [
         TypeRef(owner_full_name="Ns.C", type_name="Item", line=3, col=10, ref_kind="field_type")

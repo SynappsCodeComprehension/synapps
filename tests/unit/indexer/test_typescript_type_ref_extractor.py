@@ -1,6 +1,6 @@
 import pytest
 from synapse.indexer.typescript_type_ref_extractor import TypeScriptTypeRefExtractor
-from synapse.indexer.type_ref_extractor import TypeRef
+from synapse.indexer.type_ref import TypeRef
 
 FILE_TS = "test.ts"
 FILE_TSX = "test.tsx"

@@ -7,8 +7,9 @@ from pathlib import Path
 
 from synapse.graph.connection import GraphConnection
 from synapse.graph.edges import upsert_calls, upsert_module_calls, upsert_references
-from synapse.indexer.call_extractor import TreeSitterCallExtractor
-from synapse.indexer.type_ref_extractor import TreeSitterTypeRefExtractor, TypeRef
+from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
+from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
+from synapse.indexer.type_ref import TypeRef
 from synapse.lsp.util import build_full_name
 
 log = logging.getLogger(__name__)
@@ -58,16 +59,16 @@ class SymbolResolver:
         self,
         conn: GraphConnection,
         ls: object,
-        call_extractor: TreeSitterCallExtractor | None = None,
-        type_ref_extractor: TreeSitterTypeRefExtractor | None = None,
+        call_extractor: CSharpCallExtractor | None = None,
+        type_ref_extractor: CSharpTypeRefExtractor | None = None,
         name_to_full_names: dict[str, list[str]] | None = None,
         file_extensions: frozenset[str] | None = None,
         module_full_names: set[str] | None = None,
     ) -> None:
         self._conn = conn
         self._ls = ls
-        self._call_extractor = call_extractor or TreeSitterCallExtractor()
-        self._type_ref_extractor = type_ref_extractor or TreeSitterTypeRefExtractor()
+        self._call_extractor = call_extractor or CSharpCallExtractor()
+        self._type_ref_extractor = type_ref_extractor or CSharpTypeRefExtractor()
         self._name_to_full_names = name_to_full_names or {}
         self._file_extensions = file_extensions or frozenset({".cs"})
         self._module_full_names = module_full_names or set()

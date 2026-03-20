@@ -20,7 +20,7 @@ _CALLS_QUERY = """
 """
 
 
-class TreeSitterCallExtractor:
+class CSharpCallExtractor:
     """
     Parses a C# source file with tree-sitter and returns all call sites as
     (caller_full_name, callee_simple_name, line_1indexed) tuples.

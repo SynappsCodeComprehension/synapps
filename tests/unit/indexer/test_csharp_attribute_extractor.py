@@ -1,4 +1,4 @@
-from synapse.indexer.attribute_extractor import CSharpAttributeExtractor
+from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
 
 
 def test_extracts_class_attribute() -> None:

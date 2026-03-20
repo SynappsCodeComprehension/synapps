@@ -1,5 +1,5 @@
 import pytest
-from synapse.indexer.import_extractor import CSharpImportExtractor
+from synapse.indexer.csharp.csharp_import_extractor import CSharpImportExtractor
 
 
 @pytest.fixture()

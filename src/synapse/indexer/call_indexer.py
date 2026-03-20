@@ -6,7 +6,7 @@ from pathlib import Path
 
 from synapse.graph.connection import GraphConnection
 from synapse.graph.edges import upsert_calls
-from synapse.indexer.call_extractor import TreeSitterCallExtractor
+from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
 from synapse.lsp.util import build_full_name
 
 log = logging.getLogger(__name__)
@@ -26,12 +26,12 @@ class CallIndexer:
         self,
         conn: GraphConnection,
         ls: object,
-        extractor: TreeSitterCallExtractor | None = None,
+        extractor: CSharpCallExtractor | None = None,
         file_extensions: frozenset[str] | None = None,
     ) -> None:
         self._conn = conn
         self._ls = ls
-        self._extractor = extractor or TreeSitterCallExtractor()
+        self._extractor = extractor or CSharpCallExtractor()
         self._file_extensions = file_extensions or frozenset({".cs"})
 
     def index_calls(

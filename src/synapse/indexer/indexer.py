@@ -18,7 +18,7 @@ from synapse.graph.nodes import (
     collect_summaries, restore_summaries,
     set_attributes, set_metadata_flags,
 )
-from synapse.indexer.base_type_extractor import CSharpBaseTypeExtractor
+from synapse.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
 from synapse.indexer.call_indexer import CallIndexer
 from synapse.indexer.method_implements_indexer import MethodImplementsIndexer
 from synapse.indexer.overrides_indexer import OverridesIndexer
@@ -60,7 +60,7 @@ class Indexer:
             self._file_extensions = plugin.file_extensions
             self._language = plugin.name
         else:
-            from synapse.indexer.import_extractor import CSharpImportExtractor
+            from synapse.indexer.csharp.csharp_import_extractor import CSharpImportExtractor
             self._import_extractor = CSharpImportExtractor()
             self._base_type_extractor = CSharpBaseTypeExtractor()
             self._attribute_extractor_factory = None
@@ -120,7 +120,7 @@ class Indexer:
         if self._attribute_extractor_factory is not None:
             attr_extractor = self._attribute_extractor_factory()
         else:
-            from synapse.indexer.attribute_extractor import CSharpAttributeExtractor
+            from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
             attr_extractor = CSharpAttributeExtractor()
         for file_path in files:
             try:
@@ -238,7 +238,7 @@ class Indexer:
             if self._attribute_extractor_factory is not None:
                 attr_extractor = self._attribute_extractor_factory()
             else:
-                from synapse.indexer.attribute_extractor import CSharpAttributeExtractor
+                from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
                 attr_extractor = CSharpAttributeExtractor()
             self._index_attributes(file_path, source, symbols, attr_extractor)
         except OSError:

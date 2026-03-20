@@ -1,10 +1,10 @@
 import pytest
-from synapse.indexer.call_extractor import TreeSitterCallExtractor
+from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
 
 
 @pytest.fixture
 def extractor():
-    return TreeSitterCallExtractor()
+    return CSharpCallExtractor()
 
 
 def test_extracts_simple_method_call(extractor):

@@ -6,11 +6,11 @@ import pytest
 
 from synapse.plugin import LanguagePlugin
 from synapse.plugin.csharp import CSharpPlugin
-from synapse.indexer.attribute_extractor import CSharpAttributeExtractor
-from synapse.indexer.base_type_extractor import CSharpBaseTypeExtractor
-from synapse.indexer.call_extractor import TreeSitterCallExtractor
-from synapse.indexer.import_extractor import CSharpImportExtractor
-from synapse.indexer.type_ref_extractor import TreeSitterTypeRefExtractor
+from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
+from synapse.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
+from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
+from synapse.indexer.csharp.csharp_import_extractor import CSharpImportExtractor
+from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
 
 
 def test_name_returns_csharp():
@@ -37,7 +37,7 @@ def test_create_base_type_extractor_returns_csharp_type():
 
 def test_create_call_extractor_returns_tree_sitter_type():
     extractor = CSharpPlugin().create_call_extractor()
-    assert isinstance(extractor, TreeSitterCallExtractor)
+    assert isinstance(extractor, CSharpCallExtractor)
 
 
 def test_create_attribute_extractor_returns_csharp_type():
@@ -47,7 +47,7 @@ def test_create_attribute_extractor_returns_csharp_type():
 
 def test_create_type_ref_extractor_returns_tree_sitter_type():
     extractor = CSharpPlugin().create_type_ref_extractor()
-    assert isinstance(extractor, TreeSitterTypeRefExtractor)
+    assert isinstance(extractor, CSharpTypeRefExtractor)
 
 
 def test_create_lsp_adapter_delegates_to_csharp_adapter():

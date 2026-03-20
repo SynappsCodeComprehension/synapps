@@ -1,5 +1,5 @@
 import pytest
-from synapse.indexer.base_type_extractor import CSharpBaseTypeExtractor
+from synapse.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
 
 
 @pytest.fixture()

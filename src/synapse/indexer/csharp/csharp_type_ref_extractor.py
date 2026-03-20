@@ -30,7 +30,7 @@ _FIELD_QUERY = """
 """
 
 
-class TreeSitterTypeRefExtractor:
+class CSharpTypeRefExtractor:
     def __init__(self) -> None:
         import tree_sitter_c_sharp
         from tree_sitter import Language, Parser, Query, QueryCursor

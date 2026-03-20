@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from synapse.indexer.type_ref_extractor import TypeRef
+from synapse.indexer.type_ref import TypeRef
 
 log = logging.getLogger(__name__)
 

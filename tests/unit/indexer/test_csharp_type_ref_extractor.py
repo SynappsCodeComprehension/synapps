@@ -1,10 +1,10 @@
 import pytest
-from synapse.indexer.type_ref_extractor import TreeSitterTypeRefExtractor
+from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
 
 
 @pytest.fixture
 def extractor():
-    return TreeSitterTypeRefExtractor()
+    return CSharpTypeRefExtractor()
 
 
 def test_extracts_method_return_type(extractor):
