@@ -50,7 +50,8 @@ def test_creates_container(manager, mock_docker, tmp_path):
     import docker.errors
     mock_docker.containers.get.side_effect = docker.errors.NotFound("nope")
 
-    with patch("synapse.container.manager.GraphConnection") as mock_gc:
+    with patch("synapse.container.manager.GraphConnection") as mock_gc, \
+         patch.object(manager, "_wait_for_bolt"):
         mock_gc.create.return_value = MagicMock()
         manager.get_connection()
 
@@ -67,7 +68,8 @@ def test_reuses_running_container(manager, mock_docker, tmp_path):
     mock_container.status = "running"
     mock_docker.containers.get.return_value = mock_container
 
-    with patch("synapse.container.manager.GraphConnection") as mock_gc:
+    with patch("synapse.container.manager.GraphConnection") as mock_gc, \
+         patch.object(manager, "_wait_for_bolt"):
         mock_gc.create.return_value = MagicMock()
         manager.get_connection()
 
@@ -80,7 +82,8 @@ def test_restarts_exited_container(manager, mock_docker, tmp_path):
     mock_container.status = "exited"
     mock_docker.containers.get.return_value = mock_container
 
-    with patch("synapse.container.manager.GraphConnection") as mock_gc:
+    with patch("synapse.container.manager.GraphConnection") as mock_gc, \
+         patch.object(manager, "_wait_for_bolt"):
         mock_gc.create.return_value = MagicMock()
         manager.get_connection()
 
@@ -94,7 +97,8 @@ def test_config_created_on_first_use(manager, mock_docker, tmp_path):
     import docker.errors
     mock_docker.containers.get.side_effect = docker.errors.NotFound("nope")
 
-    with patch("synapse.container.manager.GraphConnection") as mock_gc:
+    with patch("synapse.container.manager.GraphConnection") as mock_gc, \
+         patch.object(manager, "_wait_for_bolt"):
         mock_gc.create.return_value = MagicMock()
         manager.get_connection()
 
@@ -125,14 +129,12 @@ def test_config_reused(manager, mock_docker, tmp_path):
     mock_docker.containers.get.return_value = mock_container
 
     with patch("synapse.container.manager.GraphConnection") as mock_gc, \
-         patch.object(type(manager), "_find_free_port", return_value=99999) as mock_port:
+         patch.object(manager, "_wait_for_bolt"), \
+         patch("synapse.container.manager.ContainerManager._find_free_port", return_value=99999) as mock_port:
         mock_gc.create.return_value = MagicMock()
         manager.get_connection()
         mock_port.assert_not_called()
 
-    # Verify it used port 55555
-    with patch("synapse.container.manager.GraphConnection") as mock_gc:
-        mock_gc.create.assert_not_called()  # fresh mock; check original call
     # Verify the container was fetched with the config's container_name
     mock_docker.containers.get.assert_called_with("synapse-test")
 
@@ -170,7 +172,8 @@ def test_get_connection_returns_graph_connection(manager, mock_docker, tmp_path)
     mock_container.status = "running"
     mock_docker.containers.get.return_value = mock_container
 
-    with patch("synapse.container.manager.GraphConnection") as mock_gc:
+    with patch("synapse.container.manager.GraphConnection") as mock_gc, \
+         patch.object(manager, "_wait_for_bolt"):
         sentinel = MagicMock()
         mock_gc.create.return_value = sentinel
         result = manager.get_connection()
