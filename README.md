@@ -2,19 +2,27 @@
 
 > **Work in progress.** Synapse is under active development. APIs, CLI commands, and graph schema may change without notice.
 
-Synapse is an LSP-powered, Memgraph-backed tool that builds a queryable graph of a C# codebase. It indexes symbols, inheritance, interface implementations, method calls, and override relationships, then exposes them via an MCP server (for AI assistants) and a CLI (for humans).
+Synapse is an LSP-powered, Memgraph-backed tool that builds a queryable graph of your codebase. It indexes symbols, inheritance, interface implementations, method calls, and override relationships for C#, Python, and TypeScript/JavaScript projects, then exposes them via an MCP server (for AI assistants) and a CLI (for humans).
+
+Each project gets its own isolated Memgraph instance via Docker — you can index multiple projects simultaneously and switch between them without re-indexing.
 
 ## Prerequisites
 
 - **Python 3.11+**
-- **Memgraph** running on `localhost:7687` (default)
-- **.NET SDK** — required for the C# language server to index projects
+- **Docker** — Synapse automatically manages per-project Memgraph containers
+- **.NET SDK** — required for C# projects (Roslyn language server)
+- **Pyright** (`npm install -g pyright`) — required for Python projects
+- **typescript-language-server** (`npm install -g typescript-language-server typescript`) — required for TypeScript/JavaScript projects
 
-Start Memgraph with Docker:
+## How it works
 
-```bash
-docker run -p 7687:7687 --rm memgraph/memgraph:latest
-```
+When you run any Synapse command from a project directory, Synapse automatically:
+
+1. Creates a `.synapse/config.json` in the project root with a deterministic container name and port
+2. Starts a dedicated Memgraph Docker container for that project (or reuses an existing one)
+3. Connects to the container's Bolt port for all graph operations
+
+Each project's graph is fully isolated — indexing project A has no effect on project B. Containers are named `synapse-<hash>` based on the absolute project path, so they persist across sessions.
 
 ## Installation
 
@@ -41,7 +49,7 @@ Add Synapse to your MCP client config (e.g. Claude Desktop's `claude_desktop_con
 }
 ```
 
-By default the server connects to Memgraph at `localhost:7687`. There are no required environment variables.
+The MCP server resolves the project from the current working directory at startup and connects to its Memgraph container automatically.
 
 ---
 
@@ -55,7 +63,7 @@ synapse <command> [args]
 
 | Command | Description |
 |---|---|
-| `synapse index <path> [--language csharp]` | Index a project into the graph |
+| `synapse index <path> [--language csharp\|python\|typescript]` | Index a project into the graph (auto-detects language if omitted) |
 | `synapse watch <path>` | Watch a project for file changes and keep the graph updated (runs until Ctrl+C) |
 | `synapse delete <path>` | Remove a project and all its graph data |
 | `synapse status [path]` | Show index status for one project, or list all indexed projects |
@@ -90,7 +98,13 @@ Summaries are free-text annotations attached to any symbol — useful for captur
 
 ```bash
 # Index a C# project
-synapse index /path/to/my/project
+synapse index /path/to/csharp-project
+
+# Index a Python project
+synapse index /path/to/python-project
+
+# Index a TypeScript project
+synapse index /path/to/ts-project
 
 # Find everything that calls a specific method
 synapse callers "MyNamespace.MyClass.DoWork"
@@ -124,7 +138,7 @@ These tools are available to any MCP client connected to `synapse-mcp`.
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `index_project` | `path: str`, `language: str = "csharp"` | Index a project into the graph |
+| `index_project` | `path: str`, `language: str = "csharp"` | Index a project into the graph (language: csharp, python, typescript) |
 | `list_projects` | — | List all indexed projects |
 | `delete_project` | `path: str` | Remove a project from the graph |
 | `get_index_status` | `path: str` | Get the current index status for a project |
@@ -191,6 +205,31 @@ Fully-qualified names (e.g. `MyNamespace.MyClass.DoWork`) are used as symbol ide
 
 ---
 
+## Multi-project usage
+
+Synapse manages Docker containers automatically. Each project directory you work in gets its own isolated Memgraph instance:
+
+```bash
+# Index two different projects — each gets its own container
+cd /path/to/project-a && synapse index .
+cd /path/to/project-b && synapse index .
+
+# Queries from each directory hit the correct graph
+cd /path/to/project-a && synapse search "Controller"  # searches project A's graph
+cd /path/to/project-b && synapse search "Controller"  # searches project B's graph
+```
+
+Container and port configuration is stored in `.synapse/config.json` in each project root. Add `.synapse/` to your `.gitignore`.
+
+Containers persist across sessions. If a container was stopped, Synapse automatically restarts it on the next command. To clean up:
+
+```bash
+# Containers can be managed with standard Docker commands
+docker ps --filter "name=synapse-"     # list Synapse containers
+docker stop synapse-abc123def456       # stop a specific container
+docker rm synapse-abc123def456         # remove a specific container
+```
+
 ## Development
 
 ```bash
@@ -198,9 +237,10 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Run unit tests (no Memgraph or .NET required)
+# Run unit tests (no Docker, Memgraph, or .NET required)
 pytest tests/unit/
 
-# Run integration tests (requires Memgraph on localhost:7687 and .NET SDK)
+# Run integration tests (requires Docker + Memgraph on localhost:7687 and .NET SDK)
+docker compose up -d
 pytest tests/integration/ -m integration
 ```
