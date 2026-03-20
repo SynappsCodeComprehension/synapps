@@ -592,6 +592,55 @@ class TestTraverseConstObjectPromotion:
         adapter._traverse(unknown, "/proj/src/mod.ts", parent_full_name=None, result=result)
         assert result == []
 
+    def test_const_with_only_property_children_promoted_to_method(self) -> None:
+        """const MyComponent = () => { ... } -> Property children only -> :Method.
+
+        React components and hooks are arrow functions assigned to const.
+        The LSP reports them as Kind 14 (Constant) with Variable/Property children.
+        They should be promoted to METHOD so their bodies are scanned for call sites.
+        """
+        adapter = self._make_adapter()
+        prop_child = self._make_raw("meetings", 7, children=[], line=3)  # Property
+        component = self._make_raw("MyComponent", 14, children=[prop_child], line=0, end_line=20)
+
+        result: list = []
+        adapter._traverse(component, "/proj/src/MyComponent.tsx", parent_full_name=None, result=result)
+
+        assert len(result) == 2
+        assert result[0].kind == SymbolKind.METHOD
+        assert result[0].name == "MyComponent"
+        assert result[0].signature == "const_function"
+        assert result[1].kind == SymbolKind.PROPERTY
+        assert result[1].parent_full_name == result[0].full_name
+
+    def test_const_with_variable_children_promoted_to_method(self) -> None:
+        """const useMyHook = () => { const x = ... } -> Variable children only -> :Method."""
+        adapter = self._make_adapter()
+        var_child = self._make_raw("data", 13, line=2)  # Variable, no children
+        hook = self._make_raw("useMyHook", 14, children=[var_child], line=0, end_line=15)
+
+        result: list = []
+        adapter._traverse(hook, "/proj/src/hooks.ts", parent_full_name=None, result=result)
+
+        # Variable child without children is skipped, but hook itself is promoted to METHOD
+        assert len(result) == 1
+        assert result[0].kind == SymbolKind.METHOD
+        assert result[0].name == "useMyHook"
+        assert result[0].signature == "const_function"
+
+    def test_const_with_mixed_children_promoted_to_class(self) -> None:
+        """Object literal with at least one Method child -> CLASS (existing behavior)."""
+        adapter = self._make_adapter()
+        method_child = self._make_raw("getData", 6, children=[], line=2)
+        prop_child = self._make_raw("baseUrl", 7, children=[], line=5)
+        obj = self._make_raw("apiClient", 14, children=[method_child, prop_child], line=0, end_line=10)
+
+        result: list = []
+        adapter._traverse(obj, "/proj/src/api.ts", parent_full_name=None, result=result)
+
+        assert result[0].kind == SymbolKind.CLASS
+        assert result[0].signature == "const_object"
+
 
 class TestConvertAsClass:
     """Tests for _convert_as_class method."""

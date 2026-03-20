@@ -121,9 +121,18 @@ class TypeScriptLSPAdapter:
             for child in raw.get("children", []):
                 self._traverse(child, file_path, parent_full_name=sym.full_name, result=result)
         elif raw.get("children") and raw.get("kind", 0) in (13, 14) and parent_full_name is None:
-            # Top-level Variable/Constant with children (e.g., export const xService = { ... }).
-            # Promote to CLASS so object literal methods get indexed.
-            sym = self._convert_as_class(raw, file_path, self._root_path, parent_full_name)
+            # Top-level Variable/Constant with children.
+            # Distinguish object literals from arrow function components/hooks:
+            #   - Children include Method/Function (kind 6/12) → object literal → CLASS
+            #   - No Method/Function children → arrow function/component → METHOD
+            _METHOD_KINDS = {6, 12}
+            has_method_children = any(
+                c.get("kind", 0) in _METHOD_KINDS for c in raw.get("children", [])
+            )
+            if has_method_children:
+                sym = self._convert_as_class(raw, file_path, self._root_path, parent_full_name)
+            else:
+                sym = self._convert_as_method(raw, file_path, self._root_path, parent_full_name)
             if sym is not None:
                 result.append(sym)
                 for child in raw.get("children", []):
@@ -158,6 +167,29 @@ class TypeScriptLSPAdapter:
             line=line,
             end_line=end_line,
             signature=signature,
+            parent_full_name=parent_full_name,
+        )
+
+    def _convert_as_method(
+        self,
+        raw: dict,
+        file_path: str,
+        root_path: str,
+        parent_full_name: str | None,
+    ) -> IndexSymbol:
+        """Convert a Variable/Constant symbol to METHOD for arrow functions, components, and hooks."""
+        name = raw.get("name", "")
+        range_obj = raw.get("location", {}).get("range", {})
+        line = range_obj.get("start", {}).get("line", 0)
+        end_line = range_obj.get("end", {}).get("line", 0)
+        return IndexSymbol(
+            name=name,
+            full_name=_build_ts_full_name(raw, file_path, root_path),
+            kind=SymbolKind.METHOD,
+            file_path=file_path,
+            line=line,
+            end_line=end_line,
+            signature="const_function",
             parent_full_name=parent_full_name,
         )
 
