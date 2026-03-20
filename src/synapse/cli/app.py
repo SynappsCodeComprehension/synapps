@@ -82,6 +82,26 @@ def watch(path: str) -> None:
 
 
 @app.command()
+def sync(path: str) -> None:
+    """Sync the graph with the current filesystem — re-indexes only changed files."""
+    abs_path = str(Path(path).resolve())
+    try:
+        result = _get_service(abs_path).sync_project(abs_path)
+    except ModuleNotFoundError as e:
+        typer.echo(
+            f"Error: Missing dependency — {e}\n"
+            "Your synapse installation may be incomplete. "
+            "Reinstall with:  pip install -e '.[dev]'",
+            err=True,
+        )
+        raise typer.Exit(1)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Synced: {result.updated} updated, {result.deleted} deleted, {result.unchanged} unchanged")
+
+
+@app.command()
 def delete(path: str) -> None:
     """Remove a project from the graph."""
     abs_path = str(Path(path).resolve())
