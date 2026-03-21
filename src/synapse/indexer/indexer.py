@@ -558,6 +558,7 @@ _ATTR_TO_FLAG: dict[str, str] = {
     "classmethod": "is_classmethod",
     "async": "is_async",
     "ABC": "is_abstract",
+    "Protocol": "is_abstract",
     # TypeScript markers (bare keyword names, no collision with Python decorated names)
     "abstract": "is_abstract",
     "static": "is_static",
