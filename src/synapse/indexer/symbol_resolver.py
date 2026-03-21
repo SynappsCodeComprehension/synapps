@@ -73,7 +73,7 @@ class SymbolResolver:
         self._conn = conn
         self._ls = ls
         self._call_extractor = call_extractor or CSharpCallExtractor()
-        self._type_ref_extractor = type_ref_extractor or CSharpTypeRefExtractor()
+        self._type_ref_extractor = type_ref_extractor
         self._name_to_full_names = name_to_full_names or {}
         self._file_extensions = file_extensions or frozenset({".cs"})
         self._module_full_names = module_full_names or set()
@@ -154,7 +154,7 @@ class SymbolResolver:
         t0 = time.monotonic()
         call_sites = self._call_extractor.extract(file_path, source, symbol_map)
         t1 = time.monotonic()
-        type_refs = self._type_ref_extractor.extract(file_path, source, symbol_map, class_lines or [])
+        type_refs = self._type_ref_extractor.extract(file_path, source, symbol_map, class_lines or []) if self._type_ref_extractor else []
         t2 = time.monotonic()
         if stats:
             stats.extraction_calls_time += t1 - t0
