@@ -66,9 +66,10 @@ def find_interface_contract(conn: GraphConnection, method: str) -> dict:
     """
     simple_name = method.rsplit(".", 1)[-1]
     rows = conn.query(
-        "MATCH (impl:Class)-[:CONTAINS]->(m:Method) "
+        "MATCH (impl)-[:CONTAINS]->(m:Method) "
         "WHERE m.full_name = $full_name "
-        "MATCH (impl)-[:IMPLEMENTS]->(i)-[:CONTAINS]->(contract:Method {name: $name}) "
+        "MATCH (m)-[:OVERRIDES*0..]->(base:Method)-[:IMPLEMENTS]->(contract:Method {name: $name}) "
+        "MATCH (contract)<-[:CONTAINS]-(i) "
         "RETURN i.full_name, contract.full_name, impl.full_name",
         {"name": simple_name, "full_name": method},
     )

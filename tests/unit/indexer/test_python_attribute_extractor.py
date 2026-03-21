@@ -17,8 +17,8 @@ class IAnimal(ABC):
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "speak" in names_and_attrs
-    assert "abstractmethod" in names_and_attrs["speak"]
+    assert "IAnimal.speak" in names_and_attrs
+    assert "abstractmethod" in names_and_attrs["IAnimal.speak"]
 
 
 def test_extract_staticmethod_decorator() -> None:
@@ -31,8 +31,8 @@ class Service:
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "version" in names_and_attrs
-    assert "staticmethod" in names_and_attrs["version"]
+    assert "Service.version" in names_and_attrs
+    assert "staticmethod" in names_and_attrs["Service.version"]
 
 
 def test_extract_classmethod_decorator() -> None:
@@ -45,8 +45,8 @@ class Service:
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "from_name" in names_and_attrs
-    assert "classmethod" in names_and_attrs["from_name"]
+    assert "Service.from_name" in names_and_attrs
+    assert "classmethod" in names_and_attrs["Service.from_name"]
 
 
 def test_extract_async_def() -> None:
@@ -58,8 +58,8 @@ class Service:
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "get_greeting_async" in names_and_attrs
-    assert "async" in names_and_attrs["get_greeting_async"]
+    assert "Service.get_greeting_async" in names_and_attrs
+    assert "async" in names_and_attrs["Service.get_greeting_async"]
 
 
 def test_extract_abc_class() -> None:
@@ -106,14 +106,14 @@ class Service:
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "fetch" in names_and_attrs
-    attrs = names_and_attrs["fetch"]
+    assert "Service.fetch" in names_and_attrs
+    attrs = names_and_attrs["Service.fetch"]
     assert "staticmethod" in attrs
     assert "async" in attrs
 
 
 def test_extract_nested_class_methods() -> None:
-    """Methods inside nested classes should return the simple method name."""
+    """Methods inside nested classes should use the immediate parent class name."""
     source = """\
 class Outer:
     class Inner:
@@ -124,8 +124,8 @@ class Outer:
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "create" in names_and_attrs
-    assert "classmethod" in names_and_attrs["create"]
+    assert "Inner.create" in names_and_attrs
+    assert "classmethod" in names_and_attrs["Inner.create"]
 
 
 def test_python_plugin_create_attribute_extractor_returns_instance() -> None:
@@ -149,8 +149,8 @@ class Service:
     extractor = _make()
     results = extractor.extract("test.py", source)
     names_and_attrs = {name: attrs for name, attrs in results}
-    assert "cached_name" in names_and_attrs
-    assert "classmethod" in names_and_attrs["cached_name"]
+    assert "Service.cached_name" in names_and_attrs
+    assert "classmethod" in names_and_attrs["Service.cached_name"]
 
 
 def test_extract_abcmeta_class() -> None:
@@ -181,6 +181,33 @@ class Drawable(Protocol):
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "Drawable" in names_and_attrs
     assert "Protocol" in names_and_attrs["Drawable"]
+
+
+def test_extract_abstractmethod_does_not_leak_to_overrides() -> None:
+    """Regression: @abstractmethod on IAnimal.speak must NOT appear on Animal.speak or Dog.speak."""
+    source = """\
+from abc import ABC, abstractmethod
+
+class IAnimal(ABC):
+    @abstractmethod
+    def speak(self) -> str: ...
+
+class Animal(IAnimal):
+    def speak(self) -> str:
+        return "..."
+
+class Dog(Animal):
+    def speak(self) -> str:
+        return "Woof"
+"""
+    extractor = _make()
+    results = extractor.extract("animals.py", source)
+    names_and_attrs = {name: attrs for name, attrs in results}
+    assert "IAnimal.speak" in names_and_attrs
+    assert "abstractmethod" in names_and_attrs["IAnimal.speak"]
+    # Concrete overrides must NOT appear in results (they have no decorators)
+    assert "Animal.speak" not in names_and_attrs
+    assert "Dog.speak" not in names_and_attrs
 
 
 def test_extract_runtime_checkable_protocol() -> None:

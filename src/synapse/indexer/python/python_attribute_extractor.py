@@ -30,24 +30,25 @@ class PythonAttributeExtractor:
         self._walk(tree.root_node, results)
         return results
 
-    def _walk(self, node, results: list[tuple[str, list[str]]]) -> None:
+    def _walk(self, node, results: list[tuple[str, list[str]]], parent_class: str | None = None) -> None:
         if node.type == "decorated_definition":
-            self._handle_decorated(node, results)
+            self._handle_decorated(node, results, parent_class)
             # Do NOT recurse further; _handle_decorated processes the inner node
         elif node.type == "class_definition":
+            class_name = self._node_name(node)
             self._handle_class(node, [], results)
             # Recurse into class body for nested methods/classes
             for child in node.children:
                 if child.type == "block":
                     for block_child in child.children:
-                        self._walk(block_child, results)
+                        self._walk(block_child, results, parent_class=class_name)
         elif node.type == "function_definition":
-            self._handle_function(node, [], results)
+            self._handle_function(node, [], results, parent_class)
         else:
             for child in node.children:
-                self._walk(child, results)
+                self._walk(child, results, parent_class)
 
-    def _handle_decorated(self, node, results: list[tuple[str, list[str]]]) -> None:
+    def _handle_decorated(self, node, results: list[tuple[str, list[str]]], parent_class: str | None = None) -> None:
         decorators: list[str] = []
         inner = None
         for child in node.children:
@@ -64,14 +65,15 @@ class PythonAttributeExtractor:
             return
 
         if inner.type == "class_definition":
+            class_name = self._node_name(inner)
             self._handle_class(inner, decorators, results)
             # Recurse into class body for nested members
             for child in inner.children:
                 if child.type == "block":
                     for block_child in child.children:
-                        self._walk(block_child, results)
+                        self._walk(block_child, results, parent_class=class_name)
         else:
-            self._handle_function(inner, decorators, results)
+            self._handle_function(inner, decorators, results, parent_class)
 
     def _handle_class(self, node, decorators: list[str], results: list[tuple[str, list[str]]]) -> None:
         name = self._node_name(node)
@@ -100,7 +102,7 @@ class PythonAttributeExtractor:
         if markers:
             results.append((name, markers))
 
-    def _handle_function(self, node, decorators: list[str], results: list[tuple[str, list[str]]]) -> None:
+    def _handle_function(self, node, decorators: list[str], results: list[tuple[str, list[str]]], parent_class: str | None = None) -> None:
         name = self._node_name(node)
         if not name:
             return
@@ -115,7 +117,8 @@ class PythonAttributeExtractor:
                 break
 
         if markers:
-            results.append((name, markers))
+            qualified = f"{parent_class}.{name}" if parent_class else name
+            results.append((qualified, markers))
 
     def _decorator_name(self, decorator_node) -> str | None:
         """Extract the simple name from a decorator node."""

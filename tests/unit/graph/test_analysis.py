@@ -93,6 +93,30 @@ def test_find_interface_contract_no_siblings() -> None:
     assert result["sibling_implementations"] == []
 
 
+def test_find_interface_contract_via_overrides_chain() -> None:
+    """Regression: Dog.speak → OVERRIDES → Animal.speak → IMPLEMENTS → IAnimal.speak.
+
+    find_interface_contract must walk OVERRIDES edges at the method level
+    to reach the IMPLEMENTS edge, not just look for a direct IMPLEMENTS.
+    """
+    conn = MagicMock()
+    conn.query.side_effect = [
+        # First query: now traverses OVERRIDES*0.. before IMPLEMENTS
+        [["Ns.IAnimal", "Ns.IAnimal.speak", "Ns.Dog"]],
+        # Second query: siblings
+        [["Cat", "/proj/Cat.py"]],
+    ]
+    result = find_interface_contract(conn, "Ns.Dog.speak")
+    assert result["interface"] == "Ns.IAnimal"
+    assert result["contract_method"] == "Ns.IAnimal.speak"
+    assert len(result["sibling_implementations"]) == 1
+    # Verify the first query uses OVERRIDES traversal
+    first_query = conn.query.call_args_list[0][0][0]
+    assert "OVERRIDES" in first_query, (
+        "Query must traverse OVERRIDES edges to find IMPLEMENTS"
+    )
+
+
 def test_find_interface_contract_no_interface() -> None:
     conn = _conn([])
     result = find_interface_contract(conn, "Standalone.Method")

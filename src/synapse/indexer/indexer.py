@@ -560,21 +560,22 @@ class Indexer:
 
         # Build name -> full_name lookup scoped to this file
         name_to_full: dict[str, list[str]] = {}
+        # Also build "ParentSimple.MethodSimple" -> [full_names] for disambiguation
+        qualified_to_full: dict[str, list[str]] = {}
         for sym in symbols:
             name_to_full.setdefault(sym.name, []).append(sym.full_name)
+            if sym.parent_full_name:
+                parent_simple = sym.parent_full_name.rsplit(".", 1)[-1]
+                qual_key = f"{parent_simple}.{sym.name}"
+                qualified_to_full.setdefault(qual_key, []).append(sym.full_name)
 
-        for simple_name, attrs in results:
-            full_names = name_to_full.get(simple_name, [])
-            if len(full_names) == 1:
-                set_attributes(self._conn, full_names[0], attrs)
+        for result_name, attrs in results:
+            # Try qualified lookup first (e.g., "IAnimal.speak"), fall back to simple
+            full_names = qualified_to_full.get(result_name) or name_to_full.get(result_name, [])
+            for fn in full_names:
+                set_attributes(self._conn, fn, attrs)
                 if self._language in ("python", "typescript"):
-                    set_metadata_flags(self._conn, full_names[0], _attrs_to_flags(attrs))
-            else:
-                # Multiple symbols with same simple name in this file — set on all matches
-                for fn in full_names:
-                    set_attributes(self._conn, fn, attrs)
-                    if self._language in ("python", "typescript"):
-                        set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
+                    set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
 
     def _index_attributes_from_results(
         self,
@@ -584,11 +585,16 @@ class Indexer:
     ) -> None:
         """Apply pre-computed attribute results to graph nodes."""
         name_to_full: dict[str, list[str]] = {}
+        qualified_to_full: dict[str, list[str]] = {}
         for sym in symbols:
             name_to_full.setdefault(sym.name, []).append(sym.full_name)
+            if sym.parent_full_name:
+                parent_simple = sym.parent_full_name.rsplit(".", 1)[-1]
+                qual_key = f"{parent_simple}.{sym.name}"
+                qualified_to_full.setdefault(qual_key, []).append(sym.full_name)
 
-        for simple_name, attrs in results:
-            full_names = name_to_full.get(simple_name, [])
+        for result_name, attrs in results:
+            full_names = qualified_to_full.get(result_name) or name_to_full.get(result_name, [])
             for fn in full_names:
                 set_attributes(self._conn, fn, attrs)
                 if self._language in ("python", "typescript"):
