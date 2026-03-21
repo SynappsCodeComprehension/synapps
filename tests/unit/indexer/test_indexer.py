@@ -1,7 +1,8 @@
 """Tests for TypeScript-specific kind_str overrides in Indexer._upsert_symbol."""
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch, PropertyMock
 from synapse.indexer.indexer import Indexer
+from synapse.indexer.assignment_ref import AssignmentRef
 from synapse.lsp.interface import IndexSymbol, SymbolKind, LSPAdapter
 
 
@@ -186,3 +187,152 @@ def test_typescript_const_object_produces_kind_str_const_object(mock_conn):
     cypher, params = mock_conn.execute.call_args[0]
     assert params.get("kind") == "const_object"
     assert "Class" in cypher
+
+
+def _make_python_plugin():
+    """Create a mock Python plugin with assignment extractor support."""
+    plugin = MagicMock()
+    plugin.name = "python"
+    plugin.file_extensions = frozenset({".py"})
+    plugin.create_import_extractor.return_value = MagicMock()
+    plugin.create_base_type_extractor.return_value = MagicMock(extract=MagicMock(return_value=[]))
+    plugin.create_attribute_extractor = MagicMock(return_value=MagicMock(extract=MagicMock(return_value=[])))
+    call_ext_mock = MagicMock(extract=MagicMock(return_value=[]))
+    call_ext_mock._sites_seen = 0
+    plugin.create_call_extractor = MagicMock(return_value=call_ext_mock)
+    plugin.create_type_ref_extractor = MagicMock(return_value=MagicMock(extract=MagicMock(return_value=[])))
+    return plugin
+
+
+def _make_python_indexer(conn, plugin=None):
+    """Create an Indexer configured for Python with mock LSP."""
+    lsp = MagicMock(spec=LSPAdapter)
+    type(lsp).language_server = PropertyMock(return_value=MagicMock(repository_root_path="/proj"))
+    if plugin is None:
+        plugin = _make_python_plugin()
+    return Indexer(conn, lsp, plugin), lsp, plugin
+
+
+def test_index_project_builds_assignment_map_for_python(tmp_path):
+    """Indexer.index_project with Python plugin builds assignment maps and passes
+    assignment_position_map to SymbolResolver."""
+    conn = MagicMock()
+    conn.query.return_value = []
+
+    plugin = _make_python_plugin()
+
+    # Assignment extractor returns one AssignmentRef
+    ref = AssignmentRef("mod.MyClass", "_handler", str(tmp_path / "foo.py"), 5, 12)
+    assign_ext = MagicMock()
+    assign_ext.extract.return_value = [ref]
+    plugin.create_assignment_extractor = MagicMock(return_value=assign_ext)
+
+    indexer, lsp, _ = _make_python_indexer(conn, plugin)
+
+    # Set up workspace with one Python file
+    py_file = tmp_path / "foo.py"
+    py_file.write_text("class MyClass:\n    def __init__(self):\n        self._handler = create_handler()\n")
+    lsp.get_workspace_files.return_value = [str(py_file)]
+
+    # get_document_symbols returns symbols including a class and a method
+    cls_sym = IndexSymbol(
+        name="MyClass", full_name="mod.MyClass", kind=SymbolKind.CLASS,
+        file_path=str(py_file), line=0, parent_full_name=None,
+    )
+    method_sym = IndexSymbol(
+        name="__init__", full_name="mod.MyClass.__init__", kind=SymbolKind.METHOD,
+        file_path=str(py_file), line=1, parent_full_name="mod.MyClass",
+    )
+    lsp.get_document_symbols.return_value = [cls_sym, method_sym]
+
+    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+        mock_resolver_instance = MagicMock()
+        MockResolver.return_value = mock_resolver_instance
+        indexer.index_project(str(tmp_path), "python")
+
+    # Verify SymbolResolver was constructed with assignment_position_map
+    MockResolver.assert_called_once()
+    call_kwargs = MockResolver.call_args[1]
+    apm = call_kwargs.get("assignment_position_map", None)
+    assert apm is not None
+    assert (str(tmp_path / "foo.py"), 5) in apm
+    assert apm[(str(tmp_path / "foo.py"), 5)] is ref
+
+    # Verify the extractor was called
+    assert assign_ext.extract.call_count >= 1
+
+
+def test_index_project_skips_assignment_map_for_csharp(tmp_path):
+    """Indexer with C# plugin (no create_assignment_extractor) constructs SymbolResolver
+    without assignment_position_map (or with empty dict)."""
+    conn = MagicMock()
+    conn.query.return_value = []
+
+    plugin = _make_python_plugin()
+    plugin.name = "csharp"
+    plugin.file_extensions = frozenset({".cs"})
+    # No assignment extractor support
+    plugin.create_assignment_extractor = MagicMock(return_value=None)
+
+    indexer, lsp, _ = _make_python_indexer(conn, plugin)
+
+    cs_file = tmp_path / "Foo.cs"
+    cs_file.write_text("namespace X { class Foo {} }")
+    lsp.get_workspace_files.return_value = [str(cs_file)]
+
+    cls_sym = IndexSymbol(
+        name="Foo", full_name="X.Foo", kind=SymbolKind.CLASS,
+        file_path=str(cs_file), line=0, parent_full_name=None,
+    )
+    lsp.get_document_symbols.return_value = [cls_sym]
+
+    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+        mock_resolver_instance = MagicMock()
+        MockResolver.return_value = mock_resolver_instance
+        indexer.index_project(str(tmp_path), "csharp")
+
+    MockResolver.assert_called_once()
+    call_kwargs = MockResolver.call_args[1]
+    apm = call_kwargs.get("assignment_position_map", {})
+    assert len(apm) == 0
+
+
+def test_reindex_file_builds_assignment_map(tmp_path):
+    """Indexer.reindex_file with Python plugin builds assignment maps and passes
+    assignment_position_map to SymbolResolver."""
+    conn = MagicMock()
+    conn.query.return_value = []
+
+    plugin = _make_python_plugin()
+
+    ref = AssignmentRef("mod.MyClass", "_svc", str(tmp_path / "bar.py"), 3, 8)
+    assign_ext = MagicMock()
+    assign_ext.extract.return_value = [ref]
+    plugin.create_assignment_extractor = MagicMock(return_value=assign_ext)
+
+    indexer, lsp, _ = _make_python_indexer(conn, plugin)
+
+    py_file = tmp_path / "bar.py"
+    py_file.write_text("class MyClass:\n    def setup(self):\n        self._svc = SvcFactory.create()\n")
+
+    cls_sym = IndexSymbol(
+        name="MyClass", full_name="mod.MyClass", kind=SymbolKind.CLASS,
+        file_path=str(py_file), line=0, parent_full_name=None,
+    )
+    method_sym = IndexSymbol(
+        name="setup", full_name="mod.MyClass.setup", kind=SymbolKind.METHOD,
+        file_path=str(py_file), line=1, parent_full_name="mod.MyClass",
+    )
+    lsp.get_document_symbols.return_value = [cls_sym, method_sym]
+
+    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+        mock_resolver_instance = MagicMock()
+        MockResolver.return_value = mock_resolver_instance
+        indexer.reindex_file(str(py_file), str(tmp_path))
+
+    MockResolver.assert_called_once()
+    call_kwargs = MockResolver.call_args[1]
+    apm = call_kwargs.get("assignment_position_map", None)
+    assert apm is not None
+    assert (str(tmp_path / "bar.py"), 3) in apm
+    assert apm[(str(tmp_path / "bar.py"), 3)] is ref
