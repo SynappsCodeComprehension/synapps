@@ -23,7 +23,7 @@ class CSharpPlugin:
     def create_call_extractor(self) -> CSharpCallExtractor:
         return CSharpCallExtractor()
 
-    def create_import_extractor(self) -> CSharpImportExtractor:
+    def create_import_extractor(self, source_root: str = "") -> CSharpImportExtractor:
         return CSharpImportExtractor()
 
     def create_base_type_extractor(self) -> CSharpBaseTypeExtractor:
@@ -35,5 +35,5 @@ class CSharpPlugin:
     def create_type_ref_extractor(self) -> CSharpTypeRefExtractor:
         return CSharpTypeRefExtractor()
 
-    def create_assignment_extractor(self):
+    def create_assignment_extractor(self) -> None:
         return None
