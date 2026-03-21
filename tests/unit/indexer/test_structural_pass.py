@@ -780,3 +780,37 @@ def test_python_protocol_class_creates_interface_node(mock_conn):
     assert any(":Interface" in c and "Drawable" in c for c in calls), (
         "Protocol class should produce :Interface node"
     )
+
+
+def test_reindex_file_python_abc_creates_interface_node(mock_conn):
+    """reindex_file must promote ABC classes to :Interface, same as index_project."""
+    lsp = MagicMock()
+    plugin = MagicMock()
+    plugin.name = "python"
+    plugin.file_extensions = frozenset({".py"})
+    plugin.create_import_extractor.return_value = MagicMock(_source_root="")
+    plugin.create_base_type_extractor.return_value = MagicMock(extract=MagicMock(return_value=[]))
+    attr_ext = MagicMock()
+    attr_ext.extract.return_value = [("IAnimal", ["ABC"])]
+    plugin.create_attribute_extractor = MagicMock(return_value=attr_ext)
+    plugin.create_call_extractor = MagicMock(return_value=None)
+    plugin.create_type_ref_extractor = MagicMock(return_value=None)
+
+    sym = IndexSymbol(
+        name="IAnimal", full_name="animals.IAnimal", kind=SymbolKind.CLASS,
+        file_path="/proj/animals.py", line=3,
+    )
+    lsp.get_document_symbols.return_value = [sym]
+
+    with patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapse.indexer.indexer.restore_summaries"), \
+         patch("synapse.indexer.indexer.delete_file_nodes"), \
+         patch("synapse.indexer.indexer.SymbolResolver"), \
+         patch("builtins.open", mock_open(read_data="from abc import ABC\nclass IAnimal(ABC): ...")):
+        indexer = Indexer(mock_conn, lsp, plugin)
+        indexer.reindex_file("/proj/animals.py", "/proj")
+
+    calls = [str(c) for c in mock_conn.execute.call_args_list]
+    assert any(":Interface" in c and "IAnimal" in c for c in calls), (
+        "reindex_file must promote ABC class to :Interface"
+    )

@@ -298,6 +298,29 @@ class Indexer:
         saved_summaries = collect_summaries(self._conn, file_path)
         delete_file_nodes(self._conn, file_path)
         symbols = self._lsp.get_document_symbols(file_path)
+
+        # Pre-scan: promote ABC/Protocol classes to :Interface before structural pass
+        _INTERFACE_MARKERS = frozenset({"ABC", "Protocol"})
+        cached_attr_results: list[tuple[str, list[str]]] | None = None
+        if self._language == "python" and self._attribute_extractor_factory is not None:
+            pre_attr_ext = self._attribute_extractor_factory()
+            if pre_attr_ext is not None:
+                try:
+                    with open(file_path, encoding="utf-8") as f:
+                        source = f.read()
+                    results = pre_attr_ext.extract(file_path, source)
+                    if results:
+                        cached_attr_results = results
+                        interface_names = {
+                            name for name, markers in results
+                            if _INTERFACE_MARKERS & set(markers)
+                        }
+                        for sym in symbols:
+                            if sym.kind == SymbolKind.CLASS and sym.name in interface_names:
+                                sym.kind = SymbolKind.INTERFACE
+                except OSError:
+                    pass
+
         self._index_file_structure(file_path, root_path, symbols)
         restore_summaries(self._conn, saved_summaries)
 
@@ -311,12 +334,15 @@ class Indexer:
             with open(file_path, encoding="utf-8") as f:
                 source = f.read()
             self._index_base_types(file_path, source, name_to_full_names, kind_map)
-            if self._attribute_extractor_factory is not None:
-                attr_extractor = self._attribute_extractor_factory()
+            if cached_attr_results is not None:
+                self._index_attributes_from_results(file_path, cached_attr_results, symbols)
             else:
-                from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
-                attr_extractor = CSharpAttributeExtractor()
-            self._index_attributes(file_path, source, symbols, attr_extractor)
+                if self._attribute_extractor_factory is not None:
+                    attr_extractor = self._attribute_extractor_factory()
+                else:
+                    from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
+                    attr_extractor = CSharpAttributeExtractor()
+                self._index_attributes(file_path, source, symbols, attr_extractor)
         except OSError:
             log.warning("Could not read %s for base type extraction", file_path)
 
