@@ -382,8 +382,8 @@ def test_python_method_symbol_passes_language(mock_conn):
     assert params.get("language") == "python"
 
 
-def test_python_base_types_all_produce_inherits(mock_conn):
-    """Python base types must all produce upsert_inherits, never upsert_implements."""
+def test_python_base_types_class_to_class_produce_inherits(mock_conn):
+    """Python class extending another regular class must produce INHERITS, not IMPLEMENTS."""
     indexer = _make_python_indexer(mock_conn)
     name_to_full_names = {"Dog": ["mymod.Dog"], "Animal": ["mymod.Animal"]}
     kind_map = {"mymod.Dog": SymbolKind.CLASS, "mymod.Animal": SymbolKind.CLASS}
@@ -396,6 +396,40 @@ def test_python_base_types_all_produce_inherits(mock_conn):
     calls = [str(c) for c in mock_conn.execute.call_args_list]
     assert any("INHERITS" in c for c in calls), "Expected INHERITS edge for Python base type"
     assert not any("IMPLEMENTS" in c for c in calls), "Python base types must not produce IMPLEMENTS"
+
+
+def test_python_base_type_abc_produces_implements(mock_conn):
+    """When a Python class inherits from an ABC (:Interface), edge should be IMPLEMENTS."""
+    indexer = _make_python_indexer(mock_conn)
+    name_to_full_names = {"Animal": ["mymod.Animal"], "IAnimal": ["mymod.IAnimal"]}
+    kind_map = {"mymod.Animal": SymbolKind.CLASS, "mymod.IAnimal": SymbolKind.INTERFACE}
+
+    mock_extractor = indexer._base_type_extractor
+    mock_extractor.extract.return_value = [("Animal", "IAnimal", True)]
+
+    indexer._index_base_types("/proj/mymod.py", "class Animal(IAnimal): pass", name_to_full_names, kind_map)
+
+    calls = [str(c) for c in mock_conn.execute.call_args_list]
+    assert any("IMPLEMENTS" in c for c in calls), "Expected IMPLEMENTS edge when base is :Interface"
+    assert not any("INHERITS" in c for c in calls), "Should not produce INHERITS for :Interface base"
+
+
+def test_python_interface_extends_interface_produces_interface_inherits(mock_conn):
+    """When an ABC/Protocol extends another ABC/Protocol, use upsert_interface_inherits."""
+    indexer = _make_python_indexer(mock_conn)
+    name_to_full_names = {"ISpecial": ["mymod.ISpecial"], "IAnimal": ["mymod.IAnimal"]}
+    kind_map = {"mymod.ISpecial": SymbolKind.INTERFACE, "mymod.IAnimal": SymbolKind.INTERFACE}
+
+    mock_extractor = indexer._base_type_extractor
+    mock_extractor.extract.return_value = [("ISpecial", "IAnimal", True)]
+
+    indexer._index_base_types("/proj/mymod.py", "class ISpecial(IAnimal): pass", name_to_full_names, kind_map)
+
+    calls = [str(c) for c in mock_conn.execute.call_args_list]
+    # upsert_interface_inherits uses MATCH (src:Interface ... dst:Interface ... INHERITS
+    assert any(":Interface" in c and "INHERITS" in c for c in calls), (
+        "Expected Interface-INHERITS-Interface edge"
+    )
 
 
 def test_python_import_extractor_tuple_output_handled(mock_conn):

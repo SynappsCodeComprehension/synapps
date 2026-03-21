@@ -585,8 +585,17 @@ class Indexer:
                 type_kind = kind_map.get(type_full)
                 for base_full in base_candidates:
                     if self._language == "python":
-                        # Python has no interface distinction; all bases produce INHERITS edges
-                        upsert_inherits(self._conn, type_full, base_full)
+                        type_kind = kind_map.get(type_full)
+                        base_kind = kind_map.get(base_full)
+                        if type_kind == SymbolKind.INTERFACE:
+                            # Interface extends interface (e.g. Protocol inheriting Protocol)
+                            upsert_interface_inherits(self._conn, type_full, base_full)
+                        elif base_kind == SymbolKind.INTERFACE:
+                            # Class implements ABC/Protocol
+                            upsert_implements(self._conn, type_full, base_full)
+                        else:
+                            # Regular class inheritance
+                            upsert_inherits(self._conn, type_full, base_full)
                     elif type_kind == SymbolKind.INTERFACE:
                         # Interfaces only extend other interfaces
                         upsert_interface_inherits(self._conn, type_full, base_full)
