@@ -7,6 +7,7 @@ from pathlib import Path
 
 from synapse.graph.connection import GraphConnection
 from synapse.graph.edges import upsert_calls, upsert_module_calls, upsert_references
+from synapse.indexer.assignment_ref import AssignmentRef
 from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
 from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
 from synapse.indexer.type_ref import TypeRef
@@ -33,7 +34,8 @@ def _build_class_lines_per_file(
 class _ResolveStats:
     """Accumulates timing and count stats for resolution logging."""
     __slots__ = (
-        "calls_resolved", "calls_unresolved", "type_refs_resolved",
+        "calls_resolved", "calls_unresolved", "calls_resolved_via_assignment",
+        "type_refs_resolved",
         "lsp_definition_time", "lsp_containing_time", "callee_name_time",
         "extraction_calls_time", "extraction_typerefs_time",
     )
@@ -41,6 +43,7 @@ class _ResolveStats:
     def __init__(self) -> None:
         self.calls_resolved = 0
         self.calls_unresolved = 0
+        self.calls_resolved_via_assignment = 0
         self.type_refs_resolved = 0
         self.lsp_definition_time = 0.0
         self.lsp_containing_time = 0.0
@@ -64,6 +67,7 @@ class SymbolResolver:
         name_to_full_names: dict[str, list[str]] | None = None,
         file_extensions: frozenset[str] | None = None,
         module_full_names: set[str] | None = None,
+        assignment_position_map: dict[tuple[str, int], AssignmentRef] | None = None,
     ) -> None:
         self._conn = conn
         self._ls = ls
@@ -72,6 +76,7 @@ class SymbolResolver:
         self._name_to_full_names = name_to_full_names or {}
         self._file_extensions = file_extensions or frozenset({".cs"})
         self._module_full_names = module_full_names or set()
+        self._assignment_position_map = assignment_position_map or {}
         self._unresolved_sites: list[str] = []
 
     def resolve(
@@ -106,11 +111,13 @@ class SymbolResolver:
         elapsed = time.monotonic() - resolve_start
         s = self._stats
         log.info(
-            "Resolution complete in %.1fs — %d files, %d call sites (%d resolved, %d unresolved), "
+            "Resolution complete in %.1fs — %d files, %d call sites (%d resolved, %d unresolved, "
+            "%d via assignment fallback), "
             "%d type refs resolved. LSP: %.1fs definition, %.1fs containing_symbol, "
             "%.1fs callee_name. Extraction: %.1fs calls, %.1fs type_refs",
             elapsed, total_files,
             s.calls_resolved + s.calls_unresolved, s.calls_resolved, s.calls_unresolved,
+            s.calls_resolved_via_assignment,
             s.type_refs_resolved,
             s.lsp_definition_time, s.lsp_containing_time,
             s.callee_name_time, s.extraction_calls_time, s.extraction_typerefs_time,
@@ -227,6 +234,46 @@ class SymbolResolver:
                             self._upsert_call(caller_full_name, callee_full_name, call_line_1, call_col_0)
                             if stats:
                                 stats.calls_resolved += 1
+                            return
+                    elif self._assignment_position_map:
+                        # Definition landed on a non-method position; check if it's a
+                        # stored-reference assignment (only self._field = call() positions
+                        # populate the map, so no additional pattern guard is needed)
+                        ref = self._assignment_position_map.get((abs_path, def_line))
+                        if ref:
+                            log.debug(
+                                "Assignment fallback: %s -> %s at %s:%d, source at %s:%d",
+                                caller_full_name, callee_simple_name, abs_path, def_line,
+                                ref.source_file, ref.source_line,
+                            )
+                            src_rel = os.path.relpath(ref.source_file, self._ls.repository_root_path)
+                            try:
+                                src_defs = self._ls.request_definition(src_rel, ref.source_line, ref.source_col)
+                            except Exception:
+                                src_defs = None
+                            if src_defs:
+                                for src_defn in src_defs:
+                                    src_abs = src_defn.get("absolutePath")
+                                    src_line = src_defn.get("range", {}).get("start", {}).get("line")
+                                    if src_abs is not None and src_line is not None:
+                                        resolved_name = symbol_map.get((src_abs, src_line))
+                                        if resolved_name:
+                                            t_name = time.monotonic()
+                                            resolved_name = self._resolve_callee_name(resolved_name)
+                                            if stats:
+                                                stats.callee_name_time += time.monotonic() - t_name
+                                            if resolved_name and resolved_name != caller_full_name:
+                                                self._upsert_call(caller_full_name, resolved_name, call_line_1, call_col_0)
+                                                if stats:
+                                                    stats.calls_resolved += 1
+                                                    stats.calls_resolved_via_assignment += 1
+                                                return
+                            # Assignment fallback failed
+                            self._unresolved_sites.append(
+                                f"Unresolved (assignment fallback failed): {caller_full_name} -> {callee_simple_name} at {rel_path}:{line_0 + 1}"
+                            )
+                            if stats:
+                                stats.calls_unresolved += 1
                             return
 
         # Fallback: resolve via containing symbol (may fail for single-line declarations)

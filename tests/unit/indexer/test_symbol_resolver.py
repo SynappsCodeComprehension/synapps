@@ -382,6 +382,8 @@ def test_resolve_call_fallback_via_assignment_map():
         assignment_position_map=assignment_position_map,
     )
 
+    resolver._stats = _ResolveStats()
+
     with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
 
@@ -412,7 +414,9 @@ def test_resolve_call_assignment_fallback_second_lsp_fails():
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = []
 
-    symbol_map = {}  # Nothing in symbol_map
+    # symbol_map must be truthy for the lookup block to run, but must NOT contain
+    # the first definition position (handler.py:10)
+    symbol_map = {("/proj/other.py", 99): "SomeOther.Method"}
 
     ref = AssignmentRef("Mod.MyClass", "_handler", "/proj/factory.py", 7, 4)
     assignment_position_map = {("/proj/handler.py", 10): ref}
@@ -423,6 +427,8 @@ def test_resolve_call_assignment_fallback_second_lsp_fails():
         type_ref_extractor=type_ref_extractor,
         assignment_position_map=assignment_position_map,
     )
+
+    resolver._stats = _ResolveStats()
 
     with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
@@ -456,7 +462,8 @@ def test_resolve_call_no_assignment_map_entry_falls_through():
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = []
 
-    symbol_map = {}  # Not in symbol_map
+    # symbol_map truthy but doesn't contain (handler.py, 10)
+    symbol_map = {("/proj/other.py", 99): "SomeOther.Method"}
     # Empty assignment_position_map -- no entry for (handler.py, 10)
     assignment_position_map = {}
 
@@ -466,6 +473,8 @@ def test_resolve_call_no_assignment_map_entry_falls_through():
         type_ref_extractor=type_ref_extractor,
         assignment_position_map=assignment_position_map,
     )
+
+    resolver._stats = _ResolveStats()
 
     with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
@@ -501,6 +510,8 @@ def test_resolve_call_direct_hit_skips_assignment_fallback():
         type_ref_extractor=type_ref_extractor,
         assignment_position_map=assignment_position_map,
     )
+
+    resolver._stats = _ResolveStats()
 
     with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
