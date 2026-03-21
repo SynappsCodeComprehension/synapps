@@ -27,6 +27,7 @@ EXPECTED_TOOLS = {
     "get_call_depth", "analyze_change_impact", "find_interface_contract",
     "find_type_impact", "audit_architecture", "summarize_from_graph",
     "get_schema",
+    "sync_project",
 }
 
 

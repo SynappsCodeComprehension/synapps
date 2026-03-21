@@ -25,8 +25,8 @@ def test_list_projects(python_mcp: FastMCP) -> None:
     projects = result_json(result)
     assert isinstance(projects, list)
     assert len(projects) >= 1
-    languages = [p.get("language") for p in projects]
-    assert "python" in languages, f"Expected 'python' in project languages, got: {languages}"
+    all_languages = [lang for p in projects for lang in p.get("languages", [])]
+    assert "python" in all_languages, f"Expected 'python' in project languages, got: {all_languages}"
 
 
 @pytest.mark.integration
