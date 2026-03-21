@@ -118,6 +118,19 @@ def upsert_method_implements(conn: GraphConnection, impl_method: str, iface_meth
     )
 
 
+def upsert_abstract_dispatches_to(conn: GraphConnection, child_method: str, parent_method: str) -> None:
+    """DISPATCHES_TO from abstract parent method to concrete child method.
+
+    Unlike upsert_method_implements, no IMPLEMENTS edge is created —
+    OVERRIDES already exists from OverridesIndexer for ABC inheritance.
+    """
+    conn.execute(
+        "MATCH (parent:Method {full_name: $parent}), (child:Method {full_name: $child}) "
+        "MERGE (parent)-[:DISPATCHES_TO]->(child)",
+        {"parent": parent_method, "child": child_method},
+    )
+
+
 def upsert_overrides(conn: GraphConnection, method_full_name: str, base_method_full_name: str) -> None:
     conn.execute(
         "MATCH (src:Method {full_name: $method}), (dst:Method {full_name: $base}) "

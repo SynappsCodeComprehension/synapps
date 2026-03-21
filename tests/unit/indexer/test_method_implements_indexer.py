@@ -12,6 +12,8 @@ def test_index_writes_edge_for_shared_method_name() -> None:
         [["CreateAsync", "Ns.MeetingService.CreateAsync"], ["DeleteAsync", "Ns.MeetingService.DeleteAsync"]],
         # _get_methods(IMeetingService)
         [["CreateAsync", "Ns.IMeetingService.CreateAsync"], ["GetAllAsync", "Ns.IMeetingService.GetAllAsync"]],
+        # _get_abstract_inherits_pairs — none
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     # Only CreateAsync is shared — one IMPLEMENTS + one DISPATCHES_TO edge written
@@ -26,7 +28,7 @@ def test_index_writes_edge_for_shared_method_name() -> None:
 
 def test_index_writes_no_edges_when_no_pairs() -> None:
     conn = MagicMock()
-    conn.query.side_effect = [[]]  # no impl pairs
+    conn.query.side_effect = [[], []]  # no impl pairs, no abstract pairs
     MethodImplementsIndexer(conn).index()
     conn.execute.assert_not_called()
 
@@ -37,6 +39,8 @@ def test_index_writes_no_edges_when_no_matching_methods() -> None:
         [["Ns.Svc", "Ns.ISvc"]],
         [["PrivateMethod", "Ns.Svc.PrivateMethod"]],   # not on interface
         [["PublicMethod", "Ns.ISvc.PublicMethod"]],     # not on impl
+        # _get_abstract_inherits_pairs — none
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     conn.execute.assert_not_called()
@@ -55,6 +59,8 @@ def test_index_writes_multiple_edges_for_multiple_pairs() -> None:
         [["CreateAsync", "Ns.TaskController.CreateAsync"]],
         # ITaskService methods (fetched again for TaskController)
         [["CreateAsync", "Ns.ITaskService.CreateAsync"]],
+        # _get_abstract_inherits_pairs — none
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     # Two method pairs × two edges each (IMPLEMENTS + DISPATCHES_TO)

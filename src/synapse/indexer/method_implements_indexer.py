@@ -1,7 +1,7 @@
 import logging
 
 from synapse.graph.connection import GraphConnection
-from synapse.graph.edges import upsert_method_implements
+from synapse.graph.edges import upsert_abstract_dispatches_to, upsert_method_implements
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +29,22 @@ class MethodImplementsIndexer:
                     impl_methods[name],
                     iface_methods[name],
                 )
+
+        abstract_pairs = self._get_abstract_inherits_pairs()
+        log.debug("MethodImplementsIndexer: %d abstract/base pairs", len(abstract_pairs))
+        for child_full_name, parent_full_name in abstract_pairs:
+            child_methods = self._get_methods(child_full_name)
+            parent_methods = self._get_methods(parent_full_name)
+            for name in child_methods.keys() & parent_methods.keys():
+                upsert_abstract_dispatches_to(self._conn, child_methods[name], parent_methods[name])
+
+    def _get_abstract_inherits_pairs(self) -> list[tuple[str, str]]:
+        rows = self._conn.query(
+            "MATCH (child:Class)-[:INHERITS]->(parent:Class) "
+            "WHERE parent.is_abstract = true "
+            "RETURN child.full_name, parent.full_name"
+        )
+        return [(r[0], r[1]) for r in rows if r[0] and r[1]]
 
     def _get_impl_pairs(self) -> list[tuple[str, str]]:
         rows = self._conn.query(
