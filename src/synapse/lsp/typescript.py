@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-from synapse.lsp.interface import IndexSymbol, LSPAdapter, SymbolKind
+from synapse.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
 
 log = logging.getLogger(__name__)
 
@@ -61,12 +61,12 @@ def _build_ts_full_name(raw: dict, file_path: str, root_path: str) -> str:
 class TypeScriptLSPAdapter:
     """Wraps a TypeScriptLanguageServer instance to provide the LSPAdapter interface."""
 
-    def __init__(self, language_server: object, root_path: str) -> None:
+    def __init__(self, language_server: LSPResolverBackend, root_path: str) -> None:
         self._ls = language_server
         self._root_path = root_path
 
     @property
-    def language_server(self) -> object:
+    def language_server(self) -> LSPResolverBackend:
         return self._ls
 
     @classmethod

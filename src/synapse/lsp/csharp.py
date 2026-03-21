@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from synapse.lsp.interface import IndexSymbol, LSPAdapter, SymbolKind
+from synapse.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
 from synapse.lsp.util import build_full_name
 
 log = logging.getLogger(__name__)
@@ -27,11 +27,11 @@ _LSP_KIND_MAP: dict[int, SymbolKind] = {
 class CSharpLSPAdapter:
     """Wraps a SolidLanguageServer instance to provide the LSPAdapter interface for C#."""
 
-    def __init__(self, language_server: object) -> None:
+    def __init__(self, language_server: LSPResolverBackend) -> None:
         self._ls = language_server
 
     @property
-    def language_server(self) -> object:
+    def language_server(self) -> LSPResolverBackend:
         return self._ls
 
     @classmethod

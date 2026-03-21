@@ -11,6 +11,7 @@ from synapse.indexer.assignment_ref import AssignmentRef
 from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
 from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
 from synapse.indexer.type_ref import TypeRef
+from synapse.lsp.interface import LSPResolverBackend
 from synapse.lsp.util import build_full_name
 
 log = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ class SymbolResolver:
     def __init__(
         self,
         conn: GraphConnection,
-        ls: object,
+        ls: LSPResolverBackend,
         call_extractor: CSharpCallExtractor | None = None,
         type_ref_extractor: CSharpTypeRefExtractor | None = None,
         name_to_full_names: dict[str, list[str]] | None = None,

@@ -7,6 +7,7 @@ from pathlib import Path
 from synapse.graph.connection import GraphConnection
 from synapse.graph.edges import upsert_calls
 from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
+from synapse.lsp.interface import LSPResolverBackend
 from synapse.lsp.util import build_full_name
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class CallIndexer:
     def __init__(
         self,
         conn: GraphConnection,
-        ls: object,
+        ls: LSPResolverBackend,
         extractor: CSharpCallExtractor | None = None,
         file_extensions: frozenset[str] | None = None,
     ) -> None:

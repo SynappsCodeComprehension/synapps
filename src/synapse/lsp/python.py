@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import Path
 
-from synapse.lsp.interface import IndexSymbol, LSPAdapter, SymbolKind
+from synapse.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
 
 log = logging.getLogger(__name__)
 
@@ -74,13 +74,13 @@ def _parse_reexported_names(source: str) -> set[str]:
 class PythonLSPAdapter:
     """Wraps a PyrightServer instance to provide the LSPAdapter interface for Python."""
 
-    def __init__(self, language_server: object, root_path: str) -> None:
+    def __init__(self, language_server: LSPResolverBackend, root_path: str) -> None:
         self._ls = language_server
         self._root_path = root_path
         self._source_root: str | None = None
 
     @property
-    def language_server(self) -> object:
+    def language_server(self) -> LSPResolverBackend:
         return self._ls
 
     @classmethod

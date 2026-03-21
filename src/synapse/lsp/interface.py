@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 class SymbolKind(str, Enum):
@@ -56,4 +57,30 @@ class LSPAdapter(Protocol):
 
     def shutdown(self) -> None:
         """Shut down the language server process."""
+        ...
+
+
+class LSPResolverBackend(Protocol):
+    """Raw LSP server interface used by SymbolResolver and CallIndexer for Phase 2 resolution."""
+
+    repository_root_path: str
+
+    def open_file(self, relative_file_path: str) -> AbstractContextManager[Any]:
+        """Open a file in the language server (context manager)."""
+        ...
+
+    def request_definition(self, relative_file_path: str, line: int, column: int) -> list[Any]:
+        """Return definition locations for the symbol at the given position."""
+        ...
+
+    def request_containing_symbol(
+        self, relative_file_path: str, line: int, column: int | None = None, strict: bool = False,
+    ) -> Any:
+        """Return the symbol containing the given position, or None."""
+        ...
+
+    def request_defining_symbol(
+        self, relative_file_path: str, line: int, column: int, include_body: bool = False,
+    ) -> Any:
+        """Return the symbol that defines the symbol at the given position, or None."""
         ...
