@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from synapse.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
+from synapse.lsp.util import symbol_suffix
 
 log = logging.getLogger(__name__)
 
@@ -35,14 +36,6 @@ _LSP_KIND_MAP: dict[int, SymbolKind | None] = {
 }
 
 
-def _symbol_suffix(raw: dict) -> str:
-    name = raw.get("name", "")
-    parent = raw.get("parent")
-    if parent:
-        return f"{_symbol_suffix(parent)}.{name}"
-    return name
-
-
 def _build_ts_full_name(raw: dict, file_path: str, root_path: str) -> str:
     """Build a forward-slash path-prefixed full name from file path + symbol parent chain.
 
@@ -52,7 +45,7 @@ def _build_ts_full_name(raw: dict, file_path: str, root_path: str) -> str:
     rel = os.path.relpath(file_path, root_path)
     # Strip extension and convert OS separators to forward slashes
     path_prefix = Path(rel).with_suffix("").as_posix()
-    suffix = _symbol_suffix(raw)
+    suffix = symbol_suffix(raw)
     if suffix:
         return f"{path_prefix}.{suffix}"
     return path_prefix

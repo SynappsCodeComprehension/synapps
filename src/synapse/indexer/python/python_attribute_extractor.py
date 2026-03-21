@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 _ABC_NAMES = frozenset({"ABC", "ABCMeta"})
@@ -89,11 +91,11 @@ class PythonAttributeExtractor:
                     if arg.type == "keyword_argument":
                         # metaclass=ABCMeta pattern
                         for kw_child in arg.children:
-                            if kw_child.type == "identifier" and _text(kw_child) in _ABC_NAMES:
+                            if kw_child.type == "identifier" and node_text(kw_child) in _ABC_NAMES:
                                 markers.append("ABC")
                                 break
                     else:
-                        text = _text(arg)
+                        text = node_text(arg)
                         if text in _ABC_NAMES:
                             markers.append("ABC")
                         elif text in _PROTOCOL_NAMES:
@@ -124,30 +126,25 @@ class PythonAttributeExtractor:
         """Extract the simple name from a decorator node."""
         for child in decorator_node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
             if child.type == "attribute":
                 # dotted.name — return last segment
                 for attr_child in reversed(child.children):
                     if attr_child.type == "identifier":
-                        return _text(attr_child)
+                        return node_text(attr_child)
             if child.type == "call":
                 # @decorator() — recurse into the function part
                 for call_child in child.children:
                     if call_child.type == "identifier":
-                        return _text(call_child)
+                        return node_text(call_child)
                     if call_child.type == "attribute":
                         for attr_child in reversed(call_child.children):
                             if attr_child.type == "identifier":
-                                return _text(attr_child)
+                                return node_text(attr_child)
         return None
 
     def _node_name(self, node) -> str | None:
         for child in node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
         return None
-
-
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
 from synapse.indexer.type_ref import TypeRef
 
 log = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class PythonTypeRefExtractor:
         if type_node is None:
             return
         line_0 = type_node.start_point[0]
-        owner = self._find_enclosing_method(line_0, method_lines)
+        owner = find_enclosing_scope(line_0, method_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(type_node):
@@ -97,7 +98,7 @@ class PythonTypeRefExtractor:
         if return_type is None:
             return
         line_0 = return_type.start_point[0]
-        owner = self._find_enclosing_method(line_0, method_lines)
+        owner = find_enclosing_scope(line_0, method_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(return_type):
@@ -121,7 +122,7 @@ class PythonTypeRefExtractor:
         if type_node is None:
             return
         line_0 = type_node.start_point[0]
-        owner = self._find_enclosing_class(line_0, class_lines)
+        owner = find_enclosing_scope(line_0, class_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(type_node):
@@ -149,7 +150,7 @@ class PythonTypeRefExtractor:
             return []
 
         if node_type == "identifier":
-            name = _text(node)
+            name = node_text(node)
             if name not in _PYTHON_PRIMITIVE_TYPES:
                 return [name]
             return []
@@ -160,7 +161,7 @@ class PythonTypeRefExtractor:
             names: list[str] = []
             for child in node.children:
                 if child.type == "identifier":
-                    name = _text(child)
+                    name = node_text(child)
                     if name not in _PYTHON_PRIMITIVE_TYPES:
                         names.append(name)
                 elif child.type == "type_parameter":
@@ -181,7 +182,7 @@ class PythonTypeRefExtractor:
             last_id = None
             for child in node.children:
                 if child.type == "identifier":
-                    last_id = _text(child)
+                    last_id = node_text(child)
             if last_id and last_id not in _PYTHON_PRIMITIVE_TYPES:
                 return [last_id]
             return []
@@ -201,7 +202,7 @@ class PythonTypeRefExtractor:
                     extracted = self._extract_type_names(outer)
                     outer_name = extracted[0] if extracted else None
                 elif outer.type == "identifier":
-                    outer_name = _text(outer)
+                    outer_name = node_text(outer)
 
             # If outer is a known primitive/container, skip it; recurse into subscript args
             skip_outer = outer_name in _PYTHON_PRIMITIVE_TYPES or outer_name == "Optional"
@@ -226,28 +227,3 @@ class PythonTypeRefExtractor:
             if child.type == child_type:
                 return child
         return None
-
-    @staticmethod
-    def _find_enclosing_method(line_0: int, method_lines: list[tuple[int, str]]) -> str | None:
-        best: str | None = None
-        for method_line, full_name in method_lines:
-            if method_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best
-
-    @staticmethod
-    def _find_enclosing_class(line_0: int, class_lines: list[tuple[int, str]]) -> str | None:
-        best: str | None = None
-        for class_line, full_name in class_lines:
-            if class_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best
-
-
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

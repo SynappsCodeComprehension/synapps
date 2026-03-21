@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 _DECL_TYPES = frozenset({
@@ -46,7 +48,7 @@ class CSharpBaseTypeExtractor:
 
         for child in node.children:
             if child.type == "identifier" and type_name is None:
-                type_name = _text(child)
+                type_name = node_text(child)
             elif child.type == "base_list":
                 base_list_node = child
 
@@ -66,12 +68,12 @@ class CSharpBaseTypeExtractor:
 
 def _extract_base_name(node) -> str | None:
     if node.type == "identifier":
-        return _text(node)
+        return node_text(node)
     if node.type == "generic_name":
         # First child is the unqualified identifier before the type argument list
         for child in node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
     if node.type == "qualified_name":
         # Recurse left-to-right, keeping the last result; tree is left-recursive so
         # the rightmost leaf is always the simple type name we need for name lookup.
@@ -87,6 +89,3 @@ def _extract_base_name(node) -> str | None:
     return None
 
 
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

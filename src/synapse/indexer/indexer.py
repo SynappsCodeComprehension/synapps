@@ -171,123 +171,13 @@ class Indexer:
         # from the parent method to the callback so traversal tools can walk through them.
         self._index_callback_edges(symbols_by_file)
 
-        # CALLS and REFERENCES resolution requires all nodes to be present; must run after structural pass
-        _CLASS_KINDS = {SymbolKind.CLASS, SymbolKind.ABSTRACT_CLASS, SymbolKind.INTERFACE}
-        symbol_map = {
-            (sym.file_path, sym.line): sym.full_name
-            for syms in symbols_by_file.values()
-            for sym in syms
-            if sym.kind == SymbolKind.METHOD
-        }
-        class_symbol_map = {
-            (sym.file_path, sym.line): sym.full_name
-            for syms in symbols_by_file.values()
-            for sym in syms
-            if sym.kind in _CLASS_KINDS
-        }
-
         if on_progress:
             on_progress("Resolving call edges...")
 
-        call_ext = self._call_extractor_factory() if self._call_extractor_factory else None
-        type_ref_ext = self._type_ref_extractor_factory() if self._type_ref_extractor_factory else None
-
-        # Build module_full_names set and wire module_name_resolver for Python and TypeScript
-        module_full_names: set[str] = set()
-        if self._language in ("python", "typescript"):
-            module_map: dict[str, str] = {}
-            for fp, syms in symbols_by_file.items():
-                for sym in syms:
-                    if sym.signature == "module" and sym.kind == SymbolKind.CLASS:
-                        module_full_names.add(sym.full_name)
-                        module_map[fp] = sym.full_name
-                        break
-            if call_ext is not None and hasattr(call_ext, "_module_name_resolver"):
-                call_ext._module_name_resolver = lambda fp, _m=module_map: _m.get(fp)
-
-        # Build assignment maps if plugin supports it
-        from synapse.indexer.assignment_ref import AssignmentRef
-        assignment_semantic_map: dict[tuple[str, str], AssignmentRef] = {}
-        assignment_position_map: dict[tuple[str, int], AssignmentRef] = {}
-        if self._assignment_extractor_factory is not None:
-            assign_ext = self._assignment_extractor_factory()
-            if assign_ext is not None:
-                _CLASS_KINDS_for_lines = {SymbolKind.CLASS, SymbolKind.ABSTRACT_CLASS}
-                class_lines_per_file: dict[str, list[tuple[int, str]]] = {}
-                for fp, syms in symbols_by_file.items():
-                    file_class_lines = [
-                        (sym.line, sym.full_name) for sym in syms
-                        if sym.kind in _CLASS_KINDS_for_lines
-                    ]
-                    if file_class_lines:
-                        file_class_lines.sort()
-                        class_lines_per_file[fp] = file_class_lines
-
-                for file_path in files:
-                    try:
-                        with open(file_path, encoding="utf-8", errors="ignore") as f:
-                            source = f.read()
-                        refs = assign_ext.extract(
-                            file_path, source, symbol_map,
-                            class_lines=class_lines_per_file.get(file_path),
-                            module_name_resolver=module_map.get if self._language in ("python", "typescript") else None,
-                        )
-                        for ref in refs:
-                            assignment_semantic_map[(ref.class_full_name, ref.field_name)] = ref
-                    except OSError:
-                        pass
-
-                # Derive position map from semantic map for SymbolResolver fast lookup
-                for ref in assignment_semantic_map.values():
-                    assignment_position_map[(ref.source_file, ref.source_line)] = ref
-
-                if assignment_semantic_map:
-                    log.info(
-                        "Built assignment maps: %d semantic entries, %d position entries",
-                        len(assignment_semantic_map), len(assignment_position_map),
-                    )
-
-        resolver = SymbolResolver(
-            self._conn,
-            self._lsp.language_server,
-            call_extractor=call_ext,
-            type_ref_extractor=type_ref_ext,
-            name_to_full_names=name_to_full_names,
-            file_extensions=self._file_extensions,
-            module_full_names=module_full_names,
-            assignment_position_map=assignment_position_map,
+        all_symbols = [sym for syms in symbols_by_file.values() for sym in syms]
+        self._resolve_calls_and_refs(
+            root_path, all_symbols, files, name_to_full_names,
         )
-        resolver.resolve(root_path, symbol_map, class_symbol_map=class_symbol_map)
-
-        # Per-site DEBUG logging for unresolved call sites (per user decision)
-        if self._language == "python" and hasattr(resolver, "_unresolved_sites"):
-            for site_msg in resolver._unresolved_sites:
-                log.debug(site_msg)
-
-        # Resolution summary for Python
-        if self._language == "python" and call_ext is not None:
-            calls_count_rows = self._conn.query(
-                "MATCH ()-[r:CALLS]->() WHERE r.call_sites IS NOT NULL RETURN count(r)"
-            )
-            resolved = calls_count_rows[0][0] if calls_count_rows else 0
-            total = getattr(call_ext, "_sites_seen", 0)
-            if total > 0:
-                pct = resolved / total * 100
-                unresolved = total - resolved
-                log.info(
-                    "Call resolution: %d/%d resolved (%.1f%%), %d unresolved",
-                    resolved, total, pct, unresolved,
-                )
-                if resolved == 0:
-                    log.warning(
-                        "Call resolution produced zero CALLS edges (%d sites attempted) — "
-                        "check that LSP is running and fixture uses typed code",
-                        total,
-                    )
-
-        # OVERRIDES detection for Python (pure Cypher, no LSP needed)
-        if self._language == "python":
-            OverridesIndexer(self._conn).index()
 
         if not keep_lsp_running:
             self._lsp.shutdown()
@@ -344,24 +234,44 @@ class Indexer:
         except OSError:
             log.warning("Could not read %s for base type extraction", file_path)
 
+        self._resolve_calls_and_refs(
+            root_path, symbols, [file_path], name_to_full_names,
+            single_file=file_path,
+        )
+
+    def _resolve_calls_and_refs(
+        self,
+        root_path: str,
+        all_symbols: list[IndexSymbol],
+        files: list[str],
+        name_to_full_names: dict[str, list[str]],
+        *,
+        single_file: str | None = None,
+    ) -> None:
+        """Build resolution context and run SymbolResolver for CALLS + REFERENCES edges.
+
+        When ``single_file`` is provided, only that file is resolved (used by reindex_file).
+        """
         _CLASS_KINDS = {SymbolKind.CLASS, SymbolKind.ABSTRACT_CLASS, SymbolKind.INTERFACE}
         symbol_map = {
             (sym.file_path, sym.line): sym.full_name
-            for sym in symbols
+            for sym in all_symbols
             if sym.kind == SymbolKind.METHOD
         }
         class_symbol_map = {
             (sym.file_path, sym.line): sym.full_name
-            for sym in symbols
+            for sym in all_symbols
             if sym.kind in _CLASS_KINDS
         }
+
         call_ext = self._call_extractor_factory() if self._call_extractor_factory else None
         type_ref_ext = self._type_ref_extractor_factory() if self._type_ref_extractor_factory else None
 
+        # Build module_full_names set and wire module_name_resolver for Python/TypeScript
         module_full_names: set[str] = set()
+        module_map: dict[str, str] = {}
         if self._language in ("python", "typescript"):
-            module_map: dict[str, str] = {}
-            for sym in symbols:
+            for sym in all_symbols:
                 if sym.signature == "module" and sym.kind == SymbolKind.CLASS:
                     module_full_names.add(sym.full_name)
                     module_map[sym.file_path] = sym.full_name
@@ -370,34 +280,45 @@ class Indexer:
 
         # Build assignment maps if plugin supports it
         from synapse.indexer.assignment_ref import AssignmentRef
-        assignment_semantic_map: dict[tuple[str, str], AssignmentRef] = {}
         assignment_position_map: dict[tuple[str, int], AssignmentRef] = {}
         if self._assignment_extractor_factory is not None:
             assign_ext = self._assignment_extractor_factory()
             if assign_ext is not None:
                 _CLASS_KINDS_for_lines = {SymbolKind.CLASS, SymbolKind.ABSTRACT_CLASS}
-                class_lines_for_file = sorted(
-                    (sym.line, sym.full_name) for sym in symbols
-                    if sym.kind in _CLASS_KINDS_for_lines
-                )
-                try:
-                    with open(file_path, encoding="utf-8", errors="ignore") as f:
-                        source = f.read()
-                    refs = assign_ext.extract(
-                        file_path, source, symbol_map,
-                        class_lines=class_lines_for_file or None,
-                        module_name_resolver=module_map.get if self._language in ("python", "typescript") else None,
-                    )
-                    for ref in refs:
-                        assignment_semantic_map[(ref.class_full_name, ref.field_name)] = ref
-                except OSError:
-                    pass
+                class_lines_per_file: dict[str, list[tuple[int, str]]] = {}
+                for sym in all_symbols:
+                    if sym.kind in _CLASS_KINDS_for_lines:
+                        class_lines_per_file.setdefault(sym.file_path, []).append(
+                            (sym.line, sym.full_name)
+                        )
+                for cls_lines in class_lines_per_file.values():
+                    cls_lines.sort()
 
-                # Derive position map from semantic map
-                for ref in assignment_semantic_map.values():
+                semantic_map: dict[tuple[str, str], AssignmentRef] = {}
+                for file_path in files:
+                    try:
+                        with open(file_path, encoding="utf-8", errors="ignore") as f:
+                            source = f.read()
+                        refs = assign_ext.extract(
+                            file_path, source, symbol_map,
+                            class_lines=class_lines_per_file.get(file_path),
+                            module_name_resolver=module_map.get if module_map else None,
+                        )
+                        for ref in refs:
+                            semantic_map[(ref.class_full_name, ref.field_name)] = ref
+                    except OSError:
+                        pass
+
+                for ref in semantic_map.values():
                     assignment_position_map[(ref.source_file, ref.source_line)] = ref
 
-        SymbolResolver(
+                if semantic_map:
+                    log.info(
+                        "Built assignment maps: %d semantic entries, %d position entries",
+                        len(semantic_map), len(assignment_position_map),
+                    )
+
+        resolver = SymbolResolver(
             self._conn,
             self._lsp.language_server,
             call_extractor=call_ext,
@@ -406,9 +327,40 @@ class Indexer:
             file_extensions=self._file_extensions,
             module_full_names=module_full_names,
             assignment_position_map=assignment_position_map,
-        ).resolve_single_file(file_path, symbol_map, class_symbol_map=class_symbol_map)
+        )
+        if single_file:
+            resolver.resolve_single_file(single_file, symbol_map, class_symbol_map=class_symbol_map)
+        else:
+            resolver.resolve(root_path, symbol_map, class_symbol_map=class_symbol_map)
 
-        if self._language == "python":
+        # Per-site DEBUG logging for unresolved call sites
+        if self._language in ("python", "typescript") and hasattr(resolver, "_unresolved_sites"):
+            for site_msg in resolver._unresolved_sites:
+                log.debug(site_msg)
+
+        # Resolution summary
+        if self._language in ("python", "typescript") and call_ext is not None:
+            total = getattr(call_ext, "_sites_seen", 0)
+            if isinstance(total, int) and total > 0:
+                calls_count_rows = self._conn.query(
+                    "MATCH ()-[r:CALLS]->() WHERE r.call_sites IS NOT NULL RETURN count(r)"
+                )
+                resolved = calls_count_rows[0][0] if calls_count_rows else 0
+                pct = resolved / total * 100
+                unresolved = total - resolved
+                log.info(
+                    "Call resolution: %d/%d resolved (%.1f%%), %d unresolved",
+                    resolved, total, pct, unresolved,
+                )
+                if resolved == 0:
+                    log.warning(
+                        "Call resolution produced zero CALLS edges (%d sites attempted) — "
+                        "check that LSP is running and fixture uses typed code",
+                        total,
+                    )
+
+        # OVERRIDES detection (pure Cypher, no LSP needed)
+        if self._language in ("python", "typescript"):
             OverridesIndexer(self._conn).index()
 
     def delete_file(self, file_path: str) -> None:
@@ -615,7 +567,6 @@ class Indexer:
                 type_kind = kind_map.get(type_full)
                 for base_full in base_candidates:
                     if self._language == "python":
-                        type_kind = kind_map.get(type_full)
                         base_kind = kind_map.get(base_full)
                         if type_kind == SymbolKind.INTERFACE:
                             # Interface extends interface (e.g. Protocol inheriting Protocol)

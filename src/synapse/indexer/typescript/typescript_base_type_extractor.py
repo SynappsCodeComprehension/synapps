@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 _CLASS_DECL_TYPES = frozenset({
@@ -47,7 +49,7 @@ class TypeScriptBaseTypeExtractor:
 
         for child in node.children:
             if child.type == "type_identifier" and class_name is None:
-                class_name = _text(child)
+                class_name = node_text(child)
             elif child.type == "class_heritage":
                 heritage_node = child
 
@@ -70,13 +72,13 @@ class TypeScriptBaseTypeExtractor:
 
         for child in node.children:
             if child.type == "type_identifier" and interface_name is None:
-                interface_name = _text(child)
+                interface_name = node_text(child)
             elif child.type == "extends_type_clause":
                 if interface_name is None:
                     # name not yet seen — scan for it before this child
                     for sibling in node.children:
                         if sibling.type == "type_identifier":
-                            interface_name = _text(sibling)
+                            interface_name = node_text(sibling)
                             break
                 if interface_name is None:
                     continue
@@ -94,7 +96,7 @@ def _extract_extends_target(extends_clause_node) -> str | None:
     for child in extends_clause_node.children:
         if child.type == "identifier":
             # Simple extends (e.g. Animal) or generic extends (e.g. Array, followed by type_arguments)
-            return _text(child)
+            return node_text(child)
         if child.type == "member_expression":
             # Qualified extends: ns.Base → take property_identifier (rightmost)
             return _rightmost_property(child)
@@ -110,7 +112,7 @@ def _extract_type_list(clause_node) -> list[str]:
     bases: list[str] = []
     for child in clause_node.children:
         if child.type == "type_identifier":
-            bases.append(_text(child))
+            bases.append(node_text(child))
         elif child.type == "nested_type_identifier":
             # Qualified: ns.IService → take last type_identifier
             name = _last_type_identifier(child)
@@ -120,7 +122,7 @@ def _extract_type_list(clause_node) -> list[str]:
             # Generic: Comparable<string> → take the type_identifier child
             for gchild in child.children:
                 if gchild.type == "type_identifier":
-                    bases.append(_text(gchild))
+                    bases.append(node_text(gchild))
                     break
     return bases
 
@@ -129,7 +131,7 @@ def _rightmost_property(member_expression_node) -> str | None:
     """Extract the rightmost name from a member_expression (e.g. ns.Base → Base)."""
     for child in member_expression_node.children:
         if child.type == "property_identifier":
-            return _text(child)
+            return node_text(child)
     return None
 
 
@@ -138,10 +140,7 @@ def _last_type_identifier(nested_type_identifier_node) -> str | None:
     last: str | None = None
     for child in nested_type_identifier_node.children:
         if child.type == "type_identifier":
-            last = _text(child)
+            last = node_text(child)
     return last
 
 
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

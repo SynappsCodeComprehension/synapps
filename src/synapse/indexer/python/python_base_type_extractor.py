@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 
@@ -39,7 +41,7 @@ class PythonBaseTypeExtractor:
 
         for child in node.children:
             if child.type == "identifier" and class_name is None:
-                class_name = child.text.decode("utf-8") if isinstance(child.text, bytes) else child.text
+                class_name = node_text(child)
             elif child.type == "argument_list":
                 superclasses_node = child
 
@@ -59,14 +61,12 @@ class PythonBaseTypeExtractor:
 
 def _extract_identifier(node) -> str | None:
     if node.type == "identifier":
-        raw = node.text
-        return raw.decode("utf-8") if isinstance(raw, bytes) else raw
+        return node_text(node)
     if node.type == "attribute":
         # Dotted name like `mod.Base` — extract rightmost identifier
         last: str | None = None
         for child in node.children:
             if child.type == "identifier":
-                raw = child.text
-                last = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+                last = node_text(child)
         return last
     return None

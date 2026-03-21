@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
+
 log = logging.getLogger(__name__)
 
 _PYTHON_CALLS_QUERY = """
@@ -81,7 +83,7 @@ class PythonCallExtractor:
             for node in nodes:
                 call_line_0 = node.start_point[0]
                 call_col_0 = node.start_point[1]
-                callee_name = node.text.decode("utf-8") if isinstance(node.text, bytes) else node.text
+                callee_name = node_text(node)
 
                 scope_type, scope_func_line = self._get_call_scope(node)
 
@@ -89,7 +91,7 @@ class PythonCallExtractor:
                     continue
 
                 if scope_type == "function":
-                    caller = self._find_enclosing_method(call_line_0, method_lines)
+                    caller = find_enclosing_scope(call_line_0, method_lines)
                     if caller is None:
                         continue
                 else:
@@ -128,14 +130,3 @@ class PythonCallExtractor:
             parent = parent.parent
         return ("module", None)
 
-    def _find_enclosing_method(
-        self, line_0: int, method_lines: list[tuple[int, str]]
-    ) -> str | None:
-        """Return the full_name of the innermost method whose start line <= line_0."""
-        best: str | None = None
-        for method_line, full_name in method_lines:
-            if method_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best

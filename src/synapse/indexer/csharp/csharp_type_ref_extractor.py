@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import find_enclosing_scope
 from synapse.indexer.type_ref import TypeRef
 
 log = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class CSharpTypeRefExtractor:
                 type_name = self._get_type_name(node)
                 if type_name and type_name not in _PRIMITIVE_TYPES:
                     line_0 = node.start_point[0]
-                    owner = self._find_enclosing_method(line_0, method_lines)
+                    owner = find_enclosing_scope(line_0, method_lines)
                     if owner:
                         results.append(TypeRef(
                             owner_full_name=owner, type_name=type_name,
@@ -96,7 +97,7 @@ class CSharpTypeRefExtractor:
                 type_name = self._get_type_name(node)
                 if type_name and type_name not in _PRIMITIVE_TYPES:
                     line_0 = node.start_point[0]
-                    owner = self._find_enclosing_method(line_0, method_lines)
+                    owner = find_enclosing_scope(line_0, method_lines)
                     if owner:
                         results.append(TypeRef(
                             owner_full_name=owner, type_name=type_name,
@@ -112,7 +113,7 @@ class CSharpTypeRefExtractor:
                 type_name = self._get_type_name(type_node)
                 if type_name and type_name not in _PRIMITIVE_TYPES:
                     line_0 = type_node.start_point[0]
-                    owner = self._find_enclosing_class(line_0, class_lines)
+                    owner = find_enclosing_scope(line_0, class_lines)
                     if owner:
                         results.append(TypeRef(
                             owner_full_name=owner,
@@ -129,7 +130,7 @@ class CSharpTypeRefExtractor:
                 type_name = self._get_type_name(node)
                 if type_name and type_name not in _PRIMITIVE_TYPES:
                     line_0 = node.start_point[0]
-                    owner = self._find_enclosing_class(line_0, class_lines)
+                    owner = find_enclosing_scope(line_0, class_lines)
                     if owner:
                         results.append(TypeRef(
                             owner_full_name=owner,
@@ -155,20 +156,3 @@ class CSharpTypeRefExtractor:
             return text.rsplit(".", 1)[-1]
         return text
 
-    def _find_enclosing_method(self, line_0: int, method_lines: list[tuple[int, str]]) -> str | None:
-        best: str | None = None
-        for method_line, full_name in method_lines:
-            if method_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best
-
-    def _find_enclosing_class(self, line_0: int, class_lines: list[tuple[int, str]]) -> str | None:
-        best: str | None = None
-        for class_line, full_name in class_lines:
-            if class_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best

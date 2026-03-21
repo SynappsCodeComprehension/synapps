@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 _DECL_TYPES = frozenset({
@@ -67,7 +69,7 @@ class CSharpAttributeExtractor:
     def _extract_attribute_name(self, attr_node) -> str | None:
         for child in attr_node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
             if child.type == "qualified_name":
                 return _extract_qualified_name(child)
         return None
@@ -80,11 +82,11 @@ class CSharpAttributeExtractor:
                         if vc.type == "variable_declarator":
                             for id_node in vc.children:
                                 if id_node.type == "identifier":
-                                    return _text(id_node)
+                                    return node_text(id_node)
             return None
         for child in node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
         return None
 
 
@@ -101,12 +103,9 @@ def _extract_qualified_name(node) -> str:
     parts: list[str] = []
     for child in node.children:
         if child.type == "identifier":
-            parts.append(_text(child))
+            parts.append(node_text(child))
         elif child.type == "qualified_name":
             parts.append(_extract_qualified_name(child))
     return ".".join(parts)
 
 
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

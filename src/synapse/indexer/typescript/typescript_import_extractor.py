@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import os
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 # TSX/JSX files require the TSX grammar; everything else uses the TS grammar
@@ -87,7 +89,7 @@ class TypeScriptImportExtractor:
                         # Aliased: `{ Dog as D }` has two identifier children; take first (original)
                         ids = [c for c in spec.children if c.type == "identifier"]
                         if ids:
-                            self._add(results, seen, module, _text(ids[0]))
+                            self._add(results, seen, module, node_text(ids[0]))
             elif child.type == "identifier":
                 # Default import: `import Animal from '...'`
                 self._add(results, seen, module, None)
@@ -116,7 +118,7 @@ class TypeScriptImportExtractor:
                     # First identifier child is the original exported name
                     ids = [c for c in spec.children if c.type == "identifier"]
                     if ids:
-                        self._add(results, seen, module, _text(ids[0]))
+                        self._add(results, seen, module, node_text(ids[0]))
         else:
             # Star re-export: export * from '...'
             self._add(results, seen, module, None)
@@ -130,7 +132,7 @@ class TypeScriptImportExtractor:
     ) -> None:
         # CommonJS: require('./foo')
         fn_child = node.children[0] if node.children else None
-        if fn_child is None or fn_child.type != "identifier" or _text(fn_child) != "require":
+        if fn_child is None or fn_child.type != "identifier" or node_text(fn_child) != "require":
             return
         args = next((c for c in node.children if c.type == "arguments"), None)
         if args is None:
@@ -147,7 +149,7 @@ class TypeScriptImportExtractor:
             if child.type == "string":
                 for sc in child.children:
                     if sc.type == "string_fragment":
-                        return _text(sc)
+                        return node_text(sc)
         return None
 
     def _resolve_specifier(self, specifier: str, file_path: str) -> str:
@@ -179,6 +181,3 @@ class TypeScriptImportExtractor:
             results.append(key)
 
 
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

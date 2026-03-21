@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 
@@ -45,7 +47,7 @@ class CSharpImportExtractor:
             return
         for child in node.children:
             if child.type in ("identifier", "qualified_name"):
-                name = child.text.decode("utf-8") if isinstance(child.text, bytes) else child.text
+                name = node_text(child)
                 if name and name not in seen:
                     seen.add(name)
                     results.append(name)

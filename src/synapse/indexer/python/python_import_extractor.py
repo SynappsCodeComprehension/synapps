@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import os
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 
@@ -58,7 +60,7 @@ class PythonImportExtractor:
     ) -> None:
         for child in node.children:
             if child.type == "dotted_name":
-                module_name = _text(child)
+                module_name = node_text(child)
                 self._add(results, seen, module_name, None)
 
     def _handle_from_import(
@@ -81,18 +83,18 @@ class PythonImportExtractor:
         module_found = False
         for child in children:
             if not module_found and child.type == "dotted_name":
-                module_path = _text(child)
+                module_path = node_text(child)
                 module_found = True
             elif not module_found and child.type == "relative_import":
                 module_path = self._resolve_relative(child, file_path)
                 module_found = True
             elif module_found and child.type == "dotted_name":
-                imported_names.append(_text(child))
+                imported_names.append(node_text(child))
             elif child.type == "aliased_import":
                 # `from X import Y as Z` — use original name Y
                 for grandchild in child.children:
                     if grandchild.type == "dotted_name":
-                        imported_names.append(_text(grandchild))
+                        imported_names.append(node_text(grandchild))
                         break
 
         if module_path is None:
@@ -125,7 +127,7 @@ class PythonImportExtractor:
                 suffix_node = child
 
         dots = len(prefix_node.text) if prefix_node else 0
-        module_suffix = _text(suffix_node) if suffix_node else ""
+        module_suffix = node_text(suffix_node) if suffix_node else ""
 
         return _compute_absolute_module(dots, module_suffix, file_path, self._source_root)
 
@@ -157,6 +159,3 @@ def _compute_absolute_module(dots: int, module_suffix: str, file_path: str, sour
     return ".".join(package_parts)
 
 
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

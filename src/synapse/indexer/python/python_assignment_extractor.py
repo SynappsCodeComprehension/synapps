@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 
 from synapse.indexer.assignment_ref import AssignmentRef
+from synapse.indexer.tree_sitter_util import node_text
 
 log = logging.getLogger(__name__)
 
@@ -89,11 +90,11 @@ class PythonAssignmentExtractor:
             if not obj_nodes or not field_nodes or not source_nodes:
                 continue
 
-            obj_text = self._node_text(obj_nodes[0])
+            obj_text = node_text(obj_nodes[0])
             if obj_text != "self":
                 continue
 
-            field_name = self._node_text(field_nodes[0])
+            field_name = node_text(field_nodes[0])
             source_node = source_nodes[0]
 
             # source position is the start of the call's function expression
@@ -141,7 +142,7 @@ class PythonAssignmentExtractor:
             if not self._is_module_scope(field_node):
                 continue
 
-            field_name = self._node_text(field_node)
+            field_name = node_text(field_node)
 
             func_node = source_node.children[0] if source_node.children else source_node
             source_line = func_node.start_point[0]
@@ -194,10 +195,7 @@ class PythonAssignmentExtractor:
                 name_node = next(
                     (c for c in parent.children if c.type == "identifier"), None
                 )
-                if name_node:
-                    text = name_node.text
-                    return text.decode("utf-8") if isinstance(text, bytes) else text
-                return None
+                return node_text(name_node) if name_node else None
             parent = parent.parent
         return None
 
@@ -219,7 +217,3 @@ class PythonAssignmentExtractor:
             parent = parent.parent
         return True
 
-    @staticmethod
-    def _node_text(node) -> str:
-        text = node.text
-        return text.decode("utf-8") if isinstance(text, bytes) else text

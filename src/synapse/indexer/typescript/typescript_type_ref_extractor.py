@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
 from synapse.indexer.type_ref import TypeRef
 
 log = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ class TypeScriptTypeRefExtractor:
         if actual_type is None:
             return
         line_0 = actual_type.start_point[0]
-        owner = self._find_enclosing_method(line_0, method_lines)
+        owner = find_enclosing_scope(line_0, method_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(actual_type):
@@ -135,7 +136,7 @@ class TypeScriptTypeRefExtractor:
         if actual_type is None:
             return
         line_0 = actual_type.start_point[0]
-        owner = self._find_enclosing_method(line_0, method_lines)
+        owner = find_enclosing_scope(line_0, method_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(actual_type):
@@ -155,7 +156,7 @@ class TypeScriptTypeRefExtractor:
         if actual_type is None:
             return
         line_0 = actual_type.start_point[0]
-        owner = self._find_enclosing_class(line_0, class_lines)
+        owner = find_enclosing_scope(line_0, class_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(actual_type):
@@ -175,7 +176,7 @@ class TypeScriptTypeRefExtractor:
         if actual_type is None:
             return
         line_0 = actual_type.start_point[0]
-        owner = self._find_enclosing_class(line_0, class_lines)
+        owner = find_enclosing_scope(line_0, class_lines)
         if owner is None:
             return
         for type_name in self._extract_type_names(actual_type):
@@ -201,7 +202,7 @@ class TypeScriptTypeRefExtractor:
         node_type = node.type
 
         if node_type == "type_identifier":
-            name = _text(node)
+            name = node_text(node)
             if name not in _TS_PRIMITIVE_TYPES:
                 return [name]
             return []
@@ -216,7 +217,7 @@ class TypeScriptTypeRefExtractor:
             names: list[str] = []
             for child in node.children:
                 if child.type == "type_identifier":
-                    name = _text(child)
+                    name = node_text(child)
                     if name not in _TS_PRIMITIVE_TYPES:
                         names.append(name)
                 elif child.type == "type_arguments":
@@ -264,27 +265,3 @@ class TypeScriptTypeRefExtractor:
                 return child
         return None
 
-    @staticmethod
-    def _find_enclosing_method(line_0: int, method_lines: list[tuple[int, str]]) -> str | None:
-        best: str | None = None
-        for method_line, full_name in method_lines:
-            if method_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best
-
-    @staticmethod
-    def _find_enclosing_class(line_0: int, class_lines: list[tuple[int, str]]) -> str | None:
-        best: str | None = None
-        for class_line, full_name in class_lines:
-            if class_line <= line_0:
-                best = full_name
-            else:
-                break
-        return best
-
-
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw

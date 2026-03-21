@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from synapse.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
+from synapse.lsp.util import symbol_suffix
 
 log = logging.getLogger(__name__)
 
@@ -39,19 +40,11 @@ def detect_source_root(file_path: str, project_root: str) -> str:
     return str(project)
 
 
-def _symbol_suffix(raw: dict) -> str:
-    name = raw.get("name", "")
-    parent = raw.get("parent")
-    if parent:
-        return f"{_symbol_suffix(parent)}.{name}"
-    return name
-
-
 def _build_python_full_name(raw: dict, file_path: str, source_root: str) -> str:
     """Build a module-qualified full name from file path + symbol parent chain."""
     rel = os.path.relpath(file_path, source_root)
     module_prefix = rel.replace(os.sep, ".").removesuffix(".py").removesuffix(".__init__")
-    suffix = _symbol_suffix(raw)
+    suffix = symbol_suffix(raw)
     if suffix:
         return f"{module_prefix}.{suffix}"
     return module_prefix

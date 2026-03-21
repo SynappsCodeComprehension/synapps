@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from synapse.indexer.tree_sitter_util import node_text
+
 log = logging.getLogger(__name__)
 
 _TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
@@ -240,12 +242,12 @@ class TypeScriptAttributeExtractor:
         """Extract simple name from a decorator node."""
         for child in decorator_node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
             if child.type == "call_expression":
                 # @Name(...) — get identifier from call_expression
                 for call_child in child.children:
                     if call_child.type == "identifier":
-                        return _text(call_child)
+                        return node_text(call_child)
                     if call_child.type == "member_expression":
                         return self._rightmost_property(call_child)
             if child.type == "member_expression":
@@ -261,7 +263,7 @@ class TypeScriptAttributeExtractor:
             if t in ("static", "async", "readonly", "override"):
                 modifiers.append(t)
             elif t == "accessibility_modifier":
-                text = _text(child).strip()
+                text = node_text(child).strip()
                 if text:
                     modifiers.append(text)
         return modifiers
@@ -270,31 +272,28 @@ class TypeScriptAttributeExtractor:
         """Find the first type_identifier child (class/interface name)."""
         for child in node.children:
             if child.type == "type_identifier":
-                return _text(child)
+                return node_text(child)
         return None
 
     def _identifier(self, node) -> str | None:
         """Find the first identifier child (function name)."""
         for child in node.children:
             if child.type == "identifier":
-                return _text(child)
+                return node_text(child)
         return None
 
     def _property_identifier(self, node) -> str | None:
         """Find the first property_identifier child (method/field name)."""
         for child in node.children:
             if child.type == "property_identifier":
-                return _text(child)
+                return node_text(child)
         return None
 
     def _rightmost_property(self, member_expression_node) -> str | None:
         """Extract rightmost name from member_expression (e.g. ns.Name -> Name)."""
         for child in member_expression_node.children:
             if child.type == "property_identifier":
-                return _text(child)
+                return node_text(child)
         return None
 
 
-def _text(node) -> str:
-    raw = node.text
-    return raw.decode("utf-8") if isinstance(raw, bytes) else raw
