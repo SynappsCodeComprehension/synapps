@@ -755,3 +755,310 @@ docker compose up -d
 pytest tests/integration/test_mcp_tools_{lang}.py -v -m integration
 pytest tests/integration/test_cli_commands_{lang}.py -v -m integration
 ```
+
+---
+
+## Appendix A: Feature Parity Matrix
+
+This matrix shows which features each existing language supports. When adding a new language, fill in the `{New Lang}` column. Mark each feature as **Y** (implemented), **N/A** (not applicable to this language, with justification), or **Planned** (will implement later).
+
+Every **Y** in existing languages should be **Y** or **N/A** (with justification) in the new language.
+
+| Feature | C# | Python | TypeScript | {New Lang} |
+|---------|:--:|:------:|:----------:|:----------:|
+| `call_extractor` | Y | Y | Y | |
+| `import_extractor` | Y (`list[str]`) | Y (`list[tuple]`) | Y (`list[tuple]`) | |
+| `base_type_extractor` | Y | Y | Y | |
+| `attribute_extractor` | Y | Y | Y | |
+| `type_ref_extractor` | Y | Y | Y | |
+| `assignment_extractor` | N/A | Y | N/A | |
+| ABC/Protocol promotion | N/A | Y | N/A | |
+| Module nodes | N/A | Y | Y | |
+| OverridesIndexer (graph-based) | N/A | Y | Y | |
+| OverridesIndexer (LSP-based) | Y | N/A | N/A | |
+| `const_object` promotion | N/A | N/A | Y | |
+| `const_function` promotion | N/A | N/A | Y | |
+| Metadata flags (`is_abstract`, etc.) | Y (LSP) | Y (decorators) | Y (modifiers) | |
+
+**Notes:**
+- `import_extractor` return type varies by language paradigm: module-based languages return `list[tuple[str, str|None]]`, package-based languages return `list[str]`. See Phase 3 for details.
+- `assignment_extractor` is only needed for languages with constructor-injected field patterns (DI). Most languages can return `None`.
+- ABC/Protocol promotion is Python-specific. Languages with explicit interface keywords (Go, TypeScript, C#, Java) do not need this.
+- OverridesIndexer (graph-based) uses pure Cypher traversal; OverridesIndexer (LSP-based) relies on the LSP server providing override info. Use graph-based unless the LSP already provides this data.
+
+---
+
+## Appendix B: Integration Touchpoint Map
+
+Every shared file that needs modification when adding a new language, with exact patterns and verification commands.
+
+### File: `src/synapse/plugin/__init__.py`
+
+```
+Action:   Add lazy import + registry.register() in default_registry()
+Pattern:  Follow existing CSharp/Python/TypeScript imports
+Example:  from synapse.plugin.{lang} import {Lang}Plugin
+          registry.register({Lang}Plugin())
+Verify:   grep "{Lang}Plugin" src/synapse/plugin/__init__.py
+```
+
+### File: `src/synapse/indexer/indexer.py`
+
+```
+Action:   Add language to guard tuples where applicable (see Phase 4 for decision criteria)
+Pattern:  if self._language in ("python", "typescript", "{lang}")
+Guards:   8 guards at lines ~90, ~273, ~337, ~342, ~363, ~393, ~443-459, ~529
+Verify:   grep '"{lang}"' src/synapse/indexer/indexer.py
+```
+
+### File: `pyproject.toml`
+
+```
+Action:   Add tree-sitter grammar to project dependencies
+Pattern:  "tree-sitter-{lang}>=X.Y"
+Section:  [project.dependencies]
+Verify:   grep "tree-sitter-{lang}" pyproject.toml
+```
+
+### File: `src/synapse/service.py`
+
+```
+Action:   Review for language-specific behavior (currently none beyond plugin system)
+Pattern:  No current language guards in service.py
+Verify:   grep '"{lang}"' src/synapse/service.py  (should return 0 results unless you added one)
+```
+
+### File: `src/synapse/watcher/watcher.py`
+
+```
+Action:   No code change needed
+Reason:   FileWatcher uses plugin.file_extensions automatically
+Verify:   N/A -- automatic via LanguagePlugin.file_extensions
+```
+
+### New Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/synapse/plugin/{lang}.py` | Plugin class |
+| `src/synapse/lsp/{lang}.py` | LSP adapter |
+| `src/synapse/indexer/{lang}/__init__.py` | Extractor package |
+| `src/synapse/indexer/{lang}/{lang}_call_extractor.py` | Call site extractor |
+| `src/synapse/indexer/{lang}/{lang}_import_extractor.py` | Import extractor |
+| `src/synapse/indexer/{lang}/{lang}_base_type_extractor.py` | Inheritance extractor |
+| `src/synapse/indexer/{lang}/{lang}_attribute_extractor.py` | Attribute/decorator extractor |
+| `src/synapse/indexer/{lang}/{lang}_type_ref_extractor.py` | Type reference extractor |
+| `src/synapse/indexer/{lang}/{lang}_assignment_extractor.py` | Assignment extractor (optional) |
+| `tests/fixtures/Synapse{Lang}Test/` | Test fixture project |
+| `tests/unit/indexer/test_{lang}_call_extractor.py` | Call extractor unit tests |
+| `tests/unit/indexer/test_{lang}_import_extractor.py` | Import extractor unit tests |
+| `tests/unit/indexer/test_{lang}_base_type_extractor.py` | Base type extractor unit tests |
+| `tests/unit/indexer/test_{lang}_attribute_extractor.py` | Attribute extractor unit tests |
+| `tests/unit/indexer/test_{lang}_type_ref_extractor.py` | Type ref extractor unit tests |
+| `tests/integration/test_mcp_tools_{lang}.py` | MCP integration tests |
+| `tests/integration/test_cli_commands_{lang}.py` | CLI integration tests |
+
+---
+
+## Appendix C: LSP Capability Checklist
+
+### Required vs Optional LSP Capabilities
+
+| Capability | Required | Used By | Notes |
+|-----------|:--------:|---------|-------|
+| `textDocument/documentSymbol` | **Required** | `get_document_symbols` | Structural indexing -- enumerates all symbols in a file |
+| `textDocument/definition` | **Required** | `request_defining_symbol` | Phase 2 call resolution -- resolves callee identities |
+| `textDocument/didOpen` | **Required** | `open_file` | File tracking -- notifies LSP of open files |
+| `textDocument/didClose` | **Required** | `close_file` | File tracking -- notifies LSP of closed files |
+| `textDocument/didChange` | Optional | Not currently used | Incremental file updates (Synapse re-reads from disk) |
+| `callHierarchy/incomingCalls` | Optional | Not used | Stubs exist in LSPAdapter but are intentionally empty. Synapse uses tree-sitter + definition resolution instead. |
+| `textDocument/references` | Optional | Not used | Could be used for find_usages but Synapse uses graph queries |
+| `workspace/symbol` | Optional | Not used | Synapse enumerates per-file via documentSymbol |
+
+### Testing an LSP Adapter Standalone
+
+Follow this sequence to verify the adapter works before integrating:
+
+1. **Start the LSP server:**
+   ```python
+   from synapse.lsp.{lang} import {Lang}LSPAdapter
+   adapter = {Lang}LSPAdapter.create("/path/to/test/project")
+   ```
+
+2. **List workspace files:**
+   ```python
+   files = adapter.get_workspace_files("/path/to/test/project")
+   print(f"Found {len(files)} source files")
+   # Verify: list should contain only source files (no build artifacts, vendor dirs)
+   ```
+
+3. **Extract symbols from a test file:**
+   ```python
+   symbols = adapter.get_document_symbols(files[0])
+   for sym in symbols:
+       print(f"  {sym.kind.value}: {sym.full_name} (line {sym.line})")
+   # Verify: symbols should include classes, methods, fields as expected
+   ```
+
+4. **Test definition resolution (for Phase 2):**
+   ```python
+   ls = adapter.language_server
+   rel_path = os.path.relpath(files[0], "/path/to/test/project")
+   with ls.open_file(rel_path):
+       result = ls.request_defining_symbol(rel_path, line=5, column=10)
+       print(f"Definition: {result}")
+   # Verify: should return the symbol definition for the token at line 5, col 10
+   ```
+
+5. **Shut down:**
+   ```python
+   adapter.shutdown()
+   ```
+
+### solidlsp Language Server Implementation
+
+If the target language does not have a server in `src/solidlsp/language_servers/`, create one following this pattern:
+
+```python
+# src/solidlsp/language_servers/{lang}_language_server.py
+from solidlsp.ls_config import Language, ServerConfig
+
+class {Lang}LanguageServer:
+    """solidlsp wrapper for the {lang} LSP server."""
+
+    @staticmethod
+    def get_config() -> ServerConfig:
+        return ServerConfig(
+            language=Language.{LANG_UPPER},
+            command=["{lsp-server-binary}", "--stdio"],  # e.g., "gopls", "rust-analyzer"
+            initialization_options={},
+        )
+```
+
+The exact structure depends on the solidlsp version. Reference existing implementations for the current API.
+
+---
+
+## Appendix D: Troubleshooting / Common Pitfalls
+
+### Pitfall 1: Language Guard Semantics
+
+**What goes wrong:** Blindly adding a new language to every `if language in (...)` tuple in `indexer.py`, causing incorrect graph structure or spurious edges.
+
+**Why it happens:** Guards look mechanical but encode language-specific behavior decisions. For example, ABC/Protocol pre-scan (Guard 1) only makes sense for languages where the LSP does not distinguish interfaces from classes.
+
+**How to avoid:** Read the Phase 4 documentation for each guard. Understand WHAT the guard does and WHEN a new language should opt in. Test each guard independently.
+
+**Warning signs:** Test failures in structural indexing, unexpected `:Interface` labels, spurious OVERRIDES edges, or incorrect symbol kinds in the graph.
+
+### Pitfall 2: Import Extractor Return Type Divergence
+
+**What goes wrong:** The import extractor returns the wrong type. The indexer's `_index_file_imports` dispatches on `isinstance(item, tuple)` to decide between module-path imports and package-name imports. Wrong type = no IMPORTS edges in the graph.
+
+**Why it happens:** C# returns `list[str]` (package names like `"System.Collections.Generic"`), while Python and TypeScript return `list[tuple[str, str|None]]` (module paths with optional imported symbol).
+
+**How to avoid:** Decide early: is the language module-based (files are modules) or package-based (namespaces/packages are the unit)? Module-based -> tuples. Package-based -> strings.
+
+**Warning signs:** `IMPORTS` edges missing entirely from the graph. `grep "IMPORTS" ...` returns no results after indexing.
+
+### Pitfall 3: solidlsp Language Server Availability
+
+**What goes wrong:** The `Language` enum lists the language, but no server implementation exists. The adapter fails at instantiation with `ImportError` or `AttributeError`.
+
+**Why it happens:** The `Language` enum in `ls_config.py` lists 17+ languages, but only 3 have actual server implementations in `src/solidlsp/language_servers/` (C#, Python, TypeScript).
+
+**How to avoid:** Always check `src/solidlsp/language_servers/` for an existing implementation BEFORE writing the LSP adapter. If none exists, creating one is part of Phase 0.
+
+**Warning signs:** `ImportError` or `ModuleNotFoundError` when instantiating the LSP adapter.
+
+### Pitfall 4: Full Name Construction Strategy
+
+**What goes wrong:** Using the wrong qualified name format causes duplicate nodes, broken CONTAINS edges, and symbol lookup failures.
+
+**Why it happens:** Each language has a different `_build_{lang}_full_name` function with a different naming convention:
+- C#: `Namespace.Class.Method` (dot-separated namespace path)
+- Python: `package.module.Class.method` (module-dotted path from source root)
+- TypeScript: `src/path/file.Class.method` (forward-slash file path + dot-separated symbols)
+
+**How to avoid:** Choose the naming convention most natural for the language. Document the decision. Test by verifying `full_name` uniqueness across the fixture project. The `full_name` is the graph node identity -- it must be globally unique within a project.
+
+**Warning signs:** Duplicate nodes for the same symbol, CALLS edges pointing to non-existent nodes, `search_symbols` returning unexpected results.
+
+### Pitfall 5: Source Root Detection
+
+**What goes wrong:** Import paths resolve to wrong modules or produce no edges at all because the source root is incorrect.
+
+**Why it happens:** The `_source_root` on the import extractor determines how absolute file paths are converted to module paths. Python walks up looking for `__init__.py` boundaries. TypeScript uses the repository root. A wrong source root means wrong module paths.
+
+**How to avoid:** Determine the language's source root strategy during Phase 2:
+- Does the language have a manifest file that defines the source root? (e.g., `go.mod`, `Cargo.toml`)
+- Does the language use the repo root? (TypeScript)
+- Does the language use package markers? (Python's `__init__.py`)
+Add the appropriate logic as an `elif` branch in Guard 6 (line ~393 of `indexer.py`).
+
+**Warning signs:** `IMPORTS` edges point to wrong module paths or are entirely missing.
+
+### Pitfall 6: Missing pyproject.toml Dependency
+
+**What goes wrong:** Tree-sitter grammar package is not installed, causing `ModuleNotFoundError` on first import of any extractor.
+
+**Why it happens:** Forgetting to add `tree-sitter-{lang}` to `[project.dependencies]` in `pyproject.toml`.
+
+**How to avoid:** Add the dependency as an explicit checklist item in Phase 4. Always run `pip install -e .` after modifying `pyproject.toml` to verify.
+
+**Warning signs:** `ModuleNotFoundError: No module named 'tree_sitter_{lang}'` when running tests.
+
+---
+
+## Quick Reference Card
+
+### Files to Create
+
+| Category | Files |
+|----------|-------|
+| Plugin | `src/synapse/plugin/{lang}.py` |
+| LSP Adapter | `src/synapse/lsp/{lang}.py` |
+| Extractors (5-6) | `src/synapse/indexer/{lang}/{lang}_call_extractor.py`, `{lang}_import_extractor.py`, `{lang}_base_type_extractor.py`, `{lang}_attribute_extractor.py`, `{lang}_type_ref_extractor.py`, optionally `{lang}_assignment_extractor.py` |
+| Package init | `src/synapse/indexer/{lang}/__init__.py` |
+| Test fixture | `tests/fixtures/Synapse{Lang}Test/` with source files |
+| Unit tests (5-6) | `tests/unit/indexer/test_{lang}_call_extractor.py`, etc. |
+| Integration tests (2) | `tests/integration/test_mcp_tools_{lang}.py`, `tests/integration/test_cli_commands_{lang}.py` |
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/synapse/plugin/__init__.py` | Add import + `registry.register()` in `default_registry()` |
+| `src/synapse/indexer/indexer.py` | Add language to applicable guard tuples (Phase 4) |
+| `pyproject.toml` | Add `tree-sitter-{lang}` to dependencies |
+
+### Verification Commands (All Phases)
+
+```bash
+# Phase 0: Prerequisites
+python -c "from solidlsp.ls_config import Language; print(Language.{LANG_UPPER})"
+python -c "import tree_sitter_{lang}"
+
+# Phase 1: Plugin class
+python -c "from synapse.plugin.{lang} import {Lang}Plugin; from synapse.plugin import LanguagePlugin; assert isinstance({Lang}Plugin(), LanguagePlugin)"
+
+# Phase 2: LSP adapter (requires language SDK + LSP server)
+python -c "from synapse.lsp.{lang} import {Lang}LSPAdapter; a = {Lang}LSPAdapter.create('/path/to/fixture'); print(len(a.get_workspace_files('/path/to/fixture'))); a.shutdown()"
+
+# Phase 3: Extractors
+python -c "from synapse.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor; assert hasattr({Lang}CallExtractor, 'extract')"
+
+# Phase 4: Integration wiring
+grep '"{lang}"' src/synapse/indexer/indexer.py
+grep "tree-sitter-{lang}" pyproject.toml
+grep "{Lang}Plugin" src/synapse/plugin/__init__.py
+
+# Phase 5: Fixture
+test -d tests/fixtures/Synapse{Lang}Test/
+
+# Phase 6: Unit tests
+pytest tests/unit/indexer/test_{lang}_*.py -v
+
+# Phase 7: Integration tests
+pytest tests/integration/test_mcp_tools_{lang}.py tests/integration/test_cli_commands_{lang}.py -v -m integration
+```
