@@ -29,7 +29,7 @@ class MyClass:
     assert ref.field_name == "_handler"
     assert ref.source_file == "/proj/foo.py"
     assert ref.source_line == 2  # 0-indexed line of create_handler()
-    assert ref.source_col == 25  # column of create_handler
+    assert ref.source_col == 24  # column of create_handler (0-indexed)
 
 
 def test_extracts_attribute_call_assignment(extractor):
