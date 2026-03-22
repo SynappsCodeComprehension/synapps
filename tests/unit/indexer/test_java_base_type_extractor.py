@@ -142,3 +142,28 @@ class Cat implements IAnimal {
     results = extractor.extract("/proj/Animals.java", source)
     assert ("Dog", "Animal", True) in results
     assert ("Cat", "IAnimal", True) in results
+
+
+# ---------------------------------------------------------------------------
+# Regression: extends vs implements is_first semantics for edge creation
+# ---------------------------------------------------------------------------
+
+
+def test_extends_is_first_separate_from_implements(extractor):
+    """Regression: extends and implements have independent is_first flags.
+
+    In Java, 'extends Foo' always has is_first=True (class inheritance).
+    'implements Bar, Baz' has is_first=True for Bar (first interface) and
+    is_first=False for Baz. The indexer uses kind_map to determine edge type.
+    """
+    source = """\
+public class Dog extends Animal implements IAnimal, Comparable {
+}
+"""
+    results = extractor.extract("/proj/Dog.java", source)
+    # extends target always is_first=True
+    assert ("Dog", "Animal", True) in results
+    # first implements is_first=True
+    assert ("Dog", "IAnimal", True) in results
+    # subsequent implements is_first=False
+    assert ("Dog", "Comparable", False) in results

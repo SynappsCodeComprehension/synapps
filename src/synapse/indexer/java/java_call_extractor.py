@@ -11,6 +11,11 @@ _JAVA_CALLS_QUERY = """
 (object_creation_expression type: (type_identifier) @callee) @new_call
 """
 
+# tree-sitter node types that introduce a method/constructor scope
+_METHOD_SCOPE_TYPES = {"method_declaration", "constructor_declaration", "lambda_expression"}
+# tree-sitter node types that represent class/interface body (calls here are field initializers)
+_CLASS_SCOPE_TYPES = {"class_body", "interface_body", "enum_body"}
+
 
 class JavaCallExtractor:
     """
@@ -19,6 +24,9 @@ class JavaCallExtractor:
 
     Detects method_invocation (including chained calls) and
     object_creation_expression (new Foo()) per D-17.
+
+    Scope classification uses tree-sitter parent traversal to skip
+    class-body field initializer calls (same approach as Python/TypeScript).
     """
 
     def __init__(self) -> None:
@@ -71,6 +79,13 @@ class JavaCallExtractor:
         for _pattern_idx, captures in cursor.matches(tree.root_node):
             nodes = captures.get("callee", [])
             for node in nodes:
+                scope_type = self._get_call_scope(node)
+
+                # Skip calls in class body that are outside any method
+                # (field initializers, static initializer blocks without methods)
+                if scope_type == "class":
+                    continue
+
                 call_line_0 = node.start_point[0]
                 call_col_0 = node.start_point[1]
                 callee_name = node_text(node)
@@ -87,3 +102,21 @@ class JavaCallExtractor:
                     results.append(entry)
 
         return results
+
+    @staticmethod
+    def _get_call_scope(node) -> str:
+        """
+        Walk the parent chain to determine what scope this call node lives in.
+
+        Returns 'method' if inside a method/constructor/lambda,
+        'class' if directly inside a class body (field initializer),
+        'file' if at file top level (shouldn't happen in valid Java).
+        """
+        parent = node.parent
+        while parent is not None:
+            if parent.type in _METHOD_SCOPE_TYPES:
+                return "method"
+            if parent.type in _CLASS_SCOPE_TYPES:
+                return "class"
+            parent = parent.parent
+        return "file"

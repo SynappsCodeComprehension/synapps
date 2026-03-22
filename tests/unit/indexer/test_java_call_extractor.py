@@ -210,3 +210,72 @@ public class B {
 
     extractor.extract("/proj/B.java", source_one, symbol_map_one)
     assert extractor._sites_seen == 1
+
+
+# ---------------------------------------------------------------------------
+# Scope detection — class-body field initializer calls must be skipped
+# ---------------------------------------------------------------------------
+
+
+def test_skips_field_initializer_call(extractor):
+    """Regression: calls in field initializers (class body) must be skipped."""
+    source = """\
+public class MyClass {
+    private List<String> items = Arrays.asList("a", "b");
+    public void realMethod() {
+        helper();
+    }
+}
+"""
+    symbol_map = {("/proj/MyClass.java", 2): "pkg.MyClass.realMethod"}
+    results = extractor.extract("/proj/MyClass.java", source, symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "helper" in callees
+    assert "asList" not in callees
+
+
+def test_skips_static_field_initializer(extractor):
+    """Regression: static field initializers are class-body scope."""
+    source = """\
+public class Config {
+    private static final Logger LOG = LoggerFactory.getLogger(Config.class);
+    public void run() {
+        LOG.info("running");
+    }
+}
+"""
+    symbol_map = {("/proj/Config.java", 2): "pkg.Config.run"}
+    results = extractor.extract("/proj/Config.java", source, symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "info" in callees
+    assert "getLogger" not in callees
+
+
+def test_includes_constructor_body_calls(extractor):
+    """Calls inside constructors should be included."""
+    source = """\
+public class Service {
+    public Service() {
+        init();
+    }
+}
+"""
+    symbol_map = {("/proj/Service.java", 1): "pkg.Service.Service"}
+    results = extractor.extract("/proj/Service.java", source, symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "init" in callees
+
+
+def test_includes_lambda_body_calls(extractor):
+    """Calls inside lambdas should be included (lambda is a method scope)."""
+    source = """\
+public class MyClass {
+    public void run() {
+        list.forEach(item -> process(item));
+    }
+}
+"""
+    symbol_map = {("/proj/MyClass.java", 1): "pkg.MyClass.run"}
+    results = extractor.extract("/proj/MyClass.java", source, symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "forEach" in callees

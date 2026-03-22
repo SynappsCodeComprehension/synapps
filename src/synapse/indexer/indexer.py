@@ -574,13 +574,13 @@ class Indexer:
             for type_full in type_candidates:
                 type_kind = kind_map.get(type_full)
                 for base_full in base_candidates:
-                    if self._language == "python":
+                    if self._language in ("python", "java"):
                         base_kind = kind_map.get(base_full)
                         if type_kind == SymbolKind.INTERFACE:
-                            # Interface extends interface (e.g. Protocol inheriting Protocol)
+                            # Interface extends interface
                             upsert_interface_inherits(self._conn, type_full, base_full)
                         elif base_kind == SymbolKind.INTERFACE:
-                            # Class implements ABC/Protocol
+                            # Class implements interface
                             upsert_implements(self._conn, type_full, base_full)
                         else:
                             # Regular class inheritance
