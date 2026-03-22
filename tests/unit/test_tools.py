@@ -113,6 +113,30 @@ def test_graph_schema_nodes_have_language_property() -> None:
         assert "language" in _GRAPH_SCHEMA["node_labels"][label], f"{label} missing 'language'"
 
 
+def test_tool_docstrings_contain_disambiguation_cues():
+    """Verify that key tools have disambiguation guidance in their docstrings."""
+    service = MagicMock()
+    fns = _register(service)
+
+    # get_context_for should indicate it's the recommended starting point
+    assert "recommended starting point" in fns["get_context_for"].__doc__.lower()
+
+    # execute_query should indicate it's a last resort
+    assert "last resort" in fns["execute_query"].__doc__.lower()
+
+    # get_symbol should point to get_context_for
+    assert "get_context_for" in fns["get_symbol"].__doc__
+
+    # find_usages should mention it's a unified entry point
+    assert "unified entry point" in fns["find_usages"].__doc__.lower()
+
+    # search_symbols should mention discovering names for other tools
+    assert "discover" in fns["search_symbols"].__doc__.lower()
+
+    # find_callers should mention interface dispatch is included
+    assert "interface dispatch" in fns["find_callers"].__doc__.lower()
+
+
 def test_graph_schema_notes_include_python_kinds() -> None:
     notes_text = " ".join(_GRAPH_SCHEMA["notes"])
     assert "module" in notes_text

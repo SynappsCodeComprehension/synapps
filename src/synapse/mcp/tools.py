@@ -95,7 +95,7 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def get_symbol(full_name: str) -> dict | None:
-        """Get a symbol's metadata (file path, line range, kind, full name) by full name or short name. Does not return source code — use get_symbol_source for that."""
+        """Get a symbol's metadata (file path, line range, kind, full name) by full name or short name. Does not return source code — use get_symbol_source for that. For source code + relationships in one call, use get_context_for."""
         result = service.get_symbol(full_name)
         if result:
             warning = service._staleness_warning(full_name)
@@ -129,9 +129,9 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         include_interface_dispatch: bool = True,
         exclude_test_callers: bool = True,
     ) -> list[dict]:
-        """Find methods that call the given method.
+        """Find methods that call the given method. Includes interface dispatch by default — no need to manually resolve interface implementations first.
 
-        By default, includes callers that invoke this method through an interface
+        Callers that invoke this method through an interface are included
         (common in C# DI codebases). Set include_interface_dispatch=False for
         direct CALLS edges only.
 
@@ -174,7 +174,7 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         file_path: str | None = None,
         language: str | None = None,
     ) -> list[dict]:
-        """Search for symbols by name substring.
+        """Search for symbols by name substring. Use this to discover symbol names before passing them to other tools.
 
         kind: filter by node type.
         namespace: filter to symbols whose full_name starts with this prefix
@@ -210,7 +210,9 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def execute_query(cypher: str) -> list[dict]:
-        """Execute a read-only Cypher query against the graph.
+        """Last resort — use dedicated tools (find_callers, find_callees, search_symbols, etc.) when possible.
+
+        Execute a read-only Cypher query against the graph.
 
         Args:
             cypher: The Cypher query string to execute. Must be read-only.
@@ -237,7 +239,7 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def find_usages(full_name: str, exclude_test_callers: bool = True) -> dict:
-        """Find all code that uses a symbol — auto-detects symbol kind.
+        """Unified entry point — auto-selects the right lookup strategy based on symbol kind. Prefer over manually choosing between find_callers and find_type_references.
 
         For methods/properties/fields: returns callers (CALLS edges).
         For classes/interfaces: returns type references (REFERENCES edges)
@@ -258,7 +260,9 @@ def register_tools(mcp: object, service: SynapseService) -> None:
 
     @mcp.tool()
     def get_context_for(full_name: str, scope: str | None = None, max_lines: int = 200) -> str:
-        """Get rich context for a symbol: source, hierarchy, dependencies, and summaries.
+        """Recommended starting point for understanding any symbol before reading or editing.
+
+        Returns rich context: source, hierarchy, dependencies, and summaries.
 
         scope controls detail level:
         - None (default): full context — source, all members, interfaces, callees, dependencies, summaries
