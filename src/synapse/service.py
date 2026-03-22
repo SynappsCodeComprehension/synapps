@@ -176,11 +176,11 @@ class SynapseService:
             )
             resolver.resolve(path, symbol_map)
 
-            if plugin.name in ("python", "typescript") and hasattr(resolver, "_unresolved_sites"):
+            if plugin.name in ("python", "typescript", "java") and hasattr(resolver, "_unresolved_sites"):
                 for site_msg in resolver._unresolved_sites:
                     log.debug(site_msg)
 
-            if plugin.name in ("python", "typescript") and call_ext is not None:
+            if plugin.name in ("python", "typescript", "java") and call_ext is not None:
                 calls_count_rows = self._conn.query(
                     "MATCH ()-[r:CALLS]->() WHERE r.call_sites IS NOT NULL RETURN count(r)"
                 )
@@ -200,7 +200,7 @@ class SynapseService:
                             total,
                         )
 
-            if plugin.name in ("python", "typescript"):
+            if plugin.name in ("python", "typescript", "java"):
                 OverridesIndexer(self._conn).index()
 
             lsp.shutdown()
