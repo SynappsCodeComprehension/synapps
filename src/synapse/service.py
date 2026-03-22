@@ -394,7 +394,7 @@ class SynapseService:
 
     _USAGES_SUPPORTED_LABELS = {"Method", "Property", "Field", "Class", "Interface"}
 
-    def find_usages(self, full_name: str, exclude_test_callers: bool = True) -> dict:
+    def find_usages(self, full_name: str, exclude_test_callers: bool = True, limit: int = 20) -> dict:
         full_name = self._resolve(full_name)
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
@@ -414,44 +414,62 @@ class SynapseService:
             kind = "Method" if "Method" in labels else ("Property" if "Property" in labels else "Field")
             return {"symbol": full_name, "kind": kind, "callers": callers}
 
-        # Class or Interface — return type refs + method callers
+        # Class or Interface — return tiered summary
         kind = "Interface" if "Interface" in labels else "Class"
         test_re = re.compile(_TEST_PATH_PATTERN) if exclude_test_callers else None
 
-        # Type references
+        # Type references: get count + limited items
         raw_refs = [
-            {"symbol": _p(r["symbol"]), "kind": r["kind"]}
+            {"full_name": _slim(r["symbol"], "full_name")["full_name"],
+             "file_path": _slim(r["symbol"], "file_path").get("file_path", ""),
+             "kind": r["kind"]}
             for r in query_find_type_references(self._conn, full_name)
         ]
         if test_re:
-            raw_refs = [
-                r for r in raw_refs
-                if not test_re.match(r["symbol"].get("file_path", ""))
-            ]
+            raw_refs = [r for r in raw_refs if not test_re.match(r.get("file_path", ""))]
 
-        # Method callers — use self.find_callers (service layer, returns plain dicts)
+        ref_total = len(raw_refs)
+        ref_items = raw_refs[:limit]
+
+        # Collect affected files
+        affected_files: set[str] = set()
+        for r in raw_refs:
+            fp = r.get("file_path")
+            if fp:
+                affected_files.add(fp)
+
+        # Method callers — summarize as counts + top callers per method
         members = get_members_overview(self._conn, full_name)
         all_members = [_p(m) for m in members]
         methods = [m for m in all_members if "Method" in set(m.get("_labels", []))]
-        method_callers: dict[str, list[dict]] = {}
-        seen_fns: set[str] = set()
+        method_summary: dict[str, dict] = {}
+        total_method_callers = 0
         for method in methods:
             method_fn = method["full_name"]
-            callers = self.find_callers(method_fn, exclude_test_callers=exclude_test_callers)
-            unique_callers = []
-            for c in callers:
-                fn = c["full_name"]
-                if fn not in seen_fns:
-                    seen_fns.add(fn)
-                    unique_callers.append(c)
-            if unique_callers:
-                method_callers[method_fn] = unique_callers
+            method_short = method.get("name", method_fn.rsplit(".", 1)[-1])
+            callers = self.find_callers(method_fn, exclude_test_callers=exclude_test_callers, limit=1000)
+            # find_callers may return list or truncated dict
+            if isinstance(callers, dict):
+                caller_list = callers["results"]
+                count = callers["_total"]
+            else:
+                caller_list = callers
+                count = len(callers)
+            if count > 0:
+                top_callers = [c["full_name"] for c in caller_list[:5]]
+                method_summary[method_short] = {"count": count, "top_callers": top_callers}
+                total_method_callers += count
+                for c in caller_list:
+                    fp = c.get("file_path")
+                    if fp:
+                        affected_files.add(fp)
 
         return {
             "symbol": full_name,
             "kind": kind,
-            "type_references": raw_refs,
-            "method_callers": method_callers,
+            "type_references": {"total": ref_total, "items": ref_items},
+            "method_callers": {"total": total_method_callers, "by_method": method_summary},
+            "affected_files": len(affected_files),
         }
 
     def find_dependencies(self, full_name: str, depth: int = 1, limit: int = 50) -> list[dict]:
