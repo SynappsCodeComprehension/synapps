@@ -26,9 +26,11 @@ from synapse.graph.lookups import (
 )
 from synapse.graph.traversal import trace_call_chain, find_entry_points, get_call_depth
 from synapse.graph.analysis import analyze_change_impact, find_interface_contract, find_type_impact, audit_architecture
+from synapse.graph.nodes import get_last_indexed_commit, set_last_indexed_commit
+from synapse.indexer.git import is_git_repo, rev_parse_head
 from synapse.indexer.indexer import Indexer
 from synapse.indexer.method_implements_indexer import MethodImplementsIndexer
-from synapse.indexer.sync import sync_project as _sync_project, SyncResult
+from synapse.indexer.sync import git_sync_project as _git_sync_project, sync_project as _sync_project, SyncResult
 from synapse.indexer.overrides_indexer import OverridesIndexer
 from synapse.indexer.symbol_resolver import SymbolResolver
 from synapse.lsp.interface import LSPAdapter
@@ -257,6 +259,70 @@ class SynapseService:
                 lsp.shutdown()
 
         return total
+
+    def smart_index(
+        self,
+        path: str,
+        language: str = "csharp",
+        on_progress: Callable[[str], None] | None = None,
+    ) -> str:
+        """Unified index entry point (D-04).
+
+        1. No graph data -> full index
+        2. Git project -> git-based sync
+        3. No git -> mtime-based sync
+        """
+        path = path.rstrip("/")
+
+        stored_sha = get_last_indexed_commit(self._conn, path)
+        repo_rows = self._conn.query(
+            "MATCH (r:Repository {path: $path}) RETURN r.path",
+            {"path": path},
+        )
+        if not repo_rows:
+            if on_progress:
+                on_progress("No existing index -- running full index...")
+            self.index_project(path, language, on_progress=on_progress)
+            if is_git_repo(path):
+                sha = rev_parse_head(path)
+                if sha:
+                    set_last_indexed_commit(self._conn, path, sha)
+            return "full-index"
+
+        if is_git_repo(path):
+            if on_progress:
+                on_progress("Git project detected -- running git sync...")
+            plugins = self._registry.detect(path)
+            if not plugins:
+                raise ValueError(f"No language plugin found for project at {path!r}")
+
+            total = SyncResult(updated=0, deleted=0, unchanged=0)
+            for plugin in plugins:
+                lsp = plugin.create_lsp_adapter(path)
+                try:
+                    indexer = Indexer(self._conn, lsp, plugin=plugin)
+                    effective_sha = stored_sha or self._git_empty_tree_sha()
+                    result = _git_sync_project(
+                        conn=self._conn,
+                        indexer=indexer,
+                        root_path=path,
+                        stored_sha=effective_sha,
+                    )
+                    total.updated += result.updated
+                    total.deleted += result.deleted
+                finally:
+                    lsp.shutdown()
+            return "git-sync"
+
+        if on_progress:
+            on_progress("Non-git project -- running mtime sync...")
+        self.sync_project(path)
+        return "mtime-sync"
+
+    @staticmethod
+    def _git_empty_tree_sha() -> str:
+        """The git empty tree SHA -- diffing against this gives all files as added."""
+        return "4b825dc642cb6eb9a060e54bf899d69f82cf7180"
 
     def index_method_implements(self) -> None:
         """Write method-level IMPLEMENTS edges for all indexed class-level IMPLEMENTS relationships.

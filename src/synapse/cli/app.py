@@ -64,10 +64,10 @@ def _require_label(svc: SynapseService, full_name: str, required: str, hint: str
 
 @app.command()
 def index(path: str, language: str = "csharp") -> None:
-    """Index a project into the graph."""
+    """Index a project. Smart: full index if new, git sync if git project, mtime sync otherwise."""
     abs_path = str(Path(path).resolve())
     try:
-        _get_service(abs_path).index_project(abs_path, language, on_progress=typer.echo)
+        result = _get_service(abs_path).smart_index(abs_path, language, on_progress=typer.echo)
     except ModuleNotFoundError as e:
         typer.echo(
             f"Error: Missing dependency — {e}\n"
@@ -76,7 +76,7 @@ def index(path: str, language: str = "csharp") -> None:
             err=True,
         )
         raise typer.Exit(1)
-    typer.echo(f"Done. Indexed {abs_path}")
+    typer.echo(f"Done ({result})")
 
 
 @app.command()
