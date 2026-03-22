@@ -13,7 +13,19 @@ from synapse.container import ContainerManager
 from synapse.graph.schema import ensure_schema
 from synapse.service import SynapseService
 
+def _verbose_callback(verbose: bool) -> None:
+    if verbose:
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+
 app = typer.Typer(name="synapse", help="LSP-powered codebase graph tool")
+
+
+@app.callback()
+def main(
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable debug logging")] = False,
+) -> None:
+    _verbose_callback(verbose)
 summary_app = typer.Typer(name="summary")
 app.add_typer(summary_app, name="summary")
 

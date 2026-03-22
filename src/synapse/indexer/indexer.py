@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -106,6 +107,8 @@ class Indexer:
         if on_progress:
             on_progress(f"Indexing {len(files)} files...")
 
+        t_structural = time.monotonic()
+        total_symbols = 0
         for file_path in files:
             if _is_minified(file_path):
                 log.debug("Skipping minified file: %s", file_path)
@@ -116,7 +119,12 @@ class Indexer:
                 if sym.kind == SymbolKind.CLASS and (file_path, sym.name) in interface_classes:
                     sym.kind = SymbolKind.INTERFACE
             symbols_by_file[file_path] = symbols
+            total_symbols += len(symbols)
             self._index_file_structure(file_path, root_path, symbols)
+        log.info(
+            "Structural pass: %d files, %d symbols in %.1fs",
+            len(files), total_symbols, time.monotonic() - t_structural,
+        )
 
         upsert_repository(self._conn, root_path, language)
         upsert_repo_contains_dir(self._conn, root_path, root_path)
@@ -132,6 +140,7 @@ class Indexer:
         if on_progress:
             on_progress("Resolving base types...")
 
+        t_base = time.monotonic()
         for file_path in files:
             try:
                 with open(file_path, encoding="utf-8") as f:
@@ -139,10 +148,12 @@ class Indexer:
                 self._index_base_types(file_path, source, name_to_full_names, kind_map)
             except OSError:
                 log.warning("Could not read %s for base type extraction", file_path)
+        log.info("Base type resolution: %.1fs", time.monotonic() - t_base)
 
         if on_progress:
             on_progress("Extracting attributes...")
 
+        t_attr = time.monotonic()
         if self._attribute_extractor_factory is not None:
             attr_extractor = self._attribute_extractor_factory()
         else:
@@ -162,6 +173,7 @@ class Indexer:
                     self._index_attributes(file_path, source, file_symbols, attr_extractor)
             except OSError:
                 log.warning("Could not read %s for attribute extraction", file_path)
+        log.info("Attribute extraction: %.1fs", time.monotonic() - t_attr)
 
         # Phase 1.5: method-level IMPLEMENTS edges (requires all class-level IMPLEMENTS to exist)
         MethodImplementsIndexer(self._conn).index()

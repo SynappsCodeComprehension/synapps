@@ -221,13 +221,14 @@ def test_resolve_call_passes_line_col_to_upsert_calls(tmp_path):
 
     resolver = SymbolResolver(conn, ls, call_extractor=extractor, type_ref_extractor=type_ref_extractor)
 
-    with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
+    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver.resolve_single_file(str(cs_file), symbol_map)
 
-    mock_upsert.assert_called_once()
-    _, kwargs = mock_upsert.call_args[0], mock_upsert.call_args[1]
-    assert kwargs.get("line") == 1  # 1-indexed from extractor
-    assert kwargs.get("col") == 35
+    mock_batch.assert_called_once()
+    batch = mock_batch.call_args[0][1]
+    assert len(batch) == 1
+    assert batch[0]["line"] == 1  # 1-indexed from extractor
+    assert batch[0]["col"] == 35
 
 
 def test_resolve_call_resolves_overloaded_callee_name() -> None:
@@ -248,15 +249,10 @@ def test_resolve_call_resolves_overloaded_callee_name() -> None:
     resolver = SymbolResolver(conn, ls)
     resolver._resolve_call("Ns.C.Caller", "file.cs", 10, 5, "M", symbol_map=symbol_map)
 
-    # Should have written CALLS edge using the resolved overloaded name, not the plain 'Ns.C.M'
-    execute_calls = conn.execute.call_args_list
-    assert execute_calls, "Expected conn.execute to be called for CALLS edge"
-    # upsert_calls passes params as second positional arg: conn.execute(query, params)
-    last_call_args = execute_calls[-1][0]
-    assert len(last_call_args) >= 2, f"Expected (query, params) positional args, got: {last_call_args}"
-    callee_used = last_call_args[1].get("callee")
-    assert callee_used == "Ns.C.M(int)", (
-        f"Expected overloaded name 'Ns.C.M(int)' to be used, but got: {callee_used!r}"
+    # _resolve_call accumulates in _pending_calls; check the batch directly
+    assert len(resolver._pending_calls) == 1
+    assert resolver._pending_calls[0]["callee"] == "Ns.C.M(int)", (
+        f"Expected overloaded name 'Ns.C.M(int)' to be used, but got: {resolver._pending_calls[0]['callee']!r}"
     )
 
 
@@ -286,7 +282,7 @@ def test_resolver_walks_py_files_with_python_extractor(tmp_path) -> None:
 
 
 def test_resolver_uses_upsert_module_calls_for_module_callers(tmp_path) -> None:
-    """When caller_full_name is in module_full_names, upsert_module_calls is used."""
+    """When caller_full_name is in module_full_names, batch_upsert_module_calls is used."""
     py_file = tmp_path / "config.py"
     py_file.write_text("foo()")
 
@@ -311,12 +307,12 @@ def test_resolver_uses_upsert_module_calls_for_module_callers(tmp_path) -> None:
         module_full_names={"myproject.config"},
     )
 
-    with patch("synapse.indexer.symbol_resolver.upsert_module_calls") as mock_module_calls, \
-         patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_calls:
+    with patch("synapse.indexer.symbol_resolver.batch_upsert_module_calls") as mock_module_batch, \
+         patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_calls_batch:
         resolver.resolve(str(tmp_path), symbol_map)
 
-    mock_module_calls.assert_called_once()
-    mock_calls.assert_not_called()
+    mock_module_batch.assert_called_once()
+    mock_calls_batch.assert_not_called()
 
 
 def test_resolver_tracks_unresolved_sites(tmp_path) -> None:
@@ -384,13 +380,13 @@ def test_resolve_call_fallback_via_assignment_map():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
+    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
 
-    mock_upsert.assert_called_once()
-    args = mock_upsert.call_args
-    # caller is "Mod.MyClass.run", callee resolved through assignment fallback
-    assert args[0][1] == "Mod.MyClass.run"
+    mock_batch.assert_called_once()
+    batch = mock_batch.call_args[0][1]
+    assert len(batch) == 1
+    assert batch[0]["caller"] == "Mod.MyClass.run"
 
     # Stats should track the assignment fallback
     assert resolver._stats.calls_resolved == 1
@@ -430,10 +426,13 @@ def test_resolve_call_assignment_fallback_second_lsp_fails():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
+    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
 
-    mock_upsert.assert_not_called()
+    # batch_upsert_calls may be called with an empty batch or not at all
+    if mock_batch.called:
+        batch = mock_batch.call_args[0][1]
+        assert len(batch) == 0
     assert resolver._stats.calls_unresolved == 1
     assert any("assignment fallback failed" in s for s in resolver._unresolved_sites)
 
@@ -476,11 +475,12 @@ def test_resolve_call_no_assignment_map_entry_falls_through():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
+    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
 
     # Should have fallen through to containing_symbol path and resolved
-    mock_upsert.assert_called_once()
+    mock_batch.assert_called_once()
+    assert len(mock_batch.call_args[0][1]) == 1
 
 
 def test_resolve_call_direct_hit_skips_assignment_fallback():
@@ -513,10 +513,11 @@ def test_resolve_call_direct_hit_skips_assignment_fallback():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.upsert_calls") as mock_upsert:
+    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", symbol_map)
 
-    mock_upsert.assert_called_once()
+    mock_batch.assert_called_once()
+    assert len(mock_batch.call_args[0][1]) == 1
     # Only one LSP call was made (no second call for assignment fallback)
     assert ls.request_definition.call_count == 1
     # Stats: resolved via direct path, not via assignment

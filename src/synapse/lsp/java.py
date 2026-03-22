@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 from synapse.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
@@ -53,24 +54,36 @@ class JavaLSPAdapter:
             repository_root_path=root_path,
             solidlsp_settings=settings,
         )
+        log.info("Starting Eclipse JDT LS for %s", root_path)
+        t0 = time.monotonic()
         ls.start()
+        log.info("Eclipse JDT LS ready in %.1fs", time.monotonic() - t0)
         return cls(ls)
 
     def get_workspace_files(self, root_path: str) -> list[str]:
+        t0 = time.monotonic()
         files: list[str] = []
         for path in Path(root_path).rglob("*.java"):
             if not any(part in _EXCLUDE_DIRS for part in path.parts):
                 files.append(str(path))
+        log.info("Discovered %d Java files in %.1fs", len(files), time.monotonic() - t0)
         return files
 
     def get_document_symbols(self, file_path: str) -> list[IndexSymbol]:
         try:
+            t0 = time.monotonic()
             raw = self._ls.request_document_symbols(file_path)
+            elapsed = time.monotonic() - t0
             if raw is None:
                 return []
             result: list[IndexSymbol] = []
             for root in raw.root_symbols:
                 self._traverse(root, file_path, parent_full_name=None, result=result)
+            if elapsed > 2.0:
+                log.info(
+                    "Slow document symbols: %s took %.1fs (%d symbols)",
+                    file_path, elapsed, len(result),
+                )
             return result
         except Exception:
             log.exception("Failed to get symbols for %s", file_path)

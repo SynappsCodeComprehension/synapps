@@ -6,7 +6,14 @@ import time
 from pathlib import Path
 
 from synapse.graph.connection import GraphConnection
-from synapse.graph.edges import upsert_calls, upsert_module_calls, upsert_references
+from synapse.graph.edges import (
+    batch_upsert_calls,
+    batch_upsert_module_calls,
+    batch_upsert_references,
+    upsert_calls,
+    upsert_module_calls,
+    upsert_references,
+)
 from synapse.indexer.assignment_ref import AssignmentRef
 from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
 from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
@@ -79,6 +86,10 @@ class SymbolResolver:
         self._module_full_names = module_full_names or set()
         self._assignment_position_map = assignment_position_map or {}
         self._unresolved_sites: list[str] = []
+        self._callee_name_cache: dict[str, str] = {}
+        self._pending_calls: list[dict] = []
+        self._pending_module_calls: list[dict] = []
+        self._pending_refs: list[dict] = []
 
     def resolve(
         self,
@@ -109,17 +120,21 @@ class SymbolResolver:
                     self._stats.calls_resolved, self._stats.calls_unresolved, self._stats.type_refs_resolved,
                 )
 
+        self._flush_pending()
+
         elapsed = time.monotonic() - resolve_start
         s = self._stats
+        cache_hits = len(self._callee_name_cache)
         log.info(
             "Resolution complete in %.1fs — %d files, %d call sites (%d resolved, %d unresolved, "
             "%d via assignment fallback), "
-            "%d type refs resolved. LSP: %.1fs definition, %.1fs containing_symbol, "
+            "%d type refs resolved, %d callee name cache entries. "
+            "LSP: %.1fs definition, %.1fs containing_symbol, "
             "%.1fs callee_name. Extraction: %.1fs calls, %.1fs type_refs",
             elapsed, total_files,
             s.calls_resolved + s.calls_unresolved, s.calls_resolved, s.calls_unresolved,
             s.calls_resolved_via_assignment,
-            s.type_refs_resolved,
+            s.type_refs_resolved, cache_hits,
             s.lsp_definition_time, s.lsp_containing_time,
             s.callee_name_time, s.extraction_calls_time, s.extraction_typerefs_time,
         )
@@ -181,6 +196,8 @@ class SymbolResolver:
                     self._resolve_type_ref(ref, rel_path)
         except Exception:
             log.warning("LSP open_file failed for %s, skipping", rel_path)
+
+        self._flush_pending()
 
         file_elapsed = time.monotonic() - file_start
         if file_elapsed > 2.0:
@@ -336,11 +353,24 @@ class SymbolResolver:
         self, caller_full_name: str, callee_full_name: str,
         line: int | None, col: int | None,
     ) -> None:
-        """Dispatch to upsert_module_calls for module-scope callers, upsert_calls for methods."""
+        """Accumulate a CALLS edge for batch writing."""
+        row = {"caller": caller_full_name, "callee": callee_full_name, "line": line, "col": col}
         if caller_full_name in self._module_full_names:
-            upsert_module_calls(self._conn, caller_full_name, callee_full_name, line=line, col=col)
+            self._pending_module_calls.append(row)
         else:
-            upsert_calls(self._conn, caller_full_name, callee_full_name, line=line, col=col)
+            self._pending_calls.append(row)
+
+    def _flush_pending(self) -> None:
+        """Batch-write all accumulated CALLS and REFERENCES edges."""
+        if self._pending_calls:
+            batch_upsert_calls(self._conn, self._pending_calls)
+            self._pending_calls = []
+        if self._pending_module_calls:
+            batch_upsert_module_calls(self._conn, self._pending_module_calls)
+            self._pending_module_calls = []
+        if self._pending_refs:
+            batch_upsert_references(self._conn, self._pending_refs)
+            self._pending_refs = []
 
     def _resolve_callee_name(self, full_name: str) -> str:
         """
@@ -349,41 +379,52 @@ class SymbolResolver:
         Phase 1 may store methods as "X.M(int)" when overload_idx is set, but
         request_defining_symbol returns "X.M" without it. We do a graph lookup to
         find the unique stored variant (if unambiguous).
+
+        Results are cached to avoid repeated graph queries for the same callee.
         """
         if not full_name:
             return full_name
+        cached = self._callee_name_cache.get(full_name)
+        if cached is not None:
+            return cached
         rows = self._conn.query(
             "MATCH (m:Method) "
             "WHERE m.full_name = $name OR m.full_name STARTS WITH $prefix "
             "RETURN m.full_name LIMIT 2",
             {"name": full_name, "prefix": full_name + "("},
         )
-        if len(rows) == 1:
-            return rows[0][0]
-        return full_name
+        result = rows[0][0] if len(rows) == 1 else full_name
+        self._callee_name_cache[full_name] = result
+        return result
 
     def _resolve_type_ref(self, ref: TypeRef, rel_path: str) -> None:
         if not ref.owner_full_name:
             return
         stats = getattr(self, "_stats", None)
         target_full_name: str | None = None
-        t0 = time.monotonic()
-        try:
-            symbol = self._ls.request_defining_symbol(rel_path, ref.line, ref.col)
-            if symbol and symbol.get("kind") in _TYPE_KINDS:
-                target_full_name = build_full_name(symbol)
-        except Exception:
-            pass
-        if stats:
-            stats.lsp_definition_time += time.monotonic() - t0
-        # LSP does not resolve all type reference positions (e.g. field types);
-        # fall back to the project's own symbol name map for unambiguous cases.
-        if not target_full_name and self._name_to_full_names:
+        # Try the project's own symbol name map first (cheap dict lookup).
+        # Only use it for unambiguous cases (exactly one match).
+        if self._name_to_full_names:
             candidates = self._name_to_full_names.get(ref.type_name, [])
             if len(candidates) == 1:
                 target_full_name = candidates[0]
+        # Fall back to LSP (expensive round-trip) for ambiguous or unknown types.
+        if not target_full_name:
+            t0 = time.monotonic()
+            try:
+                symbol = self._ls.request_defining_symbol(rel_path, ref.line, ref.col)
+                if symbol and symbol.get("kind") in _TYPE_KINDS:
+                    target_full_name = build_full_name(symbol)
+            except Exception:
+                pass
+            if stats:
+                stats.lsp_definition_time += time.monotonic() - t0
         if target_full_name:
-            upsert_references(self._conn, ref.owner_full_name, target_full_name, ref.ref_kind)
+            self._pending_refs.append({
+                "source": ref.owner_full_name,
+                "target": target_full_name,
+                "kind": ref.ref_kind,
+            })
             if stats:
                 stats.type_refs_resolved += 1
 

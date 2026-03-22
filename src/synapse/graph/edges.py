@@ -163,3 +163,42 @@ def upsert_references(conn: GraphConnection, source_full_name: str, target_full_
         "MERGE (src)-[r:REFERENCES {kind: $kind}]->(dst)",
         {"source": source_full_name, "target": target_full_name, "kind": kind},
     )
+
+
+def batch_upsert_calls(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write CALLS edges from Method nodes with call_sites."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MATCH (src:Method {full_name: row.caller}), (dst:Method {full_name: row.callee}) "
+        "MERGE (src)-[r:CALLS]->(dst) "
+        "SET r.call_sites = coalesce(r.call_sites, []) + [[row.line, row.col]]",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_module_calls(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write CALLS edges from module :Class nodes with call_sites."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MATCH (src:Class {full_name: row.caller}), (dst:Method {full_name: row.callee}) "
+        "MERGE (src)-[r:CALLS]->(dst) "
+        "SET r.call_sites = coalesce(r.call_sites, []) + [[row.line, row.col]]",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_references(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write REFERENCES edges."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MATCH (src {full_name: row.source}), (dst {full_name: row.target}) "
+        "WHERE dst:Class OR dst:Interface "
+        "MERGE (src)-[r:REFERENCES {kind: row.kind}]->(dst)",
+        {"batch": batch},
+    )
