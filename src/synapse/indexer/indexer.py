@@ -334,12 +334,12 @@ class Indexer:
             resolver.resolve(root_path, symbol_map, class_symbol_map=class_symbol_map)
 
         # Per-site DEBUG logging for unresolved call sites
-        if self._language in ("python", "typescript") and hasattr(resolver, "_unresolved_sites"):
+        if self._language in ("python", "typescript", "java") and hasattr(resolver, "_unresolved_sites"):
             for site_msg in resolver._unresolved_sites:
                 log.debug(site_msg)
 
         # Resolution summary
-        if self._language in ("python", "typescript") and call_ext is not None:
+        if self._language in ("python", "typescript", "java") and call_ext is not None:
             total = getattr(call_ext, "_sites_seen", 0)
             if isinstance(total, int) and total > 0:
                 calls_count_rows = self._conn.query(
@@ -360,7 +360,7 @@ class Indexer:
                     )
 
         # OVERRIDES detection (pure Cypher, no LSP needed)
-        if self._language in ("python", "typescript"):
+        if self._language in ("python", "typescript", "java"):
             OverridesIndexer(self._conn).index()
 
     def delete_file(self, file_path: str) -> None:
@@ -396,6 +396,8 @@ class Indexer:
                     file_path, self._root_path or ""
                 )
             elif self._language == "typescript":
+                self._import_extractor._source_root = self._root_path or ""
+            elif self._language == "java":
                 self._import_extractor._source_root = self._root_path or ""
 
         results = self._import_extractor.extract(file_path, source)
@@ -457,6 +459,12 @@ class Indexer:
                 kind_str = "function"
             elif symbol.signature == "const_object" and symbol.kind == SymbolKind.CLASS:
                 kind_str = "const_object"
+        elif self._language == "java":
+            # Promote constructors: in Java, constructors share the class name
+            if symbol.kind == SymbolKind.METHOD and symbol.parent_full_name:
+                parent_simple = symbol.parent_full_name.rsplit(".", 1)[-1]
+                if symbol.name == parent_simple:
+                    kind_str = "constructor"
 
         match symbol.kind:
             case SymbolKind.NAMESPACE:
@@ -526,7 +534,7 @@ class Indexer:
             full_names = qualified_to_full.get(result_name) or name_to_full.get(result_name, [])
             for fn in full_names:
                 set_attributes(self._conn, fn, attrs)
-                if self._language in ("python", "typescript"):
+                if self._language in ("python", "typescript", "java"):
                     set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
 
     def _index_attributes_from_results(
@@ -549,7 +557,7 @@ class Indexer:
             full_names = qualified_to_full.get(result_name) or name_to_full.get(result_name, [])
             for fn in full_names:
                 set_attributes(self._conn, fn, attrs)
-                if self._language in ("python", "typescript"):
+                if self._language in ("python", "typescript", "java"):
                     set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
 
     def _index_base_types(
@@ -603,6 +611,12 @@ _ATTR_TO_FLAG: dict[str, str] = {
     # TypeScript markers (bare keyword names, no collision with Python decorated names)
     "abstract": "is_abstract",
     "static": "is_static",
+    # Java markers (annotations and modifiers)
+    "synchronized": "is_synchronized",
+    "final": "is_final",
+    "Override": "is_override",
+    "Deprecated": "is_deprecated",
+    "native": "is_native",
 }
 
 
