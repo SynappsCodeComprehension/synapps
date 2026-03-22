@@ -1020,30 +1020,30 @@ def test_get_context_for_scope_edit_class_no_methods_shows_note():
 # --- find_usages tests ---
 
 
-def test_find_usages_method_returns_callers() -> None:
-    """For a Method symbol, find_usages returns callers."""
+def test_find_usages_method_returns_text_with_callers() -> None:
+    """For a Method symbol, find_usages returns compact text listing callers."""
     svc = _service()
     method_node = _node(["Method"], {"full_name": "Ns.Svc.DoWork", "name": "DoWork"})
-    caller = {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "_labels": ["Method"]}
 
     with patch("synapse.service.get_symbol", return_value=method_node):
-        svc.find_callers = MagicMock(return_value=[caller])
+        svc.find_callers = MagicMock(return_value=[
+            {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "line": 10},
+        ])
         result = svc.find_usages("Ns.Svc.DoWork")
 
-    assert result["symbol"] == "Ns.Svc.DoWork"
-    assert result["kind"] == "Method"
-    assert len(result["callers"]) == 1
-    assert "type_references" not in result
-    assert "method_callers" not in result
+    assert isinstance(result, str)
+    assert "Ns.Svc.DoWork" in result
+    assert "(Method)" in result
+    assert "1 callers" in result
+    assert "Ns.Controller.Action" in result
 
 
-def test_find_usages_class_returns_tiered_summary() -> None:
-    """For a Class, find_usages returns a summary with counts and limited items."""
+def test_find_usages_class_returns_text_summary() -> None:
+    """For a Class, find_usages returns compact text with type refs and method callers."""
     svc = _service()
     class_node = _node(["Class"], {"full_name": "Ns.MyService", "name": "MyService", "kind": "class"})
     method_member = _node(["Method"], {"full_name": "Ns.MyService.DoWork", "name": "DoWork"})
     ref_symbol = _node(["Field"], {"full_name": "Ns.Controller._svc", "file_path": "/src/Controller.cs"})
-    caller = _node(["Method"], {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "line": 10})
 
     with patch.multiple(
         "synapse.service",
@@ -1054,16 +1054,16 @@ def test_find_usages_class_returns_tiered_summary() -> None:
         svc.find_callers = MagicMock(return_value=[{"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "line": 10}])
         result = svc.find_usages("Ns.MyService")
 
-    assert result["kind"] == "Class"
-    assert result["type_references"]["total"] == 1
-    assert len(result["type_references"]["items"]) == 1
-    assert "by_method" in result["method_callers"]
-    assert "DoWork" in result["method_callers"]["by_method"]
-    assert result["method_callers"]["by_method"]["DoWork"]["count"] == 1
+    assert isinstance(result, str)
+    assert "(Class)" in result
+    assert "1 type references" in result
+    assert "1 method callers" in result
+    assert "DoWork" in result
+    assert "Ns.Controller._svc" in result
 
 
 def test_find_usages_class_affected_files_deduplicates() -> None:
-    """affected_files should be a deduplicated count."""
+    """affected_files count in text should be deduplicated."""
     svc = _service()
     class_node = _node(["Class"], {"full_name": "Ns.Svc", "name": "Svc", "kind": "class"})
     ref1 = _node(["Field"], {"full_name": "Ns.C1._s", "file_path": "/src/C1.cs"})
@@ -1081,15 +1081,16 @@ def test_find_usages_class_affected_files_deduplicates() -> None:
         svc.find_callers = MagicMock(return_value=[])
         result = svc.find_usages("Ns.Svc")
 
-    assert result["affected_files"] == 1
+    assert isinstance(result, str)
+    assert "across 1 files" in result
 
 
 def test_find_usages_symbol_not_found() -> None:
     svc = _service()
     with patch("synapse.service.get_symbol", return_value=None):
         result = svc.find_usages("Ns.Missing")
-    assert "error" in result
-    assert "not found" in result["error"].lower()
+    assert isinstance(result, str)
+    assert "not found" in result.lower()
 
 
 def test_find_usages_unsupported_label() -> None:
@@ -1097,8 +1098,8 @@ def test_find_usages_unsupported_label() -> None:
     file_node = _node(["File"], {"full_name": "/src/Foo.cs", "name": "Foo.cs"})
     with patch("synapse.service.get_symbol", return_value=file_node):
         result = svc.find_usages("/src/Foo.cs")
-    assert "error" in result
-    assert "does not support" in result["error"].lower()
+    assert isinstance(result, str)
+    assert "does not support" in result.lower()
 
 
 def test_find_usages_class_filters_test_type_references() -> None:
@@ -1120,8 +1121,10 @@ def test_find_usages_class_filters_test_type_references() -> None:
         svc.find_callers = MagicMock(return_value=[])
         result = svc.find_usages("Ns.MyService")
 
-    assert result["type_references"]["total"] == 1
-    assert result["type_references"]["items"][0]["full_name"] == "Ns.Controller._svc"
+    assert isinstance(result, str)
+    assert "1 type references" in result
+    assert "Ns.Controller._svc" in result
+    assert "Ns.Tests.Setup._svc" not in result
 
 
 def test_find_usages_class_includes_test_refs_when_requested() -> None:
@@ -1143,21 +1146,24 @@ def test_find_usages_class_includes_test_refs_when_requested() -> None:
         svc.find_callers = MagicMock(return_value=[])
         result = svc.find_usages("Ns.MyService", exclude_test_callers=False)
 
-    assert result["type_references"]["total"] == 2
+    assert isinstance(result, str)
+    assert "2 type references" in result
 
 
-def test_find_usages_property_returns_callers() -> None:
-    """For a Property symbol, find_usages returns callers with kind=Property."""
+def test_find_usages_property_returns_text() -> None:
+    """For a Property symbol, find_usages returns text with kind=Property."""
     svc = _service()
     prop_node = _node(["Property"], {"full_name": "Ns.Svc.Name", "name": "Name"})
-    caller = {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "_labels": ["Method"]}
 
     with patch("synapse.service.get_symbol", return_value=prop_node):
-        svc.find_callers = MagicMock(return_value=[caller])
+        svc.find_callers = MagicMock(return_value=[
+            {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "line": 5},
+        ])
         result = svc.find_usages("Ns.Svc.Name")
 
-    assert result["kind"] == "Property"
-    assert len(result["callers"]) == 1
+    assert isinstance(result, str)
+    assert "(Property)" in result
+    assert "Ns.Controller.Action" in result
 
 
 # --- max_lines fallback tests ---

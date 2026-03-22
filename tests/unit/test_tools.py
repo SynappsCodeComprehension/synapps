@@ -71,16 +71,16 @@ def test_list_projects_has_description():
 
 def test_find_usages_tool_delegates_to_service() -> None:
     service = MagicMock()
-    service.find_usages.return_value = {"symbol": "Ns.Svc", "kind": "Class", "type_references": {"total": 0, "items": []}, "method_callers": {"total": 0, "by_method": {}}, "affected_files": 0}
+    service.find_usages.return_value = "## Usages of Ns.Svc (Class)\n\n0 type references"
     fns = _register(service)
     result = fns["find_usages"]("Ns.Svc")
     service.find_usages.assert_called_once_with("Ns.Svc", True, limit=20)
-    assert result["kind"] == "Class"
+    assert "(Class)" in result
 
 
 def test_find_usages_tool_passes_exclude_flag() -> None:
     service = MagicMock()
-    service.find_usages.return_value = {"symbol": "Ns.M", "kind": "Method", "callers": []}
+    service.find_usages.return_value = "## Usages of Ns.M (Method)\n\n0 callers"
     fns = _register(service)
     fns["find_usages"]("Ns.M", exclude_test_callers=False)
     service.find_usages.assert_called_once_with("Ns.M", False, limit=20)
@@ -127,8 +127,8 @@ def test_tool_docstrings_contain_disambiguation_cues():
     # get_symbol should point to get_context_for
     assert "get_context_for" in fns["get_symbol"].__doc__
 
-    # find_usages should mention it's a unified entry point
-    assert "unified entry point" in fns["find_usages"].__doc__.lower()
+    # find_usages should describe what it does
+    assert "find all code that uses a symbol" in fns["find_usages"].__doc__.lower()
 
     # search_symbols should mention discovering names for other tools
     assert "discover" in fns["search_symbols"].__doc__.lower()

@@ -460,11 +460,11 @@ class SynapseService:
 
     _USAGES_SUPPORTED_LABELS = {"Method", "Property", "Field", "Class", "Interface"}
 
-    def find_usages(self, full_name: str, exclude_test_callers: bool = True, limit: int = 20) -> dict:
+    def find_usages(self, full_name: str, exclude_test_callers: bool = True, limit: int = 20) -> str:
         full_name = self._resolve(full_name)
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
-            return {"error": f"Symbol not found: {full_name}"}
+            return f"Symbol not found: {full_name}"
 
         props = _p(symbol)
         labels = set(props.get("_labels", []))
@@ -472,21 +472,34 @@ class SynapseService:
         supported = labels & self._USAGES_SUPPORTED_LABELS
         if not supported:
             label = next(iter(labels), "unknown")
-            return {"error": f"find_usages does not support {label} symbols"}
+            return f"find_usages does not support {label} symbols"
 
-        # Method/Property/Field — return callers
+        # Method/Property/Field — compact caller list
         if labels & {"Method", "Property", "Field"}:
-            callers = self.find_callers(full_name, exclude_test_callers=exclude_test_callers, limit=limit)
             kind = "Method" if "Method" in labels else ("Property" if "Property" in labels else "Field")
-            return {"symbol": full_name, "kind": kind, "callers": callers}
+            callers = self.find_callers(full_name, exclude_test_callers=exclude_test_callers, limit=limit)
+            if isinstance(callers, dict):
+                caller_list = callers["results"]
+                total = callers["_total"]
+            else:
+                caller_list = callers
+                total = len(callers)
+            lines = [f"## Usages of {full_name} ({kind})", f"\n{total} callers:\n"]
+            for c in caller_list:
+                fp = c.get("file_path", "")
+                ln = c.get("line", "")
+                lines.append(f"- `{c['full_name']}` — {fp}:{ln}")
+            if total > len(caller_list):
+                lines.append(f"\n... and {total - len(caller_list)} more")
+            return "\n".join(lines)
 
-        # Class or Interface — return tiered summary
+        # Class or Interface — compact tiered summary
         kind = "Interface" if "Interface" in labels else "Class"
         test_re = re.compile(_TEST_PATH_PATTERN) if exclude_test_callers else None
 
-        # Type references: get count + limited items
+        # Type references
         raw_refs = [
-            {"full_name": _slim(r["symbol"], "full_name")["full_name"],
+            {"full_name": _slim(r["symbol"], "full_name").get("full_name", "?"),
              "file_path": _slim(r["symbol"], "file_path").get("file_path", ""),
              "kind": r["kind"]}
             for r in query_find_type_references(self._conn, full_name)
@@ -495,7 +508,6 @@ class SynapseService:
             raw_refs = [r for r in raw_refs if not test_re.match(r.get("file_path", ""))]
 
         ref_total = len(raw_refs)
-        ref_items = raw_refs[:limit]
 
         # Collect affected files
         affected_files: set[str] = set()
@@ -504,17 +516,16 @@ class SynapseService:
             if fp:
                 affected_files.add(fp)
 
-        # Method callers — summarize as counts + top callers per method
+        # Method callers — counts + top callers per method
         members = get_members_overview(self._conn, full_name)
         all_members = [_p(m) for m in members]
         methods = [m for m in all_members if "Method" in set(m.get("_labels", []))]
-        method_summary: dict[str, dict] = {}
+        method_lines: list[str] = []
         total_method_callers = 0
         for method in methods:
             method_fn = method["full_name"]
             method_short = method.get("name", method_fn.rsplit(".", 1)[-1])
             callers = self.find_callers(method_fn, exclude_test_callers=exclude_test_callers, limit=1000)
-            # find_callers may return list or truncated dict
             if isinstance(callers, dict):
                 caller_list = callers["results"]
                 count = callers["_total"]
@@ -522,21 +533,37 @@ class SynapseService:
                 caller_list = callers
                 count = len(callers)
             if count > 0:
-                top_callers = [c["full_name"] for c in caller_list[:5]]
-                method_summary[method_short] = {"count": count, "top_callers": top_callers}
+                top = ", ".join(c["full_name"] for c in caller_list[:5])
+                method_lines.append(f"- {method_short}: {count} callers — {top}")
                 total_method_callers += count
                 for c in caller_list:
                     fp = c.get("file_path")
                     if fp:
                         affected_files.add(fp)
 
-        return {
-            "symbol": full_name,
-            "kind": kind,
-            "type_references": {"total": ref_total, "items": ref_items},
-            "method_callers": {"total": total_method_callers, "by_method": method_summary},
-            "affected_files": len(affected_files),
-        }
+        # Group type references by file for compact display
+        refs_by_file: dict[str, list[str]] = {}
+        for r in raw_refs[:limit]:
+            fp = r.get("file_path", "?")
+            refs_by_file.setdefault(fp, []).append(r["full_name"])
+
+        lines = [
+            f"## Usages of {full_name} ({kind})",
+            f"\n{ref_total} type references, {total_method_callers} method callers across {len(affected_files)} files",
+        ]
+
+        if refs_by_file:
+            lines.append(f"\n### Type References ({min(ref_total, limit)} of {ref_total})\n")
+            for fp, symbols in refs_by_file.items():
+                lines.append(f"- {fp}: {', '.join(symbols)}")
+
+        if method_lines:
+            lines.append(f"\n### Method Callers ({total_method_callers} total)\n")
+            # Sort by count descending
+            method_lines.sort(key=lambda l: int(l.split(": ")[1].split(" ")[0]), reverse=True)
+            lines.extend(method_lines)
+
+        return "\n".join(lines)
 
     def find_dependencies(self, full_name: str, depth: int = 1, limit: int = 50) -> list[dict] | dict:
         full_name = self._resolve(full_name)

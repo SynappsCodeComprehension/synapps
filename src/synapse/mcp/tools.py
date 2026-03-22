@@ -356,12 +356,11 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         return service.find_type_references(full_name, kind=kind, limit=limit)
 
     @mcp.tool()
-    def find_usages(full_name: str, exclude_test_callers: bool = True, limit: int = 20) -> dict:
-        """Unified entry point — auto-selects the right lookup strategy based on symbol kind. Prefer over manually choosing between find_callers and find_type_references.
+    def find_usages(full_name: str, exclude_test_callers: bool = True, limit: int = 20) -> str:
+        """Find all code that uses a symbol — returns a compact text summary.
 
-        For methods/properties/fields: returns callers (CALLS edges).
-        For classes/interfaces: returns a tiered summary — type_references (total count + up to `limit` items),
-        method_callers (total count + top 5 callers per method), and affected_files count.
+        For methods/properties/fields: lists callers with file locations.
+        For classes/interfaces: shows type reference count, method callers grouped by method with top callers, and affected file count.
         Test usages are excluded by default. Set exclude_test_callers=False to include them.
         """
         _auto_sync_check()
