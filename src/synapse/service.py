@@ -952,9 +952,16 @@ class SynapseService:
         method = self._resolve(method, preference="interface")
         return find_interface_contract(self._conn, method)
 
-    def find_type_impact(self, type_name: str) -> dict:
+    def find_type_impact(self, type_name: str, limit: int = 50) -> dict:
         type_name = self._resolve(type_name)
-        return find_type_impact(self._conn, type_name)
+        result = find_type_impact(self._conn, type_name)
+        if len(result["references"]) > limit:
+            result["_total_references"] = len(result["references"])
+            result["references"] = result["references"][:limit]
+            result["_truncated"] = True
+        else:
+            result["_total_references"] = len(result["references"])
+        return result
 
     def audit_architecture(self, rule: str) -> dict:
         return audit_architecture(self._conn, rule)

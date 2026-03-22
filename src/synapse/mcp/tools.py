@@ -405,12 +405,13 @@ def register_tools(mcp: object, service: SynapseService) -> None:
         return service.find_interface_contract(method)
 
     @mcp.tool()
-    def find_type_impact(type_name: str) -> dict:
+    def find_type_impact(type_name: str, limit: int = 50) -> dict:
         """Find all code affected if a type's shape changes, categorized as prod or test.
 
-        Returns {type, references: [{full_name, file_path, context}], prod_count, test_count}.
+        Returns {type, references: [{full_name, file_path, context}], prod_count, test_count, _total_references}.
+        limit: max number of references to return (default 50). When truncated, _truncated=True and _total_references shows the full count.
         """
-        return service.find_type_impact(type_name)
+        return service.find_type_impact(type_name, limit=limit)
 
     @mcp.tool()
     def audit_architecture(rule: AuditRuleLiteral) -> dict:

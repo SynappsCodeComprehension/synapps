@@ -1645,3 +1645,13 @@ def test_apply_limit_at_boundary_returns_list() -> None:
     result = _apply_limit(items, 5)
     assert isinstance(result, list)
     assert len(result) == 5
+
+
+def test_find_type_impact_applies_limit() -> None:
+    svc = _service()
+    refs = [{"full_name": f"Ns.R{i}", "file_path": f"/f{i}.cs", "context": "prod"} for i in range(10)]
+    impact = {"type": "Ns.Foo", "references": refs, "prod_count": 10, "test_count": 0}
+    with patch("synapse.service.find_type_impact", return_value=impact):
+        result = svc.find_type_impact("Ns.Foo", limit=3)
+    assert result["_total_references"] == 10
+    assert len(result["references"]) == 3
