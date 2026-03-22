@@ -48,6 +48,22 @@ def _p(node) -> dict:
     return node
 
 
+def _slim(node, *fields: str) -> dict:
+    """Extract only the specified fields from a neo4j Node or plain dict."""
+    if hasattr(node, "element_id"):
+        return {f: node.get(f) for f in fields if node.get(f) is not None}
+    if isinstance(node, dict):
+        return {f: node[f] for f in fields if f in node}
+    return {}
+
+
+def _apply_limit(items: list, limit: int) -> list | dict:
+    """Return items directly if within limit, or a truncated wrapper if over."""
+    if len(items) <= limit:
+        return items
+    return {"results": items[:limit], "_total": len(items), "_truncated": True}
+
+
 def _member_line(m) -> str:
     mp = _p(m)
     sig = mp.get("signature") or mp.get("type_name") or ""

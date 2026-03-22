@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.service import SynapseService, _p
+from synapse.service import SynapseService, _p, _slim, _apply_limit
 from conftest import _MockNode
 
 
@@ -1516,3 +1516,38 @@ def test_index_calls_csharp_no_module_full_names_no_overrides_indexer() -> None:
         module_full_names = call_kwargs.kwargs.get("module_full_names")
         # C# path: module_full_names should be empty set or not passed
         assert not module_full_names, f"C# should not pass module_full_names, got: {module_full_names}"
+
+
+def test_slim_extracts_specified_fields_from_mock_node() -> None:
+    node = _node(["Method"], {"full_name": "Ns.Foo.Bar", "file_path": "/f.cs", "line": 10, "end_line": 20, "language": "csharp"})
+    result = _slim(node, "full_name", "file_path", "line")
+    assert result == {"full_name": "Ns.Foo.Bar", "file_path": "/f.cs", "line": 10}
+
+def test_slim_skips_missing_fields() -> None:
+    node = _node(["Method"], {"full_name": "Ns.Foo.Bar"})
+    result = _slim(node, "full_name", "file_path", "line")
+    assert result == {"full_name": "Ns.Foo.Bar"}
+
+def test_slim_works_with_plain_dict() -> None:
+    d = {"full_name": "Ns.Foo", "file_path": "/f.cs", "extra": "noise"}
+    result = _slim(d, "full_name", "file_path")
+    assert result == {"full_name": "Ns.Foo", "file_path": "/f.cs"}
+
+def test_apply_limit_returns_list_when_under() -> None:
+    items = [{"a": 1}, {"a": 2}]
+    result = _apply_limit(items, 5)
+    assert result == items
+    assert isinstance(result, list)
+
+def test_apply_limit_returns_dict_when_over() -> None:
+    items = [{"a": i} for i in range(10)]
+    result = _apply_limit(items, 3)
+    assert result["_total"] == 10
+    assert result["_truncated"] is True
+    assert len(result["results"]) == 3
+
+def test_apply_limit_at_boundary_returns_list() -> None:
+    items = [{"a": i} for i in range(5)]
+    result = _apply_limit(items, 5)
+    assert isinstance(result, list)
+    assert len(result) == 5
