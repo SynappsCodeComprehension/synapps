@@ -37,7 +37,7 @@ def _make_ts_method_symbol(name: str, parent_full_name: str | None = "src/foo.My
     )
 
 
-from synapse.indexer.indexer import _is_minified
+from synapse.indexer.indexer import _is_minified, _is_minified_source
 
 
 def test_is_minified_returns_true_for_long_first_line(tmp_path):
@@ -336,3 +336,31 @@ def test_reindex_file_builds_assignment_map(tmp_path):
     assert apm is not None
     assert (str(tmp_path / "bar.py"), 3) in apm
     assert apm[(str(tmp_path / "bar.py"), 3)] is ref
+
+
+# --- _is_minified_source tests ---
+
+
+def test_is_minified_source_returns_true_for_long_first_line():
+    source = "x" * 501
+    assert _is_minified_source(source) is True
+
+
+def test_is_minified_source_returns_false_for_normal():
+    source = "def foo():\n    pass"
+    assert _is_minified_source(source) is False
+
+
+def test_is_minified_source_returns_false_for_empty():
+    assert _is_minified_source("") is False
+
+
+def test_is_minified_source_returns_true_for_long_first_line_with_newline():
+    source = "x" * 501 + "\nshort line"
+    assert _is_minified_source(source) is True
+
+
+def test_is_minified_source_returns_false_for_blank_first_line():
+    """A source whose first line is whitespace-only is not minified."""
+    source = "   \nshort line"
+    assert _is_minified_source(source) is False

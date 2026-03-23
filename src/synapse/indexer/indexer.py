@@ -22,13 +22,14 @@ from synapse.graph.nodes import (
     set_attributes, set_metadata_flags,
 )
 from synapse.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
-from synapse.indexer.call_indexer import CallIndexer
 from synapse.indexer.method_implements_indexer import MethodImplementsIndexer
 from synapse.indexer.overrides_indexer import OverridesIndexer
 from synapse.indexer.symbol_resolver import SymbolResolver
 from synapse.lsp.interface import IndexSymbol, LSPAdapter, SymbolKind
 
 if TYPE_CHECKING:
+    from tree_sitter import Tree
+    from synapse.indexer.tree_sitter_util import ParsedFile
     from synapse.plugin import LanguagePlugin
 
 log = logging.getLogger(__name__)
@@ -58,12 +59,21 @@ def _is_minified(file_path: str) -> bool:
         return False
 
 
+def _is_minified_source(source: str) -> bool:
+    """Return True if the source's first non-empty line exceeds the minified threshold."""
+    newline = source.find('\n')
+    first_line = source[:newline] if newline != -1 else source
+    stripped = first_line.strip()
+    return len(stripped) > _MINIFIED_LINE_THRESHOLD if stripped else False
+
+
 class Indexer:
     def __init__(self, conn: GraphConnection, lsp: LSPAdapter, plugin: LanguagePlugin | None = None) -> None:
         self._conn = conn
         self._lsp = lsp
         self._root_path: str = ""
         if plugin is not None:
+            self._plugin = plugin
             self._import_extractor = plugin.create_import_extractor()
             self._base_type_extractor = plugin.create_base_type_extractor()
             self._attribute_extractor_factory = plugin.create_attribute_extractor
@@ -73,7 +83,9 @@ class Indexer:
             self._file_extensions = plugin.file_extensions
             self._language = plugin.name
         else:
+            from synapse.plugin.csharp import CSharpPlugin
             from synapse.indexer.csharp.csharp_import_extractor import CSharpImportExtractor
+            self._plugin = CSharpPlugin()
             self._import_extractor = CSharpImportExtractor()
             self._base_type_extractor = CSharpBaseTypeExtractor()
             self._attribute_extractor_factory = None
@@ -89,11 +101,30 @@ class Indexer:
         language: str,
         keep_lsp_running: bool = False,
         on_progress: Callable[[str], None] | None = None,
+        files: list[str] | None = None,
     ) -> None:
         root_path = root_path.rstrip("/")
         self._root_path = root_path
-        files = self._lsp.get_workspace_files(root_path)
-        symbols_by_file: dict[str, list[IndexSymbol]] = {}
+
+        if files is None:
+            files = self._lsp.get_workspace_files(root_path)
+
+        # Build parsed_cache: read each file once, check minification, parse tree
+        parsed_cache: dict[str, ParsedFile] = {}
+        for file_path in files:
+            try:
+                with open(file_path, encoding="utf-8") as f:
+                    source = f.read()
+            except OSError:
+                continue
+            if _is_minified_source(source):
+                log.debug("Skipping minified file: %s", file_path)
+                continue
+            try:
+                parsed_cache[file_path] = self._plugin.parse_file(file_path, source)
+            except Exception:
+                log.warning("tree-sitter failed to parse %s", file_path)
+                continue
 
         # Pre-scan: detect ABC/Protocol classes so they can be promoted to :Interface
         # during the structural pass. Cache results for reuse in the attribute phase.
@@ -102,28 +133,25 @@ class Indexer:
         if self._language == "python" and self._attribute_extractor_factory is not None:
             pre_attr_ext = self._attribute_extractor_factory()
             if pre_attr_ext is not None:
-                for file_path in files:
+                for file_path, pf in parsed_cache.items():
                     try:
-                        with open(file_path, encoding="utf-8") as f:
-                            source = f.read()
-                        results = pre_attr_ext.extract(file_path, source)
+                        results = pre_attr_ext.extract(file_path, pf.tree)
                         if results:
                             cached_attr_results[file_path] = results
                             for name, markers in results:
                                 if _INTERFACE_MARKERS & set(markers):
                                     interface_classes.add((file_path, name))
-                    except OSError:
+                    except Exception:
                         pass
 
         if on_progress:
             on_progress(f"Indexing {len(files)} files...")
 
-        t_structural = time.monotonic()
+        # Structural pass
+        symbols_by_file: dict[str, list[IndexSymbol]] = {}
         total_symbols = 0
-        for file_path in files:
-            if _is_minified(file_path):
-                log.debug("Skipping minified file: %s", file_path)
-                continue
+        t_structural = time.monotonic()
+        for file_path, pf in parsed_cache.items():
             symbols = self._lsp.get_document_symbols(file_path)
             # Promote ABC/Protocol classes to INTERFACE kind
             for sym in symbols:
@@ -131,10 +159,10 @@ class Indexer:
                     sym.kind = SymbolKind.INTERFACE
             symbols_by_file[file_path] = symbols
             total_symbols += len(symbols)
-            self._index_file_structure(file_path, root_path, symbols)
+            self._index_file_structure(file_path, root_path, symbols, pf)
         log.info(
             "Structural pass: %d files, %d symbols in %.1fs",
-            len(files), total_symbols, time.monotonic() - t_structural,
+            len(parsed_cache), total_symbols, time.monotonic() - t_structural,
         )
 
         upsert_repository(self._conn, root_path, language)
@@ -151,26 +179,26 @@ class Indexer:
         if on_progress:
             on_progress("Resolving base types...")
 
+        # Base type pass
         t_base = time.monotonic()
-        for file_path in files:
+        for file_path, pf in parsed_cache.items():
             try:
-                with open(file_path, encoding="utf-8") as f:
-                    source = f.read()
-                self._index_base_types(file_path, source, name_to_full_names, kind_map)
-            except OSError:
-                log.warning("Could not read %s for base type extraction", file_path)
+                self._index_base_types(file_path, pf.tree, name_to_full_names, kind_map)
+            except Exception:
+                log.warning("Could not process %s for base type extraction", file_path)
         log.info("Base type resolution: %.1fs", time.monotonic() - t_base)
 
         if on_progress:
             on_progress("Extracting attributes...")
 
+        # Attribute pass
         t_attr = time.monotonic()
         if self._attribute_extractor_factory is not None:
             attr_extractor = self._attribute_extractor_factory()
         else:
             from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
             attr_extractor = CSharpAttributeExtractor()
-        for file_path in files:
+        for file_path, pf in parsed_cache.items():
             try:
                 file_symbols = symbols_by_file.get(file_path, [])
                 if file_path in cached_attr_results:
@@ -179,11 +207,9 @@ class Indexer:
                         file_path, cached_attr_results[file_path], file_symbols,
                     )
                 else:
-                    with open(file_path, encoding="utf-8") as f:
-                        source = f.read()
-                    self._index_attributes(file_path, source, file_symbols, attr_extractor)
-            except OSError:
-                log.warning("Could not read %s for attribute extraction", file_path)
+                    self._index_attributes(file_path, pf.tree, file_symbols, attr_extractor)
+            except Exception:
+                log.warning("Could not process %s for attribute extraction", file_path)
         log.info("Attribute extraction: %.1fs", time.monotonic() - t_attr)
 
         # Phase 1.5: method-level IMPLEMENTS edges (requires all class-level IMPLEMENTS to exist)
@@ -200,6 +226,7 @@ class Indexer:
         all_symbols = [sym for syms in symbols_by_file.values() for sym in syms]
         self._resolve_calls_and_refs(
             root_path, all_symbols, files, name_to_full_names,
+            parsed_cache=parsed_cache,
         )
 
         if not keep_lsp_running:
@@ -250,7 +277,8 @@ class Indexer:
         try:
             with open(file_path, encoding="utf-8") as f:
                 source = f.read()
-            self._index_base_types(file_path, source, name_to_full_names, kind_map)
+            tree = self._plugin.parse_file(file_path, source).tree
+            self._index_base_types(file_path, tree, name_to_full_names, kind_map)
             if cached_attr_results is not None:
                 self._index_attributes_from_results(file_path, cached_attr_results, symbols)
             else:
@@ -259,7 +287,7 @@ class Indexer:
                 else:
                     from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
                     attr_extractor = CSharpAttributeExtractor()
-                self._index_attributes(file_path, source, symbols, attr_extractor)
+                self._index_attributes(file_path, tree, symbols, attr_extractor)
         except OSError:
             log.warning("Could not read %s for base type extraction", file_path)
 
@@ -279,10 +307,12 @@ class Indexer:
         name_to_full_names: dict[str, list[str]],
         *,
         single_file: str | None = None,
+        parsed_cache: dict[str, ParsedFile] | None = None,
     ) -> None:
         """Build resolution context and run SymbolResolver for CALLS + REFERENCES edges.
 
         When ``single_file`` is provided, only that file is resolved (used by reindex_file).
+        ``parsed_cache`` provides pre-parsed trees so files don't need to be re-read.
         """
         _CLASS_KINDS = {SymbolKind.CLASS, SymbolKind.ABSTRACT_CLASS, SymbolKind.INTERFACE}
         symbol_map = {
@@ -327,18 +357,27 @@ class Indexer:
                     cls_lines.sort()
 
                 semantic_map: dict[tuple[str, str], AssignmentRef] = {}
+                _pc = parsed_cache or {}
                 for file_path in files:
+                    if file_path in _pc:
+                        tree = _pc[file_path].tree
+                    else:
+                        # Fallback for reindex_file path where parsed_cache may not cover this file
+                        try:
+                            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                                source = f.read()
+                            tree = self._plugin.parse_file(file_path, source).tree
+                        except OSError:
+                            continue
                     try:
-                        with open(file_path, encoding="utf-8", errors="ignore") as f:
-                            source = f.read()
                         refs = assign_ext.extract(
-                            file_path, source, symbol_map,
+                            file_path, tree, symbol_map,
                             class_lines=class_lines_per_file.get(file_path),
                             module_name_resolver=module_map.get if module_map else None,
                         )
                         for ref in refs:
                             semantic_map[(ref.class_full_name, ref.field_name)] = ref
-                    except OSError:
+                    except Exception:
                         pass
 
                 for ref in semantic_map.values():
@@ -398,10 +437,19 @@ class Indexer:
     def delete_file(self, file_path: str) -> None:
         delete_file_nodes(self._conn, file_path)
 
-    def _index_file_structure(self, file_path: str, root_path: str, symbols: list[IndexSymbol]) -> None:
+    def _index_file_structure(
+        self,
+        file_path: str,
+        root_path: str,
+        symbols: list[IndexSymbol],
+        parsed_file: ParsedFile | None = None,
+    ) -> None:
         upsert_file(self._conn, file_path, os.path.basename(file_path), self._language)
         self._upsert_directory_chain(file_path, root_path)
-        self._index_file_imports(file_path)
+        if parsed_file is not None:
+            self._index_file_imports(file_path, parsed_file.tree)
+        else:
+            self._index_file_imports(file_path)
 
         for symbol in symbols:
             self._upsert_symbol(symbol)
@@ -410,13 +458,19 @@ class Indexer:
             else:
                 upsert_contains_symbol(self._conn, symbol.parent_full_name, symbol.full_name)
 
-    def _index_file_imports(self, file_path: str) -> None:
-        try:
-            with open(file_path, encoding="utf-8") as f:
-                source = f.read()
-        except OSError:
-            log.warning("Could not read %s for import extraction", file_path)
-            return
+    def _index_file_imports(self, file_path: str, tree: Tree | None = None) -> None:
+        if tree is None:
+            # Fallback: read file from disk (used by reindex_file path)
+            try:
+                with open(file_path, encoding="utf-8") as f:
+                    source = f.read()
+            except OSError:
+                log.warning("Could not read %s for import extraction", file_path)
+                return
+            if self._language == "csharp":
+                tree = _parse_csharp_source(source)
+            else:
+                tree = self._plugin.parse_file(file_path, source).tree
 
         # Lazily wire source_root into the extractor on first file processed.
         # Python uses detect_source_root to find the package boundary;
@@ -432,9 +486,7 @@ class Indexer:
             elif self._language == "java":
                 self._import_extractor._source_root = self._root_path or ""
 
-        if self._language == "csharp":
-            source = _parse_csharp_source(source)
-        results = self._import_extractor.extract(file_path, source)
+        results = self._import_extractor.extract(file_path, tree)
         if not results:
             return
 
@@ -542,15 +594,13 @@ class Indexer:
     def _index_attributes(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         symbols: list[IndexSymbol],
         extractor,
     ) -> None:
         if extractor is None:
             return
-        if self._language == "csharp":
-            source = _parse_csharp_source(source)
-        results = extractor.extract(file_path, source)
+        results = extractor.extract(file_path, tree)
         if not results:
             return
 
@@ -599,13 +649,11 @@ class Indexer:
     def _index_base_types(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         name_to_full_names: dict[str, list[str]],
         kind_map: dict[str, SymbolKind],
     ) -> None:
-        if self._language == "csharp":
-            source = _parse_csharp_source(source)
-        triples = self._base_type_extractor.extract(file_path, source)
+        triples = self._base_type_extractor.extract(file_path, tree)
         for type_simple, base_simple, is_first in triples:
             type_candidates = name_to_full_names.get(type_simple, [])
             base_candidates = name_to_full_names.get(base_simple, [])

@@ -66,7 +66,8 @@ def test_index_project_upserts_file_node() -> None:
     lsp.get_document_symbols.return_value = []
 
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any("File" in c for c in calls)
@@ -80,7 +81,8 @@ def test_index_project_upserts_class_symbol() -> None:
         _make_symbol("MyClass", SymbolKind.CLASS),
     ]
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any("MyClass" in c for c in calls)
@@ -145,7 +147,8 @@ def test_nested_symbol_gets_contains_from_parent_not_file() -> None:
     ]
 
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any("MyNs.MyClass" in c and "MyNs.MyClass.DoWork" in c and "CONTAINS" in c for c in calls)
@@ -160,7 +163,8 @@ def test_top_level_symbol_gets_contains_from_file() -> None:
     ]
 
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any("/proj/Foo.cs" in c and "MyNs.MyClass" in c and "CONTAINS" in c for c in calls)
@@ -173,7 +177,8 @@ def test_directory_chain_creates_dir_contains_dir() -> None:
     lsp.get_document_symbols.return_value = []
 
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any("/proj" in c and "/proj/src" in c and "CONTAINS" in c for c in calls)
@@ -188,7 +193,8 @@ def test_interface_symbol_creates_interface_node() -> None:
     ]
 
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any(":Interface" in c and "IMyService" in c for c in calls)
@@ -220,7 +226,8 @@ def test_directory_chain_creates_dir_contains_file() -> None:
     lsp.get_document_symbols.return_value = []
 
     indexer = Indexer(conn, lsp)
-    indexer.index_project("/proj", "csharp")
+    with patch("builtins.open", mock_open(read_data="")):
+        indexer.index_project("/proj", "csharp")
 
     calls = [str(c) for c in conn.execute.call_args_list]
     assert any("/proj/src" in c and "/proj/src/Foo.cs" in c and "CONTAINS" in c for c in calls)
