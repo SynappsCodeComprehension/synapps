@@ -18,6 +18,7 @@ def _make_complete_mock() -> MagicMock:
     mock.create_attribute_extractor = MagicMock()
     mock.create_type_ref_extractor = MagicMock()
     mock.create_assignment_extractor = MagicMock()
+    mock.parse_file = MagicMock()
     return mock
 
 

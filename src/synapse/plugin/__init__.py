@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from synapse.indexer.tree_sitter_util import ParsedFile
 from synapse.lsp.interface import LSPAdapter
 
 
@@ -27,6 +28,8 @@ class LanguagePlugin(Protocol):
     def create_type_ref_extractor(self) -> object | None: ...
 
     def create_assignment_extractor(self) -> object | None: ...
+
+    def parse_file(self, file_path: str, source: str) -> ParsedFile: ...
 
 
 class LanguageRegistry:

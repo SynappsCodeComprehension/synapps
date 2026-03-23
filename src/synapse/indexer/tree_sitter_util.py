@@ -2,6 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import tree_sitter
+
+
+@dataclass(frozen=True)
+class ParsedFile:
+    """A source file with its tree-sitter parse tree. Created once, shared across all extractors."""
+    file_path: str
+    source: str
+    tree: tree_sitter.Tree
+
 
 def node_text(node) -> str:
     """Decode a tree-sitter node's text to a Python str."""

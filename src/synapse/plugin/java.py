@@ -9,6 +9,12 @@ from synapse.lsp.java import JavaLSPAdapter
 
 
 class JavaPlugin:
+    def __init__(self):
+        import tree_sitter_java
+        from tree_sitter import Language, Parser
+        self._ts_language = Language(tree_sitter_java.language())
+        self._ts_parser = Parser(self._ts_language)
+
     @property
     def name(self) -> str:
         return "java"
@@ -37,3 +43,8 @@ class JavaPlugin:
 
     def create_assignment_extractor(self) -> None:
         return None
+
+    def parse_file(self, file_path: str, source: str) -> ParsedFile:
+        from synapse.indexer.tree_sitter_util import ParsedFile
+        tree = self._ts_parser.parse(bytes(source, "utf-8"))
+        return ParsedFile(file_path=file_path, source=source, tree=tree)

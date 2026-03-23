@@ -8,7 +8,18 @@ from synapse.indexer.typescript.typescript_type_ref_extractor import TypeScriptT
 from synapse.lsp.typescript import TypeScriptLSPAdapter
 
 
+_TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
+
+
 class TypeScriptPlugin:
+    def __init__(self):
+        import tree_sitter_typescript
+        from tree_sitter import Language, Parser
+        self._ts_lang = Language(tree_sitter_typescript.language_typescript())
+        self._tsx_lang = Language(tree_sitter_typescript.language_tsx())
+        self._ts_parser = Parser(self._ts_lang)
+        self._tsx_parser = Parser(self._tsx_lang)
+
     @property
     def name(self) -> str:
         return "typescript"
@@ -37,3 +48,10 @@ class TypeScriptPlugin:
 
     def create_assignment_extractor(self) -> None:
         return None
+
+    def parse_file(self, file_path: str, source: str) -> ParsedFile:
+        from synapse.indexer.tree_sitter_util import ParsedFile
+        uses_tsx = any(file_path.endswith(ext) for ext in _TSX_EXTENSIONS)
+        parser = self._tsx_parser if uses_tsx else self._ts_parser
+        tree = parser.parse(bytes(source, "utf-8"))
+        return ParsedFile(file_path=file_path, source=source, tree=tree)

@@ -96,6 +96,5 @@ def test_create_lsp_adapter_delegates_to_python_adapter():
 
 def test_missing_tree_sitter_raises_module_not_found():
     with patch.dict("sys.modules", {"tree_sitter_python": None}):
-        plugin = PythonPlugin()
         with pytest.raises(ModuleNotFoundError):
-            plugin.create_import_extractor()
+            PythonPlugin()
