@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
 
 log = logging.getLogger(__name__)
@@ -34,34 +36,24 @@ class CSharpCallExtractor:
 
     def __init__(self) -> None:
         import tree_sitter_c_sharp
-        from tree_sitter import Language, Parser, Query, QueryCursor
+        from tree_sitter import Language, Query, QueryCursor
 
         self._language = Language(tree_sitter_c_sharp.language())
-        self._parser = Parser(self._language)
         self._query = Query(self._language, _CALLS_QUERY)
         self._QueryCursor = QueryCursor
 
     def extract(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         symbol_map: dict[tuple[str, int], str],
     ) -> list[tuple[str, str, int, int]]:
         """
         :param file_path: absolute path (used as key prefix in symbol_map).
-        :param source: full UTF-8 source text.
+        :param tree: pre-parsed tree-sitter Tree.
         :param symbol_map: maps (file_path, 0-indexed line) -> method full_name.
         :returns: list of (caller_full_name, callee_simple_name, 1-indexed call line, 0-indexed call column).
         """
-        if not source.strip():
-            return []
-
-        try:
-            tree = self._parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         method_lines = sorted(
             (line, full_name)
             for (fp, line), full_name in symbol_map.items()

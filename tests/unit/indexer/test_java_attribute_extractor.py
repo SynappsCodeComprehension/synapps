@@ -1,5 +1,14 @@
 import pytest
+import tree_sitter_java
+from tree_sitter import Language, Parser
 from synapse.indexer.java.java_attribute_extractor import JavaAttributeExtractor
+
+_lang = Language(tree_sitter_java.language())
+_parser = Parser(_lang)
+
+
+def _parse(source: str):
+    return _parser.parse(bytes(source, "utf-8"))
 
 
 @pytest.fixture
@@ -19,7 +28,7 @@ public class MyClass {
     public void speak() {}
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "speak" in names_and_attrs
     assert "override" in names_and_attrs["speak"]
@@ -33,7 +42,7 @@ public class MyClass {
     public void speak() {}
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "speak" in names_and_attrs
     assert "deprecated" in names_and_attrs["speak"]
@@ -47,7 +56,7 @@ public class MyClass {
     public void process() {}
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "process" in names_and_attrs
     assert "suppresswarnings" in names_and_attrs["process"]
@@ -64,7 +73,7 @@ public abstract class Foo {
     public abstract void doWork();
 }
 """
-    results = extractor.extract("/proj/Foo.java", source)
+    results = extractor.extract("/proj/Foo.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "Foo" in names_and_attrs
     assert "abstract" in names_and_attrs["Foo"]
@@ -78,7 +87,7 @@ public class MyClass {
     public static void helper() {}
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "helper" in names_and_attrs
     assert "static" in names_and_attrs["helper"]
@@ -90,7 +99,7 @@ public class MyClass {
     public synchronized void process() {}
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "process" in names_and_attrs
     assert "synchronized" in names_and_attrs["process"]
@@ -101,7 +110,7 @@ def test_modifier_final(extractor):
 public final class Constants {
 }
 """
-    results = extractor.extract("/proj/Constants.java", source)
+    results = extractor.extract("/proj/Constants.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "Constants" in names_and_attrs
     assert "final" in names_and_attrs["Constants"]
@@ -113,7 +122,7 @@ public class MyClass {
     public native void nativeMethod();
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "nativeMethod" in names_and_attrs
     assert "native" in names_and_attrs["nativeMethod"]
@@ -131,7 +140,7 @@ public class MyClass {
     public static void helper() {}
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "helper" in names_and_attrs
     attrs = names_and_attrs["helper"]
@@ -151,17 +160,17 @@ class PlainClass {
     void doThing() {}
 }
 """
-    results = extractor.extract("/proj/PlainClass.java", source)
+    results = extractor.extract("/proj/PlainClass.java", _parse(source))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "PlainClass" not in names_and_attrs
     assert "doThing" not in names_and_attrs
 
 
 def test_empty_source(extractor):
-    results = extractor.extract("/proj/MyClass.java", "")
+    results = extractor.extract("/proj/MyClass.java", _parse(""))
     assert results == []
 
 
 def test_whitespace_source(extractor):
-    results = extractor.extract("/proj/MyClass.java", "   \n  ")
+    results = extractor.extract("/proj/MyClass.java", _parse("   \n  "))
     assert results == []

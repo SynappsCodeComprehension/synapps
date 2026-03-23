@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import node_text
 
 log = logging.getLogger(__name__)
@@ -9,22 +11,10 @@ log = logging.getLogger(__name__)
 
 class CSharpImportExtractor:
     def __init__(self) -> None:
-        import tree_sitter_c_sharp
-        from tree_sitter import Language, Parser
+        pass
 
-        self._language = Language(tree_sitter_c_sharp.language())
-        self._parser = Parser(self._language)
-
-    def extract(self, file_path: str, source: str) -> list[str]:
+    def extract(self, file_path: str, tree: Tree) -> list[str]:
         """Return deduplicated package names imported by this file."""
-        if not source.strip():
-            return []
-        try:
-            tree = self._parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         results: list[str] = []
         seen: set[str] = set()
         self._walk(tree.root_node, results, seen)

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
 from synapse.indexer.type_ref import TypeRef
 
@@ -21,31 +23,18 @@ class JavaTypeRefExtractor:
     """
 
     def __init__(self) -> None:
-        import tree_sitter_java
-        from tree_sitter import Language, Parser
-
-        self._language = Language(tree_sitter_java.language())
-        self._parser = Parser(self._language)
+        pass
 
     def extract(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         symbol_map: dict[tuple[str, int], str],
         class_lines: list[tuple[int, str]] = (),
         *,
         module_name_resolver=None,
     ) -> list[TypeRef]:
         """Return TypeRef instances for all non-primitive type references."""
-        if not source.strip():
-            return []
-
-        try:
-            tree = self._parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         # Build sorted scope lines for find_enclosing_scope
         method_lines = sorted(
             (line, full_name)

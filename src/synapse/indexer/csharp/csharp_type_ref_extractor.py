@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import find_enclosing_scope
 from synapse.indexer.type_ref import TypeRef
 
@@ -34,10 +36,9 @@ _FIELD_QUERY = """
 class CSharpTypeRefExtractor:
     def __init__(self) -> None:
         import tree_sitter_c_sharp
-        from tree_sitter import Language, Parser, Query, QueryCursor
+        from tree_sitter import Language, Query, QueryCursor
 
         self._language = Language(tree_sitter_c_sharp.language())
-        self._parser = Parser(self._language)
         self._return_query = Query(self._language, _RETURN_TYPE_QUERY)
         self._param_query = Query(self._language, _PARAM_QUERY)
         self._property_query = Query(self._language, _PROPERTY_QUERY)
@@ -47,19 +48,10 @@ class CSharpTypeRefExtractor:
     def extract(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         symbol_map: dict[tuple[str, int], str],
         class_lines: list[tuple[int, str]] = (),
     ) -> list[TypeRef]:
-        if not source.strip():
-            return []
-
-        try:
-            tree = self._parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         method_lines = sorted(
             (line, full_name)
             for (fp, line), full_name in symbol_map.items()

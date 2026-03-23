@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
 
 log = logging.getLogger(__name__)
@@ -31,10 +33,9 @@ class JavaCallExtractor:
 
     def __init__(self) -> None:
         import tree_sitter_java as ts_java
-        from tree_sitter import Language, Parser, Query, QueryCursor
+        from tree_sitter import Language, Query, QueryCursor
 
         self._language = Language(ts_java.language())
-        self._parser = Parser(self._language)
         self._query = Query(self._language, _JAVA_CALLS_QUERY)
         self._QueryCursor = QueryCursor
         self._sites_seen: int = 0
@@ -42,7 +43,7 @@ class JavaCallExtractor:
     def extract(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         symbol_map: dict[tuple[str, int], str],
         *,
         module_name_resolver=None,
@@ -50,21 +51,12 @@ class JavaCallExtractor:
     ) -> list[tuple[str, str, int, int]]:
         """
         :param file_path: absolute path (used as key prefix in symbol_map).
-        :param source: full UTF-8 source text.
+        :param tree: pre-parsed tree-sitter Tree.
         :param symbol_map: maps (file_path, 0-indexed line) -> method full_name.
         :returns: list of (caller_full_name, callee_simple_name,
                   1-indexed call line, 0-indexed call column).
         """
-        if not source.strip():
-            return []
-
         self._sites_seen = 0
-
-        try:
-            tree = self._parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
 
         method_lines = sorted(
             (line, full_name)

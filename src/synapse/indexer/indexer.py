@@ -36,6 +36,15 @@ log = logging.getLogger(__name__)
 _MINIFIED_LINE_THRESHOLD = 500
 
 
+def _parse_csharp_source(source: str):
+    """Parse C# source into a tree-sitter Tree (used by legacy indexer path)."""
+    import tree_sitter_c_sharp
+    from tree_sitter import Language, Parser
+    lang = Language(tree_sitter_c_sharp.language())
+    parser = Parser(lang)
+    return parser.parse(bytes(source, "utf-8"))
+
+
 def _is_minified(file_path: str) -> bool:
     """Return True if the file's first non-empty line exceeds the minified threshold."""
     try:
@@ -423,6 +432,8 @@ class Indexer:
             elif self._language == "java":
                 self._import_extractor._source_root = self._root_path or ""
 
+        if self._language == "csharp":
+            source = _parse_csharp_source(source)
         results = self._import_extractor.extract(file_path, source)
         if not results:
             return
@@ -537,6 +548,8 @@ class Indexer:
     ) -> None:
         if extractor is None:
             return
+        if self._language == "csharp":
+            source = _parse_csharp_source(source)
         results = extractor.extract(file_path, source)
         if not results:
             return
@@ -590,6 +603,8 @@ class Indexer:
         name_to_full_names: dict[str, list[str]],
         kind_map: dict[str, SymbolKind],
     ) -> None:
+        if self._language == "csharp":
+            source = _parse_csharp_source(source)
         triples = self._base_type_extractor.extract(file_path, source)
         for type_simple, base_simple, is_first in triples:
             type_candidates = name_to_full_names.get(type_simple, [])

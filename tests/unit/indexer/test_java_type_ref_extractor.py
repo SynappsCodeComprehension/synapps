@@ -1,6 +1,16 @@
 import pytest
+import tree_sitter_java
+from tree_sitter import Language, Parser
 from synapse.indexer.java.java_type_ref_extractor import JavaTypeRefExtractor
 from synapse.indexer.type_ref import TypeRef
+
+_lang = Language(tree_sitter_java.language())
+_parser = Parser(_lang)
+
+
+def _parse(source: str):
+    return _parser.parse(bytes(source, "utf-8"))
+
 
 FILE = "/proj/MyClass.java"
 
@@ -30,7 +40,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.greet")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     assert any(r.type_name == "Animal" and r.ref_kind == "parameter" for r in results)
 
 
@@ -41,7 +51,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.process")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     names = {r.type_name for r in results if r.ref_kind == "parameter"}
     assert "Foo" in names
     assert "Bar" in names
@@ -59,7 +69,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.getName")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     assert any(r.type_name == "String" and r.ref_kind == "return_type" for r in results)
 
 
@@ -75,7 +85,7 @@ public class MyClass {
 }
 """
     class_symbol_map = _csm(0, "com.example.MyClass")
-    results = extractor.extract(FILE, source, {}, class_symbol_map)
+    results = extractor.extract(FILE, _parse(source), {}, class_symbol_map)
     assert any(r.type_name == "Animal" and r.ref_kind == "field_type" for r in results)
 
 
@@ -91,7 +101,7 @@ public class MyClass {
 }
 """
     class_symbol_map = _csm(0, "com.example.MyClass")
-    results = extractor.extract(FILE, source, {}, class_symbol_map)
+    results = extractor.extract(FILE, _parse(source), {}, class_symbol_map)
     names = {r.type_name for r in results}
     assert "List" in names
     assert "Animal" in names
@@ -104,7 +114,7 @@ public class MyClass {
 }
 """
     class_symbol_map = _csm(0, "com.example.MyClass")
-    results = extractor.extract(FILE, source, {}, class_symbol_map)
+    results = extractor.extract(FILE, _parse(source), {}, class_symbol_map)
     names = {r.type_name for r in results}
     assert "Map" in names
     assert "String" in names
@@ -124,7 +134,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.process")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     type_names = {r.type_name for r in results}
     assert "int" not in type_names
     assert "boolean" not in type_names
@@ -138,7 +148,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.doWork")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     type_names = {r.type_name for r in results}
     assert "void" not in type_names
 
@@ -150,7 +160,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.all")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     type_names = {r.type_name for r in results}
     for prim in ("int", "long", "short", "byte", "float", "double", "boolean", "char"):
         assert prim not in type_names, f"Expected {prim!r} to be filtered"
@@ -170,7 +180,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.process")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     assert any(r.type_name == "Animal" for r in results)
 
 
@@ -186,7 +196,7 @@ public class MyClass {
 }
 """
     class_symbol_map = _csm(0, "com.example.MyClass")
-    results = extractor.extract(FILE, source, {}, class_symbol_map)
+    results = extractor.extract(FILE, _parse(source), {}, class_symbol_map)
     assert any(r.type_name == "Animal" for r in results)
 
 
@@ -202,17 +212,17 @@ public class MyClass {
     public MyClass() {}
 }
 """
-    results = extractor.extract(FILE, source, {})
+    results = extractor.extract(FILE, _parse(source), {})
     assert results == []
 
 
 def test_empty_source(extractor):
-    results = extractor.extract(FILE, "", {})
+    results = extractor.extract(FILE, _parse(""), {})
     assert results == []
 
 
 def test_whitespace_source(extractor):
-    results = extractor.extract(FILE, "   \n  ", {})
+    results = extractor.extract(FILE, _parse("   \n  "), {})
     assert results == []
 
 
@@ -228,7 +238,7 @@ public class MyClass {
 }
 """
     symbol_map = _sm(1, "com.example.MyClass.greet")
-    results = extractor.extract(FILE, source, symbol_map)
+    results = extractor.extract(FILE, _parse(source), symbol_map)
     animal_refs = [r for r in results if r.type_name == "Animal"]
     assert len(animal_refs) >= 1
     assert animal_refs[0].owner_full_name == "com.example.MyClass.greet"

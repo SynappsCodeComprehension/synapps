@@ -1,5 +1,14 @@
 import pytest
+import tree_sitter_c_sharp
+from tree_sitter import Language, Parser
 from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
+
+_lang = Language(tree_sitter_c_sharp.language())
+_parser = Parser(_lang)
+
+
+def _parse(source: str):
+    return _parser.parse(bytes(source, "utf-8"))
 
 
 @pytest.fixture
@@ -23,7 +32,7 @@ namespace MyNs {
         ("/proj/Foo.cs", 2): "MyNs.MyClass.Caller",   # line 3 in source = index 2
         ("/proj/Foo.cs", 5): "MyNs.MyClass.Helper",   # line 6 in source = index 5
     }
-    results = extractor.extract("/proj/Foo.cs", source, symbol_map)
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Helper" in callee_names
 
@@ -39,7 +48,7 @@ namespace MyNs {
 }
 """
     symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Run"}
-    results = extractor.extract("/proj/Foo.cs", source, symbol_map)
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Execute" in callee_names
 
@@ -55,12 +64,12 @@ namespace MyNs {
 }
 """
     symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
-    results = extractor.extract("/proj/Foo.cs", source, symbol_map)
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     assert any(caller == "MyNs.MyClass.Caller" for caller, *_ in results)
 
 
 def test_returns_empty_for_empty_source(extractor):
-    assert extractor.extract("/proj/Empty.cs", "", {}) == []
+    assert extractor.extract("/proj/Empty.cs", _parse(""), {}) == []
 
 
 def test_no_duplicate_entries_for_same_call(extractor):
@@ -75,7 +84,7 @@ namespace MyNs {
 }
 """
     symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.M"}
-    results = extractor.extract("/proj/Foo.cs", source, symbol_map)
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     foo_calls = [(c, n, l, col) for c, n, l, col in results if n == "Foo"]
     # Two Foo calls at different columns are distinct — no (line, col) duplicates
     positions = [(l, col) for _, _, l, col in foo_calls]
@@ -94,6 +103,6 @@ namespace MyNs {
 """
     # Only Run() is in the symbol_map; Compute() is at class scope (line 2) before Run() (line 3)
     symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Run"}
-    results = extractor.extract("/proj/Foo.cs", source, symbol_map)
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Compute" not in callee_names

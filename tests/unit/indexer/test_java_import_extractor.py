@@ -1,5 +1,14 @@
 import pytest
+import tree_sitter_java
+from tree_sitter import Language, Parser
 from synapse.indexer.java.java_import_extractor import JavaImportExtractor
+
+_lang = Language(tree_sitter_java.language())
+_parser = Parser(_lang)
+
+
+def _parse(source: str):
+    return _parser.parse(bytes(source, "utf-8"))
 
 
 @pytest.fixture
@@ -18,7 +27,7 @@ import java.util.List;
 
 public class MyClass {}
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert results == ["java.util.List"]
 
 
@@ -29,7 +38,7 @@ import java.util.Map;
 
 public class MyClass {}
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert "java.util.List" in results
     assert "java.util.Map" in results
     assert len(results) == 2
@@ -46,7 +55,7 @@ import java.util.*;
 
 public class MyClass {}
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert "java.util.*" in results
 
 
@@ -61,7 +70,7 @@ import static java.lang.Math.PI;
 
 public class MyClass {}
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert len(results) == 1
     assert "Math" in results[0] or "java.lang.Math.PI" in results[0]
 
@@ -72,7 +81,7 @@ import static java.lang.Math.*;
 
 public class MyClass {}
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert len(results) == 1
     # Should contain the wildcard path
     assert "*" in results[0]
@@ -89,17 +98,17 @@ public class MyClass {
     private int count;
 }
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert results == []
 
 
 def test_empty_source(extractor):
-    results = extractor.extract("/proj/MyClass.java", "")
+    results = extractor.extract("/proj/MyClass.java", _parse(""))
     assert results == []
 
 
 def test_whitespace_source(extractor):
-    results = extractor.extract("/proj/MyClass.java", "   \n  ")
+    results = extractor.extract("/proj/MyClass.java", _parse("   \n  "))
     assert results == []
 
 
@@ -115,5 +124,5 @@ import java.util.List;
 
 public class MyClass {}
 """
-    results = extractor.extract("/proj/MyClass.java", source)
+    results = extractor.extract("/proj/MyClass.java", _parse(source))
     assert results.count("java.util.List") == 1

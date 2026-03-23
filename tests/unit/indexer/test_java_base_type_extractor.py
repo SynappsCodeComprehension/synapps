@@ -1,5 +1,14 @@
 import pytest
+import tree_sitter_java
+from tree_sitter import Language, Parser
 from synapse.indexer.java.java_base_type_extractor import JavaBaseTypeExtractor
+
+_lang = Language(tree_sitter_java.language())
+_parser = Parser(_lang)
+
+
+def _parse(source: str):
+    return _parser.parse(bytes(source, "utf-8"))
 
 
 @pytest.fixture
@@ -17,7 +26,7 @@ def test_single_inheritance(extractor):
 public class Dog extends Animal {
 }
 """
-    results = extractor.extract("/proj/Dog.java", source)
+    results = extractor.extract("/proj/Dog.java", _parse(source))
     assert results == [("Dog", "Animal", True)]
 
 
@@ -26,7 +35,7 @@ def test_implements_interface(extractor):
 public class Dog implements IAnimal {
 }
 """
-    results = extractor.extract("/proj/Dog.java", source)
+    results = extractor.extract("/proj/Dog.java", _parse(source))
     assert results == [("Dog", "IAnimal", True)]
 
 
@@ -36,7 +45,7 @@ def test_extends_and_implements(extractor):
 public class Dog extends Animal implements IAnimal, Comparable {
 }
 """
-    results = extractor.extract("/proj/Dog.java", source)
+    results = extractor.extract("/proj/Dog.java", _parse(source))
     assert ("Dog", "Animal", True) in results
     assert ("Dog", "IAnimal", True) in results
     assert ("Dog", "Comparable", False) in results
@@ -48,7 +57,7 @@ def test_implements_multiple(extractor):
 public class Service implements Serializable, Cloneable, Comparable {
 }
 """
-    results = extractor.extract("/proj/Service.java", source)
+    results = extractor.extract("/proj/Service.java", _parse(source))
     assert ("Service", "Serializable", True) in results
     assert ("Service", "Cloneable", False) in results
     assert ("Service", "Comparable", False) in results
@@ -64,7 +73,7 @@ def test_interface_extends(extractor):
 public interface IAdvanced extends IBasic {
 }
 """
-    results = extractor.extract("/proj/IAdvanced.java", source)
+    results = extractor.extract("/proj/IAdvanced.java", _parse(source))
     assert results == [("IAdvanced", "IBasic", True)]
 
 
@@ -73,7 +82,7 @@ def test_interface_extends_multiple(extractor):
 public interface IAdvanced extends IBasic, ISerializable {
 }
 """
-    results = extractor.extract("/proj/IAdvanced.java", source)
+    results = extractor.extract("/proj/IAdvanced.java", _parse(source))
     assert ("IAdvanced", "IBasic", True) in results
     assert ("IAdvanced", "ISerializable", False) in results
 
@@ -88,7 +97,7 @@ def test_extends_generic(extractor):
 public class MyList extends ArrayList<String> {
 }
 """
-    results = extractor.extract("/proj/MyList.java", source)
+    results = extractor.extract("/proj/MyList.java", _parse(source))
     assert results == [("MyList", "ArrayList", True)]
 
 
@@ -97,7 +106,7 @@ def test_implements_generic(extractor):
 public class Foo implements Comparable<String> {
 }
 """
-    results = extractor.extract("/proj/Foo.java", source)
+    results = extractor.extract("/proj/Foo.java", _parse(source))
     assert results == [("Foo", "Comparable", True)]
 
 
@@ -112,17 +121,17 @@ public class Foo {
     private int x;
 }
 """
-    results = extractor.extract("/proj/Foo.java", source)
+    results = extractor.extract("/proj/Foo.java", _parse(source))
     assert results == []
 
 
 def test_empty_source(extractor):
-    results = extractor.extract("/proj/Foo.java", "")
+    results = extractor.extract("/proj/Foo.java", _parse(""))
     assert results == []
 
 
 def test_whitespace_source(extractor):
-    results = extractor.extract("/proj/Foo.java", "   \n  ")
+    results = extractor.extract("/proj/Foo.java", _parse("   \n  "))
     assert results == []
 
 
@@ -139,7 +148,7 @@ public class Dog extends Animal {
 class Cat implements IAnimal {
 }
 """
-    results = extractor.extract("/proj/Animals.java", source)
+    results = extractor.extract("/proj/Animals.java", _parse(source))
     assert ("Dog", "Animal", True) in results
     assert ("Cat", "IAnimal", True) in results
 
@@ -160,7 +169,7 @@ def test_extends_is_first_separate_from_implements(extractor):
 public class Dog extends Animal implements IAnimal, Comparable {
 }
 """
-    results = extractor.extract("/proj/Dog.java", source)
+    results = extractor.extract("/proj/Dog.java", _parse(source))
     # extends target always is_first=True
     assert ("Dog", "Animal", True) in results
     # first implements is_first=True

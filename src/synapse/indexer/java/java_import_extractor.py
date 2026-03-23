@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import node_text
 
 log = logging.getLogger(__name__)
@@ -17,23 +19,10 @@ class JavaImportExtractor:
     """
 
     def __init__(self, source_root: str = "") -> None:
-        import tree_sitter_java as ts_java
-        from tree_sitter import Language, Parser
-
-        self._language = Language(ts_java.language())
-        self._parser = Parser(self._language)
         self._source_root = source_root
 
-    def extract(self, file_path: str, source: str) -> list[str]:
+    def extract(self, file_path: str, tree: Tree) -> list[str]:
         """Return deduplicated fully qualified import paths from this file."""
-        if not source.strip():
-            return []
-        try:
-            tree = self._parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         results: list[str] = []
         seen: set[str] = set()
 
