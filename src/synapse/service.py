@@ -27,7 +27,7 @@ from synapse.graph.lookups import (
 from synapse.graph.traversal import trace_call_chain, find_entry_points, get_call_depth
 from synapse.graph.analysis import analyze_change_impact, find_interface_contract, find_type_impact, audit_architecture
 from synapse.graph.nodes import get_last_indexed_commit, set_last_indexed_commit
-from synapse.indexer.git import is_git_repo, rev_parse_head
+from synapse.indexer.git import is_git_repo, rev_parse_head, compute_git_diff
 from synapse.indexer.indexer import Indexer
 from synapse.indexer.method_implements_indexer import MethodImplementsIndexer
 from synapse.indexer.sync import git_sync_project as _git_sync_project, sync_project as _sync_project, SyncResult
@@ -337,12 +337,23 @@ class SynapseService:
             if not plugin_files:
                 raise ValueError(f"No language plugin found for project at {path!r}")
 
+            effective_sha = stored_sha or self._git_empty_tree_sha()
+            diff = compute_git_diff(path, effective_sha)
+            all_changed = diff.to_reindex | diff.to_delete | {new for _, new in diff.renames}
+
             total = SyncResult(updated=0, deleted=0, unchanged=0)
             for plugin, _files in plugin_files:
+                has_changes = any(
+                    os.path.splitext(p)[1].lower() in plugin.file_extensions
+                    for p in all_changed
+                )
+                if not has_changes:
+                    log.info("Skipping %s — no changes detected", plugin.name)
+                    continue
+
                 lsp = plugin.create_lsp_adapter(path)
                 try:
                     indexer = Indexer(self._conn, lsp, plugin=plugin)
-                    effective_sha = stored_sha or self._git_empty_tree_sha()
                     result = _git_sync_project(
                         conn=self._conn,
                         indexer=indexer,
