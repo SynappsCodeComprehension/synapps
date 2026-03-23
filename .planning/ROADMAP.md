@@ -62,9 +62,9 @@ Plans:
 
 Plans:
 - [ ] 03-01-PLAN.md — Implement DotNetCheck + CSharpLSCheck with TDD unit tests (C# stack)
-- [ ] 03-02-PLAN.md — Implement NodeCheck + TypeScriptLSCheck with TDD unit tests (TypeScript stack)
-- [ ] 03-03-PLAN.md — Implement PythonCheck + PylspCheck with TDD unit tests (Python stack)
-- [ ] 03-04-PLAN.md — Implement JavaCheck + JdtlsCheck with TDD unit tests (Java stack)
+- [x] 03-02-PLAN.md — Implement NodeCheck + TypeScriptLSCheck with TDD unit tests (TypeScript stack)
+- [x] 03-03-PLAN.md — Implement PythonCheck + PylspCheck with TDD unit tests (Python stack)
+- [x] 03-04-PLAN.md — Implement JavaCheck + JdtlsCheck with TDD unit tests (Java stack)
 - [ ] 03-05-PLAN.md — Wire all 8 new checks into app.py and update test_cli_doctor.py
 
 ### Phase 4: MCP Tool
@@ -86,5 +86,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Core Data Model | 1/1 | Complete   | 2026-03-23 |
 | 2. Infrastructure Checks and CLI | 1/2 | In Progress|  |
-| 3. Language Server Checks | 0/5 | Not started | - |
+| 3. Language Server Checks | 3/5 | In Progress|  |
 | 4. MCP Tool | 0/? | Not started | - |

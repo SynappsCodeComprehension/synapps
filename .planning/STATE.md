@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase complete — ready for verification
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-23T21:24:12.705Z"
+status: Ready to execute
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-23T22:31:08.501Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 3
+  total_plans: 9
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** AI coding agents can instantly understand code structure and relationships across an entire codebase without reading every file.
-**Current focus:** Phase 02 — infrastructure-checks-and-cli
+**Current focus:** Phase 03 — language-server-checks
 
 ## Current Position
 
-Phase: 02 (infrastructure-checks-and-cli) — EXECUTING
-Plan: 2 of 2
+Phase: 03 (language-server-checks) — EXECUTING
+Plan: 4 of 5
 
 ## Performance Metrics
 
@@ -49,6 +49,9 @@ Plan: 2 of 2
 | Phase 01 P01 | 1 | 3 tasks | 6 files |
 | Phase 02-infrastructure-checks-and-cli P01 | 8 | 2 tasks | 5 files |
 | Phase 02-infrastructure-checks-and-cli P02 | 2 | 2 tasks | 2 files |
+| Phase 03-language-server-checks P02 | 8 | 2 tasks | 3 files |
+| Phase 03-language-server-checks P04 | 525514min | 2 tasks | 3 files |
+| Phase 03-language-server-checks P03 | 15 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -64,6 +67,12 @@ Recent decisions affecting current work:
 - [Phase 02]: Bolt probe copied into memgraph_bolt.py (not imported from ContainerManager) — enforces leaf-layer isolation (D-04)
 - [Phase 02]: warn (not fail) for Memgraph when Docker is down (D-05) — exits 0, degraded-but-working semantics
 - [Phase 02-infrastructure-checks-and-cli]: Module-level imports for DockerDaemonCheck/MemgraphBoltCheck in app.py required for patchable test targets; doctor() does not call _get_service() (D-04)
+- [Phase 03-02]: TypeScriptLSCheck returns warn (not fail) when node is absent — consistent with D-05 degraded-but-working semantics; typescript-language-server cannot be meaningfully checked without node
+- [Phase 03-02]: capture_output=True without text=True for both NodeCheck and TypeScriptLSCheck — returncode is the only signal, no string parsing needed
+- [Phase 03-04]: JavaCheck uses returncode (not stdout) as pass signal — java -version writes to stderr by JVM convention
+- [Phase 03-04]: JdtlsCheck warns (not fails) when java absent — degraded-but-working semantics, consistent with other skip-if-prereq-absent checks
+- [Phase 03-04]: JdtlsCheck uses Path.home() and glob.glob to probe equinox launcher jar, mirroring eclipse_jdtls.py without importing SolidLSPSettings
+- [Phase 03-language-server-checks]: python3.py filename (not python.py) prevents shadowing stdlib; PylspCheck warns when python3 absent (degraded-not-failed semantics)
 
 ### Pending Todos
 
@@ -77,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T21:24:12.702Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-23T22:31:08.499Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
