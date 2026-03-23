@@ -1,5 +1,20 @@
 """Unit tests for TypeScriptAttributeExtractor — META requirements."""
+import tree_sitter_typescript
+from tree_sitter import Language, Parser
+
 from synapse.indexer.typescript.typescript_attribute_extractor import TypeScriptAttributeExtractor
+
+_ts_lang = Language(tree_sitter_typescript.language_typescript())
+_tsx_lang = Language(tree_sitter_typescript.language_tsx())
+_ts_parser = Parser(_ts_lang)
+_tsx_parser = Parser(_tsx_lang)
+_TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
+
+
+def _parse(source: str, file_path: str = "/tmp/test.ts"):
+    uses_tsx = any(file_path.endswith(ext) for ext in _TSX_EXTENSIONS)
+    parser = _tsx_parser if uses_tsx else _ts_parser
+    return parser.parse(bytes(source, "utf-8"))
 
 
 def _make() -> TypeScriptAttributeExtractor:
@@ -15,7 +30,7 @@ class AppComponent {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "AppComponent" in names_and_attrs
     assert "Component" in names_and_attrs["AppComponent"]
@@ -33,7 +48,7 @@ class AppComponent {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "AppComponent" in names_and_attrs
     assert "Component" in names_and_attrs["AppComponent"]
@@ -50,7 +65,7 @@ class MyService {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "myMethod" in names_and_attrs
     assert "Log" in names_and_attrs["myMethod"]
@@ -64,7 +79,7 @@ abstract class Foo {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "Foo" in names_and_attrs
     assert "abstract" in names_and_attrs["Foo"]
@@ -78,7 +93,7 @@ abstract class Animal {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "speak" in names_and_attrs
     assert "abstract" in names_and_attrs["speak"]
@@ -94,7 +109,7 @@ class Factory {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "create" in names_and_attrs
     assert "static" in names_and_attrs["create"]
@@ -108,7 +123,7 @@ class Counter {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "count" in names_and_attrs
     assert "static" in names_and_attrs["count"]
@@ -122,7 +137,7 @@ async function fetchData(): Promise<string> {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "fetchData" in names_and_attrs
     assert "async" in names_and_attrs["fetchData"]
@@ -138,7 +153,7 @@ class DataService {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "getData" in names_and_attrs
     assert "async" in names_and_attrs["getData"]
@@ -152,7 +167,7 @@ export class Foo {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "Foo" in names_and_attrs
     assert "export" in names_and_attrs["Foo"]
@@ -164,7 +179,7 @@ def test_extract_export_function() -> None:
 export function bar(): void {}
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "bar" in names_and_attrs
     assert "export" in names_and_attrs["bar"]
@@ -180,7 +195,7 @@ class Greeter {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "greet" in names_and_attrs
     assert "public" in names_and_attrs["greet"]
@@ -196,7 +211,7 @@ class Greeter {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "secret" in names_and_attrs
     assert "private" in names_and_attrs["secret"]
@@ -210,7 +225,7 @@ class Base {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "helper" in names_and_attrs
     assert "protected" in names_and_attrs["helper"]
@@ -226,7 +241,7 @@ class Processor {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "process" in names_and_attrs
     attrs = names_and_attrs["process"]
@@ -243,7 +258,7 @@ export abstract class Service {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "Service" in names_and_attrs
     attrs = names_and_attrs["Service"]
@@ -255,7 +270,7 @@ export abstract class Service {
 def test_empty_source() -> None:
     """Empty source returns []."""
     extractor = _make()
-    results = extractor.extract("test.ts", "")
+    results = extractor.extract("test.ts", _parse("", "test.ts"))
     assert results == []
 
 
@@ -270,7 +285,7 @@ class MyWidget {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.tsx", source)
+    results = extractor.extract("test.tsx", _parse(source, "test.tsx"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "MyWidget" in names_and_attrs
     assert "Component" in names_and_attrs["MyWidget"]
@@ -286,7 +301,7 @@ class PlainClass {
 }
 """
     extractor = _make()
-    results = extractor.extract("test.ts", source)
+    results = extractor.extract("test.ts", _parse(source, "test.ts"))
     names_and_attrs = {name: attrs for name, attrs in results}
     assert "PlainClass" not in names_and_attrs
     assert "doThing" not in names_and_attrs

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import node_text
 
 log = logging.getLogger(__name__)
@@ -21,26 +23,10 @@ _DECLARATION_TYPES = frozenset({
 
 class TypeScriptAttributeExtractor:
     def __init__(self) -> None:
-        import tree_sitter_typescript
-        from tree_sitter import Language, Parser
+        pass
 
-        self._ts_parser = Parser(Language(tree_sitter_typescript.language_typescript()))
-        self._tsx_parser = Parser(Language(tree_sitter_typescript.language_tsx()))
-
-    def extract(self, file_path: str, source: str) -> list[tuple[str, list[str]]]:
+    def extract(self, file_path: str, tree: Tree) -> list[tuple[str, list[str]]]:
         """Return (symbol_name, [metadata_markers]) pairs for all annotated TypeScript symbols."""
-        if not source.strip():
-            return []
-
-        ext = "." + file_path.rsplit(".", 1)[-1] if "." in file_path else ""
-        parser = self._tsx_parser if ext in _TSX_EXTENSIONS else self._ts_parser
-
-        try:
-            tree = parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         results: list[tuple[str, list[str]]] = []
         self._walk(tree.root_node, results, [])
         return results

@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import os
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import node_text
 
 log = logging.getLogger(__name__)
@@ -14,14 +16,9 @@ _TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
 
 class TypeScriptImportExtractor:
     def __init__(self, source_root: str = "") -> None:
-        import tree_sitter_typescript
-        from tree_sitter import Language, Parser
-
-        self._ts_parser = Parser(Language(tree_sitter_typescript.language_typescript()))
-        self._tsx_parser = Parser(Language(tree_sitter_typescript.language_tsx()))
         self._source_root = source_root
 
-    def extract(self, file_path: str, source: str) -> list[tuple[str, str | None]]:
+    def extract(self, file_path: str, tree: Tree) -> list[tuple[str, str | None]]:
         """Return (module_path, imported_symbol_name_or_None) pairs.
 
         For `import { X } from 'Y'`: returns (resolved_Y, 'X').
@@ -32,16 +29,6 @@ class TypeScriptImportExtractor:
         For `require('Y')`: returns (resolved_Y, None).
         Relative paths resolved against source_root to forward-slash paths.
         """
-        if not source.strip():
-            return []
-        ext = os.path.splitext(file_path)[1].lower()
-        parser = self._tsx_parser if ext in _TSX_EXTENSIONS else self._ts_parser
-        try:
-            tree = parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         results: list[tuple[str, str | None]] = []
         seen: set[tuple[str, str | None]] = set()
         self._walk(tree.root_node, file_path, results, seen)

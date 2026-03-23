@@ -1,5 +1,20 @@
 import pytest
+import tree_sitter_typescript
+from tree_sitter import Language, Parser
+
 from synapse.indexer.typescript.typescript_call_extractor import TypeScriptCallExtractor
+
+_ts_lang = Language(tree_sitter_typescript.language_typescript())
+_tsx_lang = Language(tree_sitter_typescript.language_tsx())
+_ts_parser = Parser(_ts_lang)
+_tsx_parser = Parser(_tsx_lang)
+_TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
+
+
+def _parse(source: str, file_path: str = "/tmp/test.ts"):
+    uses_tsx = any(file_path.endswith(ext) for ext in _TSX_EXTENSIONS)
+    parser = _tsx_parser if uses_tsx else _ts_parser
+    return parser.parse(bytes(source, "utf-8"))
 
 
 @pytest.fixture
@@ -24,7 +39,7 @@ function caller() {
 }
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
 
@@ -36,7 +51,7 @@ function caller() {
 }
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert any(caller == "mypackage.caller" for caller, *_ in results)
 
 
@@ -53,7 +68,7 @@ class MyClass {
         ("/proj/foo.ts", 1): "mypackage.MyClass.caller",
         ("/proj/foo.ts", 4): "mypackage.MyClass.method",
     }
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "method" in callees
 
@@ -65,7 +80,7 @@ function factory() {
 }
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.factory"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "Foo" in callees
 
@@ -83,7 +98,7 @@ function caller() {
 }
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert len(results) == 1
     caller, callee, line, col = results[0]
     assert caller == "mypackage.caller"
@@ -98,7 +113,7 @@ const run = () => {
 };
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.run"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
 
@@ -118,7 +133,7 @@ class MyClass {
         ("/proj/foo.ts", 0): "mypackage.setup",
         ("/proj/foo.ts", 5): "mypackage.MyClass.run",
     }
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "setup" not in callees
 
@@ -131,7 +146,7 @@ function getValue() { return 42; }
 const RESULT = getValue();
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.getValue"}
-    results = module_extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = module_extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callers = [caller for caller, *_ in results]
     assert "mypackage.mymodule" in callers
 
@@ -144,7 +159,7 @@ function getValue() { return 42; }
 const RESULT = getValue();
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.getValue"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callers = [caller for caller, *_ in results]
     assert not callers
 
@@ -163,7 +178,7 @@ function App() {
 }
 """
     symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
-    results = extractor.extract("/proj/app.tsx", source, symbol_map)
+    results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
 
@@ -177,7 +192,7 @@ function App() {
 }
 """
     symbol_map = {("/proj/app.jsx", 0): "mypackage.App"}
-    results = extractor.extract("/proj/app.jsx", source, symbol_map)
+    results = extractor.extract("/proj/app.jsx", _parse(source, "/proj/app.jsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
 
@@ -190,7 +205,7 @@ function caller() {
 }
 """
     symbol_map = {("/proj/foo.js", 0): "mypackage.caller"}
-    results = extractor.extract("/proj/foo.js", source, symbol_map)
+    results = extractor.extract("/proj/foo.js", _parse(source, "/proj/foo.js"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
 
@@ -201,11 +216,11 @@ function caller() {
 
 
 def test_empty_source_returns_empty(extractor):
-    assert extractor.extract("/proj/foo.ts", "", {}) == []
+    assert extractor.extract("/proj/foo.ts", _parse(""), {}) == []
 
 
 def test_whitespace_source_returns_empty(extractor):
-    assert extractor.extract("/proj/foo.ts", "   \n  ", {}) == []
+    assert extractor.extract("/proj/foo.ts", _parse("   \n  "), {}) == []
 
 
 def test_deduplicates_same_call(extractor):
@@ -217,7 +232,7 @@ function caller() {
 }
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     seen: set = set()
     for entry in results:
         assert entry not in seen, f"Duplicate entry: {entry}"
@@ -231,7 +246,7 @@ function caller() {
 }
 """
     symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
-    results = extractor.extract("/proj/foo.ts", source, symbol_map)
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     lines = [line for _, _, line, _ in results]
     # helper() is on line 2 (1-indexed)
     assert 2 in lines
@@ -257,7 +272,7 @@ class MyClass {
         ("/proj/foo.ts", 4): "pkg.MyClass.methodB",
         ("/proj/foo.ts", 5): "pkg.MyClass.methodC",
     }
-    extractor.extract("/proj/foo.ts", source, symbol_map)
+    extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert extractor._sites_seen == 3
 
 
@@ -267,12 +282,12 @@ firstCall();
 secondCall();
 """
     symbol_map = {}
-    module_extractor.extract("/proj/foo.ts", source, symbol_map)
+    module_extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert module_extractor._sites_seen == 2
 
 
 def test_sites_seen_zero_for_empty_source(extractor):
-    extractor.extract("/proj/foo.ts", "", {})
+    extractor.extract("/proj/foo.ts", _parse(""), {})
     assert extractor._sites_seen == 0
 
 
@@ -292,8 +307,8 @@ function caller() {
     symbol_map_three = {("/proj/foo.ts", 0): "pkg.caller"}
     symbol_map_one = {("/proj/bar.ts", 0): "pkg.caller"}
 
-    extractor.extract("/proj/foo.ts", source_three, symbol_map_three)
+    extractor.extract("/proj/foo.ts", _parse(source_three, "/proj/foo.ts"), symbol_map_three)
     assert extractor._sites_seen == 3
 
-    extractor.extract("/proj/bar.ts", source_one, symbol_map_one)
+    extractor.extract("/proj/bar.ts", _parse(source_one, "/proj/bar.ts"), symbol_map_one)
     assert extractor._sites_seen == 1

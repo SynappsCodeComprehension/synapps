@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import node_text
 
 log = logging.getLogger(__name__)
@@ -14,23 +16,10 @@ _CLASS_DECL_TYPES = frozenset({
 
 class TypeScriptBaseTypeExtractor:
     def __init__(self) -> None:
-        import tree_sitter_typescript
-        from tree_sitter import Language, Parser
+        pass
 
-        self._ts_parser = Parser(Language(tree_sitter_typescript.language_typescript()))
-        self._tsx_parser = Parser(Language(tree_sitter_typescript.language_tsx()))
-
-    def extract(self, file_path: str, source: str) -> list[tuple[str, str, bool]]:
+    def extract(self, file_path: str, tree: Tree) -> list[tuple[str, str, bool]]:
         """Return (type_name, base_name, is_first) triples for all extends/implements entries found."""
-        if not source.strip():
-            return []
-        parser = self._tsx_parser if file_path.endswith(".tsx") else self._ts_parser
-        try:
-            tree = parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
-
         results: list[tuple[str, str, bool]] = []
         self._walk(tree.root_node, results)
         return results

@@ -1,8 +1,22 @@
 import os
 
 import pytest
+import tree_sitter_typescript
+from tree_sitter import Language, Parser
 
 from synapse.indexer.typescript.typescript_import_extractor import TypeScriptImportExtractor
+
+_ts_lang = Language(tree_sitter_typescript.language_typescript())
+_tsx_lang = Language(tree_sitter_typescript.language_tsx())
+_ts_parser = Parser(_ts_lang)
+_tsx_parser = Parser(_tsx_lang)
+_TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
+
+
+def _parse(source: str, file_path: str = "/tmp/test.ts"):
+    uses_tsx = any(file_path.endswith(ext) for ext in _TSX_EXTENSIONS)
+    parser = _tsx_parser if uses_tsx else _ts_parser
+    return parser.parse(bytes(source, "utf-8"))
 
 
 @pytest.fixture()
@@ -18,7 +32,7 @@ def extractor() -> TypeScriptImportExtractor:
 
 def test_named_import(extractor: TypeScriptImportExtractor) -> None:
     source = "import { Dog, Cat } from './animals';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("animals", "Dog") in result
     assert ("animals", "Cat") in result
     assert len(result) == 2
@@ -26,7 +40,7 @@ def test_named_import(extractor: TypeScriptImportExtractor) -> None:
 
 def test_named_import_single(extractor: TypeScriptImportExtractor) -> None:
     source = "import { Dog } from './animals';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert result == [("animals", "Dog")]
 
 
@@ -38,7 +52,7 @@ def test_named_import_single(extractor: TypeScriptImportExtractor) -> None:
 def test_default_import(extractor: TypeScriptImportExtractor) -> None:
     source = "import Animal from '../animal';"
     # source_root="src", file at src/services/index.ts -> ../animal resolves to src/animal -> relpath = "animal"
-    result = extractor.extract("src/services/index.ts", source)
+    result = extractor.extract("src/services/index.ts", _parse(source, "src/services/index.ts"))
     assert ("animal", None) in result
 
 
@@ -49,7 +63,7 @@ def test_default_import(extractor: TypeScriptImportExtractor) -> None:
 
 def test_namespace_import(extractor: TypeScriptImportExtractor) -> None:
     source = "import * as Utils from './utils';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("utils", None) in result
 
 
@@ -60,7 +74,7 @@ def test_namespace_import(extractor: TypeScriptImportExtractor) -> None:
 
 def test_type_import(extractor: TypeScriptImportExtractor) -> None:
     source = "import type { IAnimal } from './types';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("types", "IAnimal") in result
 
 
@@ -72,13 +86,13 @@ def test_type_import(extractor: TypeScriptImportExtractor) -> None:
 def test_require(extractor: TypeScriptImportExtractor) -> None:
     # source_root="src", file at src/index.ts, ./fs -> fs
     source = "const fs = require('./fs');"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("fs", None) in result
 
 
 def test_require_package(extractor: TypeScriptImportExtractor) -> None:
     source = "const path = require('path');"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("path", None) in result
 
 
@@ -90,7 +104,7 @@ def test_require_package(extractor: TypeScriptImportExtractor) -> None:
 def test_reexport_named(extractor: TypeScriptImportExtractor) -> None:
     # source_root="src", file at src/index.ts, ./foo -> foo
     source = "export { Foo, Bar } from './foo';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("foo", "Foo") in result
     assert ("foo", "Bar") in result
     assert len(result) == 2
@@ -98,7 +112,7 @@ def test_reexport_named(extractor: TypeScriptImportExtractor) -> None:
 
 def test_reexport_named_single(extractor: TypeScriptImportExtractor) -> None:
     source = "export { Foo } from './foo';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert result == [("foo", "Foo")]
 
 
@@ -110,7 +124,7 @@ def test_reexport_named_single(extractor: TypeScriptImportExtractor) -> None:
 def test_reexport_star(extractor: TypeScriptImportExtractor) -> None:
     # source_root="src", file at src/index.ts, ./barrel -> barrel
     source = "export * from './barrel';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("barrel", None) in result
 
 
@@ -126,7 +140,7 @@ def test_relative_import_resolved(tmp_path) -> None:
     source = "import { Dog } from './animals';"
     # file_path inside src/
     file_path = str(src_dir / "index.ts")
-    result = extractor.extract(file_path, source)
+    result = extractor.extract(file_path, _parse(source, file_path))
     # './animals' from src/index.ts should resolve to src/animals relative to tmp_path
     assert len(result) == 1
     module_path, symbol = result[0]
@@ -142,7 +156,7 @@ def test_relative_import_parent_dir(tmp_path) -> None:
     extractor = TypeScriptImportExtractor(source_root=str(tmp_path))
     source = "import Animal from '../animal';"
     file_path = str(services_dir / "service.ts")
-    result = extractor.extract(file_path, source)
+    result = extractor.extract(file_path, _parse(source, file_path))
     assert len(result) == 1
     module_path, symbol = result[0]
     assert symbol is None
@@ -156,13 +170,13 @@ def test_relative_import_parent_dir(tmp_path) -> None:
 
 def test_package_import_unchanged(extractor: TypeScriptImportExtractor) -> None:
     source = "import React from 'react';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("react", None) in result
 
 
 def test_scoped_package_import_unchanged(extractor: TypeScriptImportExtractor) -> None:
     source = "import { Component } from '@angular/core';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("@angular/core", "Component") in result
 
 
@@ -174,7 +188,7 @@ def test_scoped_package_import_unchanged(extractor: TypeScriptImportExtractor) -
 def test_aliased_import_uses_original_name(extractor: TypeScriptImportExtractor) -> None:
     # source_root="src", file at src/index.ts, ./animals -> animals
     source = "import { Dog as D } from './animals';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     # Must use original name "Dog", not alias "D"
     assert ("animals", "Dog") in result
     assert ("animals", "D") not in result
@@ -186,19 +200,19 @@ def test_aliased_import_uses_original_name(extractor: TypeScriptImportExtractor)
 
 
 def test_empty_source_returns_empty(extractor: TypeScriptImportExtractor) -> None:
-    result = extractor.extract("src/index.ts", "")
+    result = extractor.extract("src/index.ts", _parse("", "src/index.ts"))
     assert result == []
 
 
 def test_whitespace_only_returns_empty(extractor: TypeScriptImportExtractor) -> None:
-    result = extractor.extract("src/index.ts", "   \n  ")
+    result = extractor.extract("src/index.ts", _parse("   \n  ", "src/index.ts"))
     assert result == []
 
 
 def test_deduplicates(extractor: TypeScriptImportExtractor) -> None:
     # source_root="src", file at src/index.ts, ./animals -> animals
     source = "import { Dog } from './animals';\nimport { Dog } from './animals';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert result.count(("animals", "Dog")) == 1
 
 
@@ -209,27 +223,27 @@ def test_deduplicates(extractor: TypeScriptImportExtractor) -> None:
 
 def test_tsx_file_parses(extractor: TypeScriptImportExtractor) -> None:
     source = "import React from 'react';\nimport { useState } from 'react';"
-    result = extractor.extract("src/App.tsx", source)
+    result = extractor.extract("src/App.tsx", _parse(source, "src/App.tsx"))
     assert ("react", None) in result
     assert ("react", "useState") in result
 
 
 def test_jsx_file_parses(extractor: TypeScriptImportExtractor) -> None:
     source = "import React from 'react';"
-    result = extractor.extract("src/App.jsx", source)
+    result = extractor.extract("src/App.jsx", _parse(source, "src/App.jsx"))
     assert ("react", None) in result
 
 
 def test_js_file_parses(extractor: TypeScriptImportExtractor) -> None:
     source = "const path = require('path');"
-    result = extractor.extract("src/index.js", source)
+    result = extractor.extract("src/index.js", _parse(source, "src/index.js"))
     assert ("path", None) in result
 
 
 def test_ts_file_parses(extractor: TypeScriptImportExtractor) -> None:
     # source_root="src", file at src/index.ts, ./animals -> animals
     source = "import { Dog } from './animals';"
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("animals", "Dog") in result
 
 
@@ -248,7 +262,7 @@ def test_mixed_import_styles(extractor: TypeScriptImportExtractor) -> None:
         "export { Dog } from './animals';",
         "export * from './barrel';",
     ])
-    result = extractor.extract("src/index.ts", source)
+    result = extractor.extract("src/index.ts", _parse(source, "src/index.ts"))
     assert ("react", None) in result
     assert ("react", "useState") in result
     assert ("react", "useEffect") in result

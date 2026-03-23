@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from tree_sitter import Tree
+
 from synapse.indexer.tree_sitter_util import find_enclosing_scope, node_text
 
 log = logging.getLogger(__name__)
@@ -53,14 +55,12 @@ class TypeScriptCallExtractor:
         module_name_resolver: Callable[[str], str | None] | None = None,
     ) -> None:
         import tree_sitter_typescript
-        from tree_sitter import Language, Parser, Query, QueryCursor
+        from tree_sitter import Language, Query, QueryCursor
 
         self._module_name_resolver = module_name_resolver
 
         self._ts_lang = Language(tree_sitter_typescript.language_typescript())
         self._tsx_lang = Language(tree_sitter_typescript.language_tsx())
-        self._ts_parser = Parser(self._ts_lang)
-        self._tsx_parser = Parser(self._tsx_lang)
 
         self._ts_query = Query(self._ts_lang, _TS_CALLS_QUERY)
         self._tsx_query = Query(self._tsx_lang, _TS_CALLS_QUERY)
@@ -71,29 +71,19 @@ class TypeScriptCallExtractor:
     def extract(
         self,
         file_path: str,
-        source: str,
+        tree: Tree,
         symbol_map: dict[tuple[str, int], str],
     ) -> list[tuple[str, str, int, int]]:
         """
         :param file_path: absolute path (used as key prefix in symbol_map).
-        :param source: full UTF-8 source text.
+        :param tree: pre-parsed tree-sitter Tree for the file.
         :param symbol_map: maps (file_path, 0-indexed line) -> method full_name.
         :returns: list of (caller_full_name, callee_simple_name, 1-indexed call line, 0-indexed call column).
         """
-        if not source.strip():
-            return []
-
         self._sites_seen = 0
 
         uses_tsx = any(file_path.endswith(ext) for ext in _TSX_EXTENSIONS)
-        parser = self._tsx_parser if uses_tsx else self._ts_parser
         query = self._tsx_query if uses_tsx else self._ts_query
-
-        try:
-            tree = parser.parse(bytes(source, "utf-8"))
-        except Exception:
-            log.warning("tree-sitter failed to parse %s", file_path)
-            return []
 
         method_lines = sorted(
             (line, full_name)
