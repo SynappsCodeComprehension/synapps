@@ -280,6 +280,7 @@ class SynapseService:
                     indexer=indexer,
                     root_path=path,
                     disk_files=disk_files,
+                    language=plugin.name,
                 )
                 total.updated += result.updated
                 total.deleted += result.deleted

@@ -173,6 +173,74 @@ def test_sync_project_no_repo_raises(tmp_path):
         sync_project(conn=conn, indexer=mock_indexer, root_path=str(tmp_path), disk_files={})
 
 
+def test_sync_project_language_filter(tmp_path):
+    """sync_project with language param only queries files of that language."""
+    (tmp_path / "a.cs").write_text("class A {}")
+
+    old_ts = _ts(hour=1)
+    future_mtime = _mtime(hour=23)
+    os.utime(str(tmp_path / "a.cs"), (future_mtime, future_mtime))
+
+    conn = MagicMock()
+    conn.query.side_effect = [
+        [[str(tmp_path)]],  # repo check
+        [[str(tmp_path / "a.cs"), old_ts]],  # language-filtered file list
+    ]
+
+    mock_indexer = MagicMock()
+    disk_files = {
+        str(tmp_path / "a.cs"): os.path.getmtime(str(tmp_path / "a.cs")),
+    }
+
+    result = sync_project(
+        conn=conn,
+        indexer=mock_indexer,
+        root_path=str(tmp_path),
+        disk_files=disk_files,
+        language="csharp",
+    )
+
+    # Verify the query used the language filter
+    file_query_call = conn.query.call_args_list[1]
+    assert "language" in file_query_call.args[0] or "lang" in str(file_query_call.kwargs) or "lang" in str(file_query_call.args[1])
+    assert result.updated == 1
+    assert result.deleted == 0
+
+
+def test_sync_project_language_filter_ignores_other_languages(tmp_path):
+    """With language filter, files from other languages in the graph are not deleted."""
+    (tmp_path / "a.cs").write_text("class A {}")
+
+    old_ts = _ts(hour=1)
+    future_mtime = _mtime(hour=23)
+    os.utime(str(tmp_path / "a.cs"), (future_mtime, future_mtime))
+
+    conn = MagicMock()
+    # When filtered by language, graph only returns csharp files — NOT typescript files
+    conn.query.side_effect = [
+        [[str(tmp_path)]],  # repo check
+        [[str(tmp_path / "a.cs"), old_ts]],  # only csharp files returned
+    ]
+
+    mock_indexer = MagicMock()
+    disk_files = {
+        str(tmp_path / "a.cs"): os.path.getmtime(str(tmp_path / "a.cs")),
+    }
+
+    result = sync_project(
+        conn=conn,
+        indexer=mock_indexer,
+        root_path=str(tmp_path),
+        disk_files=disk_files,
+        language="csharp",
+    )
+
+    # No deletions — typescript files in graph are invisible to this sync pass
+    mock_indexer.delete_file.assert_not_called()
+    assert result.deleted == 0
+    assert result.updated == 1
+
+
 def test_sync_project_continues_on_reindex_failure(tmp_path):
     """If reindex_file raises for one file, sync continues with remaining files."""
     (tmp_path / "a.cs").write_text("class A {}")

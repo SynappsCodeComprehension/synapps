@@ -98,6 +98,7 @@ def sync_project(
     indexer,
     root_path: str,
     disk_files: dict[str, float],
+    language: str = "",
 ) -> SyncResult:
     """Sync graph state with filesystem by re-indexing only changed files.
 
@@ -106,6 +107,9 @@ def sync_project(
         indexer: Indexer instance (with reindex_file and delete_file methods).
         root_path: Project root path.
         disk_files: {file_path: mtime_posix_float} — current files on disk.
+        language: Language filter — only sync files with this language tag.
+            When empty, syncs all files (legacy behaviour, may cause
+            cross-language deletions in multi-language projects).
 
     Raises:
         ValueError: If the project has not been indexed yet (no Repository node).
@@ -120,11 +124,18 @@ def sync_project(
             "Run 'index' first before syncing."
         )
 
-    rows = conn.query(
-        "MATCH (f:File) WHERE f.path STARTS WITH $root "
-        "RETURN f.path, f.last_indexed",
-        {"root": root_path + "/"},
-    )
+    if language:
+        rows = conn.query(
+            "MATCH (f:File {language: $lang}) WHERE f.path STARTS WITH $root "
+            "RETURN f.path, f.last_indexed",
+            {"root": root_path + "/", "lang": language},
+        )
+    else:
+        rows = conn.query(
+            "MATCH (f:File) WHERE f.path STARTS WITH $root "
+            "RETURN f.path, f.last_indexed",
+            {"root": root_path + "/"},
+        )
     graph_files = {row[0]: row[1] for row in rows if row[0] and row[1]}
 
     to_delete, to_reindex, unchanged = compute_sync_diff(graph_files, disk_files)
