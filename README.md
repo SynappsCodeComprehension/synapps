@@ -76,6 +76,17 @@ C#, Python, TypeScript/JavaScript, and Java projects all use the same tools, the
 
 Each project gets its own Memgraph instance via Docker, named deterministically from the project path. Index 10 projects simultaneously — queries from each directory hit the correct graph automatically. Containers persist across sessions and restart on demand.
 
+## Supported Languages
+
+| Language | File Extensions | Language Server |
+|---|---|---|
+| C# | `.cs` | OmniSharp |
+| Python | `.py` | Pyright |
+| TypeScript / JavaScript | `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs` | typescript-language-server |
+| Java | `.java` | Eclipse JDTLS |
+
+All languages use the same tools, graph schema, and query patterns. Language detection is automatic based on file extensions, or can be specified explicitly with `--language`.
+
 ## Prerequisites
 
 - **Python 3.11+**
