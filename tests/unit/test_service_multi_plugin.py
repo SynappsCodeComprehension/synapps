@@ -16,6 +16,7 @@ def _make_plugin(name: str) -> MagicMock:
 def _make_registry(plugins: list) -> MagicMock:
     registry = MagicMock()
     registry.detect.return_value = plugins
+    registry.detect_with_files.return_value = [(p, []) for p in plugins]
     return registry
 
 

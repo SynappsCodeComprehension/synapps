@@ -180,16 +180,18 @@ class SynapseService:
         path: str,
         language: str = "csharp",
         on_progress: Callable[[str], None] | None = None,
+        plugin_files: list[tuple[LanguagePlugin, list[str]]] | None = None,
     ) -> None:
-        plugins = self._registry.detect(path)
-        if not plugins:
+        if plugin_files is None:
+            plugin_files = self._registry.detect_with_files(path)
+        if not plugin_files:
             raise ValueError(f"No language plugin found for project at {path!r}")
-        for plugin in plugins:
+        for plugin, files in plugin_files:
             if on_progress:
                 on_progress(f"Starting language server for {plugin.name}...")
             lsp = plugin.create_lsp_adapter(path)
             indexer = Indexer(self._conn, lsp, plugin=plugin)
-            indexer.index_project(path, plugin.name, on_progress=on_progress)
+            indexer.index_project(path, plugin.name, on_progress=on_progress, files=files)
 
     def index_calls(self, path: str) -> None:
         """Run the relationship resolution pass on an already-structurally-indexed project."""
@@ -253,22 +255,30 @@ class SynapseService:
 
             lsp.shutdown()
 
-    def sync_project(self, path: str) -> SyncResult:
+    def sync_project(
+        self,
+        path: str,
+        plugin_files: list[tuple[LanguagePlugin, list[str]]] | None = None,
+    ) -> SyncResult:
         """Sync the graph with the current filesystem state.
 
         Detects stale, new, and deleted files and re-indexes only what changed.
         Requires the project to have been fully indexed at least once.
         """
-        plugins = self._registry.detect(path)
-        if not plugins:
+        if plugin_files is None:
+            plugin_files = self._registry.detect_with_files(path)
+        if not plugin_files:
             raise ValueError(f"No language plugin found for project at {path!r}")
 
         total = SyncResult(updated=0, deleted=0, unchanged=0)
-        for plugin in plugins:
+        for plugin, files in plugin_files:
             lsp = plugin.create_lsp_adapter(path)
             try:
                 indexer = Indexer(self._conn, lsp, plugin=plugin)
-                workspace_files = lsp.get_workspace_files(path)
+                if files:
+                    workspace_files = files
+                else:
+                    workspace_files = lsp.get_workspace_files(path)
                 disk_files = {}
                 for fp in workspace_files:
                     try:
@@ -286,7 +296,6 @@ class SynapseService:
                 total.deleted += result.deleted
                 total.unchanged += result.unchanged
             finally:
-                # reindex_file does not manage LSP lifecycle (unlike index_project), so shut down explicitly
                 lsp.shutdown()
 
         return total
@@ -305,6 +314,8 @@ class SynapseService:
         """
         path = path.rstrip("/")
 
+        plugin_files = self._registry.detect_with_files(path)
+
         stored_sha = get_last_indexed_commit(self._conn, path)
         repo_rows = self._conn.query(
             "MATCH (r:Repository {path: $path}) RETURN r.path",
@@ -313,7 +324,7 @@ class SynapseService:
         if not repo_rows:
             if on_progress:
                 on_progress("No existing index -- running full index...")
-            self.index_project(path, language, on_progress=on_progress)
+            self.index_project(path, language, on_progress=on_progress, plugin_files=plugin_files)
             if is_git_repo(path):
                 sha = rev_parse_head(path)
                 if sha:
@@ -323,12 +334,11 @@ class SynapseService:
         if is_git_repo(path):
             if on_progress:
                 on_progress("Git project detected -- running git sync...")
-            plugins = self._registry.detect(path)
-            if not plugins:
+            if not plugin_files:
                 raise ValueError(f"No language plugin found for project at {path!r}")
 
             total = SyncResult(updated=0, deleted=0, unchanged=0)
-            for plugin in plugins:
+            for plugin, _files in plugin_files:
                 lsp = plugin.create_lsp_adapter(path)
                 try:
                     indexer = Indexer(self._conn, lsp, plugin=plugin)
@@ -348,7 +358,7 @@ class SynapseService:
 
         if on_progress:
             on_progress("Non-git project -- running mtime sync...")
-        self.sync_project(path)
+        self.sync_project(path, plugin_files=plugin_files)
         return "mtime-sync"
 
     @staticmethod

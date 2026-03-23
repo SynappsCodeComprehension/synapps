@@ -22,6 +22,7 @@ def registry():
     lsp = MagicMock()
     plugin.create_lsp_adapter.return_value = lsp
     reg.detect.return_value = [plugin]
+    reg.detect_with_files.return_value = [(plugin, ["/project/a.cs"])]
     return reg
 
 
@@ -80,12 +81,13 @@ def test_git_repo_no_stored_sha_uses_empty_tree(mock_git, mock_get_sha, mock_syn
 
 @patch("synapse.service.get_last_indexed_commit", return_value=None)
 @patch("synapse.service.is_git_repo", return_value=False)
-def test_non_git_repo_runs_mtime_sync(mock_git, mock_get_sha, svc, conn):
+def test_non_git_repo_runs_mtime_sync(mock_git, mock_get_sha, svc, conn, registry):
     conn.query.return_value = [["some/path"]]  # has Repository
+    plugin_files = registry.detect_with_files.return_value
     with patch.object(svc, "sync_project") as mock_sync:
         result = svc.smart_index("/project", "csharp")
     assert result == "mtime-sync"
-    mock_sync.assert_called_once_with("/project")
+    mock_sync.assert_called_once_with("/project", plugin_files=plugin_files)
 
 
 @patch("synapse.service._git_sync_project")
@@ -95,6 +97,6 @@ def test_git_sync_shuts_down_lsp(mock_git, mock_get_sha, mock_sync, svc, conn, r
     conn.query.return_value = [["some/path"]]
     mock_sync.return_value = SyncResult(updated=0, deleted=0, unchanged=0)
     svc.smart_index("/project", "csharp")
-    plugin = registry.detect.return_value[0]
+    plugin = registry.detect_with_files.return_value[0][0]
     lsp = plugin.create_lsp_adapter.return_value
     lsp.shutdown.assert_called_once()
