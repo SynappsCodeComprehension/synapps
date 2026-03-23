@@ -83,7 +83,11 @@ def index(path: str, language: str = "csharp") -> None:
 def watch(path: str) -> None:
     """Watch a project for changes and keep the graph updated."""
     abs_path = str(Path(path).resolve())
-    _get_service().watch_project(abs_path)
+
+    def _log_file_event(event: str, file_path: str) -> None:
+        typer.echo(f"  [{event}] {file_path}")
+
+    _get_service().watch_project(abs_path, on_file_event=_log_file_event)
     typer.echo(f"Watching {abs_path}. Press Ctrl+C to stop.")
     try:
         import time

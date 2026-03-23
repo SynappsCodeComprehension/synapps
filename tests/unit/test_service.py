@@ -115,6 +115,30 @@ def test_watch_project_multi_language_creates_exactly_one_file_watcher() -> None
     )
 
 
+def test_watch_project_invokes_on_file_event_for_change_and_delete() -> None:
+    """on_file_event callback receives (event_type, file_path) when files change or are deleted."""
+    svc = _service()
+    mock_lsp = MagicMock()
+    mock_lsp.get_workspace_files.return_value = []
+    captured_callbacks: dict = {}
+
+    def capture_watcher(**kwargs):
+        captured_callbacks["on_change"] = kwargs["on_change"]
+        captured_callbacks["on_delete"] = kwargs["on_delete"]
+        return MagicMock()
+
+    events: list[tuple[str, str]] = []
+
+    with patch("synapse.service.FileWatcher", side_effect=capture_watcher):
+        svc.watch_project("/proj", lsp_adapter=mock_lsp, on_file_event=lambda ev, fp: events.append((ev, fp)))
+
+    captured_callbacks["on_change"]("/proj/Foo.cs")
+    captured_callbacks["on_delete"]("/proj/Bar.cs")
+
+    assert ("changed", "/proj/Foo.cs") in events
+    assert ("deleted", "/proj/Bar.cs") in events
+
+
 def test_unwatch_project_stops_watcher() -> None:
     svc = _service()
     mock_watcher = MagicMock()

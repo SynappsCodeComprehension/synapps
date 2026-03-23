@@ -392,7 +392,12 @@ class SynapseService:
         )
         self._conn.execute("MATCH (r:Repository {path: $path}) DETACH DELETE r", {"path": path})
 
-    def watch_project(self, path: str, lsp_adapter: LSPAdapter | None = None) -> None:
+    def watch_project(
+        self,
+        path: str,
+        lsp_adapter: LSPAdapter | None = None,
+        on_file_event: Callable[[str, str], None] | None = None,
+    ) -> None:
         if path in self._watchers:
             return
 
@@ -425,6 +430,8 @@ class SynapseService:
             indexer = ext_to_indexer.get(ext)
             if indexer:
                 log.info("Re-indexing changed file: %s", file_path)
+                if on_file_event:
+                    on_file_event("changed", file_path)
                 indexer.reindex_file(file_path, path)
 
         def on_delete(file_path: str) -> None:
@@ -432,6 +439,8 @@ class SynapseService:
             indexer = ext_to_indexer.get(ext)
             if indexer:
                 log.info("Removing deleted file: %s", file_path)
+                if on_file_event:
+                    on_file_event("deleted", file_path)
                 indexer.delete_file(file_path)
 
         watcher = FileWatcher(
