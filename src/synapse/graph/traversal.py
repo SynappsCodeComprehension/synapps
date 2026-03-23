@@ -68,7 +68,7 @@ def find_entry_points(
     even when they are called by test methods.
     exclude_test_callers: when True (default), filters test callers from root detection
     and excludes entry points whose file_path matches the test path pattern.
-    Returns up to 20 paths, deduplicated by entry point (shortest path wins).
+    Returns up to 100 paths, deduplicated by entry point (shortest path wins).
     """
     depth = _clamp_depth(max_depth)
     test_pattern = _TEST_PATH_PATTERN if exclude_test_callers else ""
@@ -90,7 +90,7 @@ def find_entry_points(
         "ORDER BY size(path) ASC "
         "WITH entry, collect(path)[0] AS path "
         "RETURN path "
-        "LIMIT 20",
+        "LIMIT 100",
         params,
     )
 
@@ -112,7 +112,7 @@ def find_entry_points(
         "ORDER BY size(path) ASC "
         "WITH entry, collect(path)[0] AS path "
         "RETURN path "
-        "LIMIT 20",
+        "LIMIT 100",
         params,
     )
 
