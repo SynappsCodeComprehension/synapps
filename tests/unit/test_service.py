@@ -1697,6 +1697,30 @@ def test_rel_path_preserves_unknown_path() -> None:
     assert svc._rel_path("/other/path/Foo.cs") == "/other/path/Foo.cs"
 
 
+def test_analyze_change_impact_returns_text() -> None:
+    svc = _service()
+    svc._project_roots = ["/proj"]
+    impact = {
+        "target": "Ns.Svc.Do",
+        "direct_callers": [{"full_name": "Ns.Ctrl.Action", "file_path": "/proj/src/Ctrl.cs"}],
+        "transitive_callers": [{"full_name": "Ns.App.Run", "file_path": "/proj/src/App.cs"}],
+        "test_coverage": [{"full_name": "Ns.Tests.DoTest", "file_path": "/proj/tests/DoTest.cs"}],
+        "direct_callees": [{"full_name": "Ns.Repo.Save", "file_path": "/proj/src/Repo.cs"}],
+        "total_affected": 3,
+    }
+    with patch("synapse.service.analyze_change_impact", return_value=impact):
+        result = svc.analyze_change_impact("Ns.Svc.Do")
+
+    assert isinstance(result, str)
+    assert "Ns.Svc.Do" in result
+    assert "3 affected" in result
+    assert "Ctrl.Action" in result
+    assert "src/Ctrl.cs" in result
+    assert "App.Run" in result
+    assert "DoTest" in result
+    assert "Repo.Save" in result
+
+
 def test_search_symbols_returns_relative_paths() -> None:
     svc = _service()
     svc._project_roots = ["/proj"]

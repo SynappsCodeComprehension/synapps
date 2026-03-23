@@ -1070,9 +1070,39 @@ class SynapseService:
         method = self._resolve(method, preference="concrete")
         return get_call_depth(self._conn, method, depth)
 
-    def analyze_change_impact(self, method: str) -> dict:
+    def analyze_change_impact(self, method: str) -> str:
         method = self._resolve(method, preference="concrete")
-        return analyze_change_impact(self._conn, method)
+        data = analyze_change_impact(self._conn, method)
+
+        lines = [f"## Change Impact: {method}"]
+
+        total = data["total_affected"]
+        dc = len(data["direct_callers"])
+        tc = len(data["transitive_callers"])
+        tests = len(data["test_coverage"])
+        lines.append(f"\n{total} affected — {dc} direct callers, {tc} transitive, {tests} tests\n")
+
+        if data["direct_callers"]:
+            lines.append("### Direct Callers\n")
+            for c in data["direct_callers"]:
+                lines.append(f"- `{_short_ref(c['full_name'])}` — {self._rel_path(c['file_path'])}")
+
+        if data["transitive_callers"]:
+            lines.append("\n### Transitive Callers\n")
+            for c in data["transitive_callers"]:
+                lines.append(f"- `{_short_ref(c['full_name'])}` — {self._rel_path(c['file_path'])}")
+
+        if data["test_coverage"]:
+            lines.append("\n### Test Coverage\n")
+            for t in data["test_coverage"]:
+                lines.append(f"- `{_short_ref(t['full_name'])}` — {self._rel_path(t['file_path'])}")
+
+        if data["direct_callees"]:
+            lines.append("\n### Direct Callees (downstream)\n")
+            for c in data["direct_callees"]:
+                lines.append(f"- `{_short_ref(c['full_name'])}` — {self._rel_path(c['file_path'])}")
+
+        return "\n".join(lines)
 
     def find_interface_contract(self, method: str) -> dict:
         method = self._resolve(method, preference="interface")

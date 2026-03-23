@@ -443,11 +443,9 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         return service.get_call_depth(method, depth)
 
     @mcp.tool()
-    def analyze_change_impact(method: str) -> dict:
-        """Analyze the impact of changing a method: direct callers, transitive callers, test coverage, and direct callees.
+    def analyze_change_impact(method: str) -> str:
+        """Analyze the impact of changing a method — returns a compact text summary of direct callers, transitive callers, test coverage, and direct callees.
 
-        Returns {target, direct_callers, transitive_callers, test_coverage, direct_callees, total_affected}.
-        total_affected counts upstream (callers) only — callees are downstream context.
         When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
         """
         _auto_sync_check()
