@@ -28,10 +28,12 @@ def test_language_plugin_is_runtime_checkable():
 
 
 def test_language_plugin_rejects_incomplete():
-    mock = MagicMock(spec=None)
-    mock.name = "test"
-    # Missing all factory methods and file_extensions
-    assert not isinstance(mock, LanguagePlugin)
+    """An object missing required protocol methods should not satisfy isinstance."""
+
+    class Incomplete:
+        name = "test"
+
+    assert not isinstance(Incomplete(), LanguagePlugin)
 
 
 def test_protocol_has_name_property():
