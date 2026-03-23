@@ -1,5 +1,9 @@
 # Synapse
 
+[![CI](https://github.com/alexjsmith0115/synapse/actions/workflows/ci.yml/badge.svg)](https://github.com/alexjsmith0115/synapse/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 **Give your AI agent a deep understanding of your codebase — not just files and symbols, but the relationships between them.**
 
 Synapse is an MCP server and CLI that builds a queryable graph of your codebase using Language Server Protocol analysis. It indexes symbols, call chains, inheritance trees, interface implementations, and type dependencies across C#, Python, TypeScript/JavaScript, and Java projects — then lets AI agents (or humans) query that graph to make safer, faster, better-informed code changes.
