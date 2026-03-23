@@ -338,6 +338,7 @@ class SynapseService:
                         indexer=indexer,
                         root_path=path,
                         stored_sha=effective_sha,
+                        file_extensions=lsp.file_extensions,
                     )
                     total.updated += result.updated
                     total.deleted += result.deleted

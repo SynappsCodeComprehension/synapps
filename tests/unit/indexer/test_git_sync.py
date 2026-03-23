@@ -95,3 +95,42 @@ def test_no_head_sha_skips_commit_store(mock_diff, mock_rev, mock_set, conn, ind
     mock_diff.return_value = GitDiff(to_reindex={"/project/a.cs"})
     git_sync_project(conn, indexer, "/project", "old_sha")
     mock_set.assert_not_called()
+
+
+@patch("synapse.indexer.sync.set_last_indexed_commit")
+@patch("synapse.indexer.sync.rev_parse_head", return_value="new_sha")
+@patch("synapse.indexer.sync.compute_git_diff")
+def test_file_extensions_filter_only_processes_matching_files(mock_diff, mock_rev, mock_set, conn, indexer):
+    """With file_extensions, git_sync_project ignores files from other languages."""
+    mock_diff.return_value = GitDiff(
+        to_reindex={"/project/a.cs", "/project/b.ts", "/project/c.tsx"},
+        to_delete={"/project/old.cs", "/project/old.py"},
+        renames=[("/project/x.cs", "/project/y.cs"), ("/project/m.ts", "/project/n.ts")],
+    )
+    result = git_sync_project(
+        conn, indexer, "/project", "old_sha",
+        file_extensions=frozenset({".cs"}),
+    )
+    # Only .cs files should be processed
+    reindex_paths = {c.args[0] for c in indexer.reindex_file.call_args_list}
+    assert reindex_paths == {"/project/a.cs"}
+    indexer.delete_file.assert_called_once_with("/project/old.cs")
+    assert result.updated == 2  # 1 reindex + 1 rename
+    assert result.deleted == 1
+
+
+@patch("synapse.indexer.sync.rev_parse_head", return_value="abc123")
+@patch("synapse.indexer.sync.compute_git_diff")
+def test_file_extensions_filter_all_filtered_returns_zero(mock_diff, mock_rev, conn, indexer):
+    """When all changed files are from other languages, result is zero."""
+    mock_diff.return_value = GitDiff(
+        to_reindex={"/project/a.ts", "/project/b.py"},
+        to_delete={"/project/old.js"},
+    )
+    result = git_sync_project(
+        conn, indexer, "/project", "old_sha",
+        file_extensions=frozenset({".cs"}),
+    )
+    assert result == SyncResult(updated=0, deleted=0, unchanged=0)
+    indexer.reindex_file.assert_not_called()
+    indexer.delete_file.assert_not_called()

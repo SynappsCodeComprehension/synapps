@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -57,9 +58,21 @@ def git_sync_project(
     indexer,
     root_path: str,
     stored_sha: str,
+    file_extensions: frozenset[str] | None = None,
 ) -> SyncResult:
-    """Sync graph state using git diff between stored SHA and current HEAD + working tree."""
+    """Sync graph state using git diff between stored SHA and current HEAD + working tree.
+
+    Args:
+        file_extensions: When provided, only process files whose suffix matches.
+            Prevents cross-language corruption in multi-language projects.
+    """
     diff = compute_git_diff(root_path, stored_sha)
+
+    # Filter to only files matching this plugin's language
+    if file_extensions:
+        diff.to_delete = {p for p in diff.to_delete if os.path.splitext(p)[1].lower() in file_extensions}
+        diff.to_reindex = {p for p in diff.to_reindex if os.path.splitext(p)[1].lower() in file_extensions}
+        diff.renames = [(o, n) for o, n in diff.renames if os.path.splitext(n)[1].lower() in file_extensions]
 
     if not diff.to_delete and not diff.to_reindex and not diff.renames:
         return SyncResult(updated=0, deleted=0, unchanged=0)

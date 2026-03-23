@@ -54,6 +54,8 @@ def _build_ts_full_name(raw: dict, file_path: str, root_path: str) -> str:
 class TypeScriptLSPAdapter:
     """Wraps a TypeScriptLanguageServer instance to provide the LSPAdapter interface."""
 
+    file_extensions: frozenset[str] = _TS_EXTENSIONS
+
     def __init__(self, language_server: LSPResolverBackend, root_path: str) -> None:
         self._ls = language_server
         self._root_path = root_path

@@ -14,8 +14,9 @@ def test_symbol_kind_values_cover_csharp_types() -> None:
 def test_csharp_adapter_implements_protocol() -> None:
     from synapse.lsp.interface import LSPAdapter
     from synapse.lsp.csharp import CSharpLSPAdapter
-    # Protocol runtime check
-    assert issubclass(CSharpLSPAdapter, LSPAdapter) or hasattr(CSharpLSPAdapter, "get_workspace_files")
+    # Protocol runtime check — isinstance works for protocols with non-method members
+    mock_adapter = MagicMock(spec=CSharpLSPAdapter)
+    assert isinstance(mock_adapter, LSPAdapter) or hasattr(CSharpLSPAdapter, "get_workspace_files")
 
 
 from synapse.lsp.util import build_full_name

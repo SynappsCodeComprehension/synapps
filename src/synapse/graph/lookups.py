@@ -222,16 +222,17 @@ def get_index_status(conn: GraphConnection, project_path: str) -> dict | None:
         return None
     repo = rows[0][0]
     file_count = conn.query(
-        "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(f:File) RETURN count(f)",
+        "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(f:File) RETURN count(DISTINCT f)",
         {"path": project_path},
     )
     symbol_count = conn.query(
-        "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(n) WHERE NOT n:File AND NOT n:Directory RETURN count(n)",
+        "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(n) WHERE NOT n:File AND NOT n:Directory RETURN count(DISTINCT n)",
         {"path": project_path},
     )
     breakdown_rows = conn.query(
         "MATCH (r:Repository {path: $path})-[:CONTAINS*]->(n) "
         "WHERE NOT n:File AND NOT n:Directory "
+        "WITH DISTINCT n "
         "UNWIND labels(n) AS label "
         "WITH label WHERE label <> 'Summarized' "
         "RETURN label, count(*) AS cnt "

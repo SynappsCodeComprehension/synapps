@@ -143,6 +143,8 @@ def _build_java_full_name(raw: dict, file_path: str, source_root: str) -> str:
 class JavaLSPAdapter:
     """Wraps an EclipseJDTLS instance to provide the LSPAdapter interface for Java."""
 
+    file_extensions: frozenset[str] = frozenset({".java"})
+
     def __init__(self, language_server: LSPResolverBackend, root_path: str) -> None:
         self._ls = language_server
         self._root_path = root_path

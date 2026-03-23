@@ -39,6 +39,9 @@ class IndexSymbol:
 
 @runtime_checkable
 class LSPAdapter(Protocol):
+    file_extensions: frozenset[str]
+    """File extensions handled by this adapter (e.g. frozenset({".cs"}))."""
+
     def get_workspace_files(self, root_path: str) -> list[str]:
         """Return absolute paths of all source files in the workspace."""
         ...

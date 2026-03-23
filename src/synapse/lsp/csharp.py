@@ -27,6 +27,8 @@ _LSP_KIND_MAP: dict[int, SymbolKind] = {
 class CSharpLSPAdapter:
     """Wraps a SolidLanguageServer instance to provide the LSPAdapter interface for C#."""
 
+    file_extensions: frozenset[str] = frozenset({".cs"})
+
     def __init__(self, language_server: LSPResolverBackend) -> None:
         self._ls = language_server
 

@@ -67,6 +67,8 @@ def _parse_reexported_names(source: str) -> set[str]:
 class PythonLSPAdapter:
     """Wraps a PyrightServer instance to provide the LSPAdapter interface for Python."""
 
+    file_extensions: frozenset[str] = frozenset({".py"})
+
     def __init__(self, language_server: LSPResolverBackend, root_path: str) -> None:
         self._ls = language_server
         self._root_path = root_path
