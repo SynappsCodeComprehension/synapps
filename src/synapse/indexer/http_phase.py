@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+import logging
+
+from synapse.graph.connection import GraphConnection
+from synapse.graph.edges import (
+    batch_upsert_http_calls,
+    batch_upsert_serves,
+    delete_orphan_endpoints,
+)
+from synapse.graph.nodes import upsert_endpoint
+from synapse.indexer.http.interface import HttpExtractionResult
+from synapse.indexer.http.matcher import match_endpoints
+
+log = logging.getLogger(__name__)
+
+
+class HttpPhase:
+    """Phase 4: HTTP endpoint extraction, matching, and graph writes."""
+
+    def __init__(self, conn: GraphConnection, repo_path: str) -> None:
+        self._conn = conn
+        self._repo_path = repo_path
+
+    def run(self, extraction_results: list[HttpExtractionResult]) -> None:
+        all_defs = []
+        all_calls = []
+        for result in extraction_results:
+            all_defs.extend(result.endpoint_defs)
+            all_calls.extend(result.client_calls)
+
+        if not all_defs and not all_calls:
+            return
+
+        matched = match_endpoints(all_defs, all_calls)
+
+        serves_batch: list[dict] = []
+        http_calls_batch: list[dict] = []
+
+        for m in matched:
+            name = f"{m.http_method} {m.route}"
+            upsert_endpoint(self._conn, route=m.route, http_method=m.http_method, name=name)
+
+            self._conn.execute(
+                "MATCH (r:Repository {path: $repo}), (ep:Endpoint {route: $route, http_method: $http_method}) "
+                "MERGE (r)-[:CONTAINS]->(ep)",
+                {"repo": self._repo_path, "route": m.route, "http_method": m.http_method},
+            )
+
+            if m.endpoint_def is not None:
+                serves_batch.append({
+                    "handler": m.endpoint_def.handler_full_name,
+                    "route": m.route,
+                    "http_method": m.http_method,
+                })
+
+            for call in m.client_calls:
+                http_calls_batch.append({
+                    "caller": call.caller_full_name,
+                    "route": m.route,
+                    "http_method": m.http_method,
+                    "line": call.line,
+                    "col": call.col,
+                })
+
+        batch_upsert_serves(self._conn, serves_batch)
+        batch_upsert_http_calls(self._conn, http_calls_batch)
+
+        log.info(
+            "[EXPERIMENTAL] HTTP endpoints: %d server endpoints, %d client calls, %d matched",
+            len(all_defs),
+            len(all_calls),
+            sum(1 for m in matched if m.endpoint_def is not None and m.client_calls),
+        )
+
+    def cleanup_orphans(self) -> None:
+        delete_orphan_endpoints(self._conn, self._repo_path)
