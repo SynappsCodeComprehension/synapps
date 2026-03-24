@@ -21,6 +21,7 @@ from synapse.doctor.checks.pylsp import PylspCheck
 from synapse.doctor.checks.java import JavaCheck
 from synapse.doctor.checks.jdtls import JdtlsCheck
 from synapse.doctor.service import DoctorService
+from synapse.cli.banner import print_banner
 from synapse.graph.schema import ensure_schema
 from synapse.service import SynapseService
 
@@ -133,8 +134,11 @@ def doctor() -> None:
 def index(path: str, language: str = "csharp") -> None:
     """Index a project. Smart: full index if new, git sync if git project, mtime sync otherwise."""
     abs_path = str(Path(path).resolve())
+    svc = _get_service(abs_path)
+    if svc.get_index_status(abs_path) is None:
+        print_banner()
     try:
-        result = _get_service(abs_path).smart_index(abs_path, language, on_progress=typer.echo)
+        result = svc.smart_index(abs_path, language, on_progress=typer.echo)
     except ModuleNotFoundError as e:
         typer.echo(
             f"Error: Missing dependency — {e}\n"

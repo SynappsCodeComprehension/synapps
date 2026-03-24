@@ -201,3 +201,40 @@ def test_get_service_defaults_to_cwd():
             mock_cm_cls.assert_called_once_with("/mock/cwd")
     finally:
         cli_module._svc = original_svc
+
+
+def test_index_first_run_shows_banner():
+    """First index (get_index_status returns None) calls print_banner."""
+    svc = _svc()
+    svc.get_index_status.return_value = None
+    svc.smart_index.return_value = "indexed 42 symbols"
+    with patch("synapse.cli.app._get_service", return_value=svc), \
+         patch("synapse.cli.app.print_banner") as mock_banner:
+        result = runner.invoke(app, ["index", "/tmp/test"])
+    assert result.exit_code == 0
+    mock_banner.assert_called_once()
+
+
+def test_index_reindex_skips_banner():
+    """Re-index (get_index_status returns a dict) does NOT call print_banner."""
+    svc = _svc()
+    svc.get_index_status.return_value = {"path": "/tmp/test", "commit": "abc123"}
+    svc.smart_index.return_value = "synced 5 symbols"
+    with patch("synapse.cli.app._get_service", return_value=svc), \
+         patch("synapse.cli.app.print_banner") as mock_banner:
+        result = runner.invoke(app, ["index", "/tmp/test"])
+    assert result.exit_code == 0
+    mock_banner.assert_not_called()
+
+
+def test_index_still_works_end_to_end():
+    """Index command still calls smart_index and prints Done."""
+    svc = _svc()
+    svc.get_index_status.return_value = None
+    svc.smart_index.return_value = "indexed 10 files"
+    with patch("synapse.cli.app._get_service", return_value=svc), \
+         patch("synapse.cli.app.print_banner"):
+        result = runner.invoke(app, ["index", "/tmp/test"])
+    assert result.exit_code == 0
+    svc.smart_index.assert_called_once()
+    assert "Done" in result.output
