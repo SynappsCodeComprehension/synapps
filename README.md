@@ -80,6 +80,32 @@ Synapse is designed for AI consumption. Outputs use shortened symbol references 
 
 C#, Python, TypeScript/JavaScript, and Java projects all use the same tools, the same graph schema, and the same query patterns. Each language has a plugin that handles LSP communication, call site extraction, import resolution, and type reference detection — but the agent doesn't need to know any of that. `find_callers` works the same whether the codebase is C# or Python.
 
+### HTTP Endpoint Tracing (Experimental)
+
+> **Opt-in.** Add `"experimental": { "http_endpoints": true }` to your `.synapse/config.json` to enable.
+
+In full-stack projects with a backend API and a frontend client, Synapse can trace HTTP dependencies across the language boundary. It detects server-side endpoint definitions (e.g., ASP.NET `[HttpGet]` controller methods) and client-side HTTP calls (e.g., `api.get('/items')` in TypeScript), matches them by route pattern, and links them through shared `Endpoint` nodes in the graph.
+
+This means your agent can answer questions like *"what frontend code calls this controller action?"* or *"what backend handler does this service method hit?"* — without grepping for URL strings.
+
+```cypher
+-- Frontend → Backend: what does this React service method call?
+MATCH (fe:Method)-[:HTTP_CALLS]->(ep:Endpoint)<-[:SERVES]-(be:Method)
+WHERE fe.full_name = 'itemService.getAll'
+RETURN be.full_name, ep.route
+
+-- Backend → Frontend: what calls this controller action?
+MATCH (be:Method)-[:SERVES]->(ep:Endpoint)<-[:HTTP_CALLS]-(fe:Method)
+WHERE be.full_name = 'ItemsController.GetAll'
+RETURN fe.full_name, ep.route
+```
+
+**Currently supported:**
+- **Server-side:** C# / ASP.NET Core (`[ApiController]`, `[Route]`, `[HttpGet]`, etc.)
+- **Client-side:** TypeScript / JavaScript (axios, fetch, template literals, constant references)
+
+Route matching handles parameterized paths (`{id}` on either side) and common base URL prefixes (`/api`, `/api/v1`).
+
 ### Multi-Project Isolation
 
 Each project gets its own Memgraph instance via Docker, named deterministically from the project path. Index 10 projects simultaneously — queries from each directory hit the correct graph automatically. Containers persist across sessions and restart on demand.
@@ -305,6 +331,10 @@ Symbol nodes (identified by `full_name`):
 
 A `:Summarized` label is added to any node that has a user-attached summary.
 
+When HTTP endpoint extraction is enabled:
+
+- `:Endpoint` — an HTTP endpoint (with `route`, `http_method`, `name` properties)
+
 ### Relationships
 
 - `CONTAINS` — structural containment: Repository→Directory, Directory→File, File→Symbol, and Class/Package→nested symbols
@@ -315,6 +345,11 @@ A `:Summarized` label is added to any node that has a user-attached summary.
 - `DISPATCHES_TO` — interface method→concrete implementation (inverse of method-level IMPLEMENTS, used for call graph traversal)
 - `INHERITS` — class inherits from another class, or interface extends another interface
 - `REFERENCES` — symbol references a type (field type, parameter type, return type)
+
+When HTTP endpoint extraction is enabled:
+
+- `SERVES` — method handles an HTTP endpoint (controller action → Endpoint)
+- `HTTP_CALLS` — method makes an HTTP request to an endpoint (frontend service → Endpoint, with `call_sites`)
 
 Fully-qualified names (e.g. `MyNamespace.MyClass.DoWork`) are used as symbol identifiers throughout.
 
