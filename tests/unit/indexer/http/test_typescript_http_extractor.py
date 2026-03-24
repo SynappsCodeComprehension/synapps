@@ -139,6 +139,35 @@ def test_empty_source() -> None:
     assert result.endpoint_defs == []
 
 
+def test_generic_type_argument_with_await() -> None:
+    """await api.post<ResponseType>('/items', data) must be detected as POST."""
+    source = """
+async function createItem(data: any) {
+    const response = await api.post<ItemResponse>('/items', data);
+    return response.data;
+}
+"""
+    extractor = TypeScriptHttpExtractor()
+    result = extractor.extract("test.ts", _parse(source), _symbols([("createItem", "mod.createItem", 2, 5)]))
+    assert len(result.client_calls) == 1
+    assert result.client_calls[0].http_method == "POST"
+    assert result.client_calls[0].route == "/items"
+
+
+def test_generic_type_argument_without_await() -> None:
+    """api.get<ResponseType>('/items') must be detected as GET."""
+    source = """
+function getItems() {
+    return api.get<ItemResponse[]>('/items');
+}
+"""
+    extractor = TypeScriptHttpExtractor()
+    result = extractor.extract("test.ts", _parse(source), _symbols([("getItems", "mod.getItems", 2, 4)]))
+    assert len(result.client_calls) == 1
+    assert result.client_calls[0].http_method == "GET"
+    assert result.client_calls[0].route == "/items"
+
+
 def test_multiple_calls_in_one_function() -> None:
     source = """
 async function sync() {

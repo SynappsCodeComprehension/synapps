@@ -38,7 +38,7 @@ Requirements for the verify-install / doctor feature. Each maps to roadmap phase
 
 ### MCP Interface
 
-- [ ] **MCP-01**: `check_environment` MCP tool returns structured results for agent self-diagnosis
+- [x] **MCP-01**: `check_environment` MCP tool returns structured results for agent self-diagnosis
 
 ## v2 Requirements
 
@@ -86,7 +86,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LANG-06 | Phase 3 | Complete |
 | LANG-07 | Phase 3 | Complete |
 | LANG-08 | Phase 3 | Complete |
-| MCP-01 | Phase 4 | Pending |
+| MCP-01 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total

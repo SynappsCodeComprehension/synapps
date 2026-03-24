@@ -49,7 +49,13 @@ class CSharpHttpExtractor:
     def _handle_class(self, node, results, symbol_map):
         attrs = _collect_attrs_with_args(node)
         attr_names = {name for name, _ in attrs}
-        if not (_CONTROLLER_ATTRS & attr_names):
+
+        # A class is a controller if it has [ApiController] directly,
+        # OR if it has [Route(...)] (covers the common pattern where
+        # [ApiController] is on a base class like BaseApiController).
+        has_api_controller = bool(_CONTROLLER_ATTRS & attr_names)
+        has_route = any(name == "Route" and arg for name, arg in attrs)
+        if not has_api_controller and not has_route:
             return
 
         class_name = _extract_name(node)

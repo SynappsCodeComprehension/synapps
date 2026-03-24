@@ -150,6 +150,33 @@ def test_empty_source() -> None:
     assert result.client_calls == []
 
 
+def test_apicontroller_on_base_class() -> None:
+    """Controllers inheriting from a base with [ApiController] should still be detected."""
+    source = '''
+[Route("api/meetings")]
+public class MeetingsController : BaseApiController {
+    [HttpPost]
+    public IActionResult Create() { }
+
+    [HttpGet("{id:guid}")]
+    public IActionResult GetById(Guid id) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    result = extractor.extract(
+        "test.cs",
+        _parse(source),
+        _symbols([
+            ("Create", "MeetingsController.Create", 4),
+            ("GetById", "MeetingsController.GetById", 7),
+        ]),
+    )
+    assert len(result.endpoint_defs) == 2
+    routes = {(ep.route, ep.http_method) for ep in result.endpoint_defs}
+    assert ("/api/meetings", "POST") in routes
+    assert ("/api/meetings/{id}", "GET") in routes
+
+
 def test_controller_placeholder_in_route() -> None:
     source = '''
 [ApiController]

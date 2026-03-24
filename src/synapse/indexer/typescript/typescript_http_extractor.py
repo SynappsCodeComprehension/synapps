@@ -63,6 +63,15 @@ def _handle_call_expression(node, constants: dict[str, str], sorted_symbols, res
     if fn_node is None:
         return
 
+    # Unwrap await_expression — tree-sitter wraps `await` inside the call
+    # when generics are present: `await api.post<T>(...)` parses as
+    # call_expression(function=await_expression(member_expression), ...)
+    if fn_node.type == "await_expression":
+        for child in fn_node.children:
+            if child.type == "member_expression":
+                fn_node = child
+                break
+
     http_method: str | None = None
 
     if fn_node.type == "member_expression":
