@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 
 from tree_sitter import Tree
 
@@ -20,9 +19,6 @@ _METHOD_MAP = {
     "delete": "DELETE",
     "patch": "PATCH",
 }
-
-# Regex to replace ${expr} in template literals with {expr}
-_TEMPLATE_SUB_RE = re.compile(r"\$\{([^}]+)\}")
 
 
 class TypeScriptHttpExtractor:

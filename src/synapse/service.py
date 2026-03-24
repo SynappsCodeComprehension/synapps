@@ -299,14 +299,7 @@ class SynapseService:
                 lsp.shutdown()
 
         # Post-sync HTTP re-matching (experimental)
-        from synapse.config import is_http_endpoints_enabled
-        if is_http_endpoints_enabled(path):
-            from synapse.indexer.http_phase import HttpPhase
-            http_phase = HttpPhase(self._conn, path)
-            existing_defs, existing_calls = http_phase.rebuild_from_graph()
-            from synapse.indexer.http.interface import HttpExtractionResult
-            http_phase.run([HttpExtractionResult(endpoint_defs=existing_defs, client_calls=existing_calls)])
-            http_phase.cleanup_orphans()
+        self._run_http_rematch(path)
 
         return total
 
@@ -377,14 +370,7 @@ class SynapseService:
                     lsp.shutdown()
 
             # Post-sync HTTP re-matching (experimental)
-            from synapse.config import is_http_endpoints_enabled
-            if is_http_endpoints_enabled(path):
-                from synapse.indexer.http_phase import HttpPhase
-                http_phase = HttpPhase(self._conn, path)
-                existing_defs, existing_calls = http_phase.rebuild_from_graph()
-                from synapse.indexer.http.interface import HttpExtractionResult
-                http_phase.run([HttpExtractionResult(endpoint_defs=existing_defs, client_calls=existing_calls)])
-                http_phase.cleanup_orphans()
+            self._run_http_rematch(path)
 
             return "git-sync"
 
@@ -392,6 +378,17 @@ class SynapseService:
             on_progress("Non-git project -- running mtime sync...")
         self.sync_project(path, plugin_files=plugin_files)
         return "mtime-sync"
+
+    def _run_http_rematch(self, path: str) -> None:
+        """Post-sync HTTP endpoint re-matching (experimental)."""
+        from synapse.config import is_http_endpoints_enabled
+        if is_http_endpoints_enabled(path):
+            from synapse.indexer.http_phase import HttpPhase
+            from synapse.indexer.http.interface import HttpExtractionResult
+            http_phase = HttpPhase(self._conn, path)
+            existing_defs, existing_calls = http_phase.rebuild_from_graph()
+            http_phase.run([HttpExtractionResult(endpoint_defs=existing_defs, client_calls=existing_calls)])
+            http_phase.cleanup_orphans()
 
     @staticmethod
     def _git_empty_tree_sha() -> str:

@@ -223,8 +223,9 @@ class Indexer:
                     "[EXPERIMENTAL] HTTP endpoint extraction is enabled. "
                     "This feature is experimental and may produce incomplete or incorrect endpoint mappings."
                 )
+                from synapse.indexer.http.interface import HttpExtractionResult
                 http_extractor = self._http_extractor_factory()
-                http_results: list = []
+                http_results: list[HttpExtractionResult] = []
                 for fp, pf in parsed_cache.items():
                     try:
                         file_symbols = symbols_by_file.get(fp, [])
