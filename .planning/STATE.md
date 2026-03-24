@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Phase complete — ready for verification
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-03-23T22:34:56.297Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-23T22:44:02.300Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 8
+  completed_phases: 3
+  total_plans: 10
+  completed_plans: 9
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** AI coding agents can instantly understand code structure and relationships across an entire codebase without reading every file.
-**Current focus:** Phase 03 — language-server-checks
+**Current focus:** Phase 04 — mcp-tool
 
 ## Current Position
 
-Phase: 03 (language-server-checks) — EXECUTING
-Plan: 5 of 5
+Phase: 04 (mcp-tool) — EXECUTING
+Plan: 1 of 1
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Plan: 5 of 5
 | Phase 03-language-server-checks P03 | 15 | 2 tasks | 3 files |
 | Phase 03-language-server-checks P01 | 3 | 2 tasks | 3 files |
 | Phase 03-language-server-checks P05 | 8 | 2 tasks | 2 files |
+| Phase 04-mcp-tool P01 | 1 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Recent decisions affecting current work:
 - [Phase 03-language-server-checks]: CSharpLSCheck warns (not fails) when dotnet absent — skip-if-runtime-absent pattern (D-04); text=True required for regex stdout parsing
 - [Phase 03-language-server-checks]: Module-level imports for all 10 check classes in app.py required for synapse.cli.app.* patch() targets to resolve correctly in tests
 - [Phase 03-language-server-checks]: _AllChecksPassingContext helper with _ALL_CHECKS table centralizes 10-check patch setup across all CLI doctor tests
+- [Phase 04-mcp-tool]: check_environment instantiates its own check list (not injected) — tool owns its environment check contract independently of SynapseService
+- [Phase 04-mcp-tool]: Module-level imports for all 10 check classes in tools.py required for synapse.mcp.tools.* patch targets to resolve correctly in tests — consistent with app.py pattern from Phase 03
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T22:34:56.294Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-03-23T22:44:02.297Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

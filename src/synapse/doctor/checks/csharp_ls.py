@@ -1,61 +1,62 @@
 from __future__ import annotations
 
-import shutil
+import glob
 import subprocess
+from pathlib import Path
 
 from synapse.doctor.base import CheckResult
 
-_FIX = "Install csharp-ls: `dotnet tool install -g csharp-ls`"
+_FIX = (
+    "Roslyn Language Server is auto-downloaded on first C# indexing. "
+    "Ensure .NET SDK is installed and run `synapse index` on a C# project."
+)
 
 
 class CSharpLSCheck:
     group = "csharp"
 
     def run(self) -> CheckResult:
-        # Skip if dotnet runtime absent — cannot meaningfully check csharp-ls
-        if shutil.which("dotnet") is None:
+        # Roslyn LS requires dotnet — skip if absent
+        try:
+            result = subprocess.run(
+                ["dotnet", "--list-runtimes"],
+                capture_output=True,
+                timeout=10,
+                text=True,
+            )
+            if result.returncode != 0:
+                return CheckResult(
+                    name="Roslyn Language Server",
+                    status="warn",
+                    detail="dotnet not available — cannot check Roslyn Language Server",
+                    fix=None,
+                    group=self.group,
+                )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
             return CheckResult(
-                name="csharp-ls",
+                name="Roslyn Language Server",
                 status="warn",
-                detail="dotnet not available — cannot check csharp-ls",
+                detail="dotnet not available — cannot check Roslyn Language Server",
                 fix=None,
                 group=self.group,
             )
-        path = shutil.which("csharp-ls")
-        if path is None:
+
+        # Check for the auto-downloaded Roslyn DLL in solidlsp cache
+        solidlsp_dir = Path.home() / ".solidlsp" / "language_servers" / "static"
+        pattern = str(solidlsp_dir / "roslyn-language-server.*" / "Microsoft.CodeAnalysis.LanguageServer.dll")
+        matches = glob.glob(pattern)
+        if matches:
             return CheckResult(
-                name="csharp-ls",
-                status="fail",
-                detail="csharp-ls not found on PATH",
-                fix=_FIX,
-                group=self.group,
-            )
-        try:
-            result = subprocess.run(
-                ["csharp-ls", "--version"],
-                capture_output=True,
-                timeout=10,
-            )
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            return CheckResult(
-                name="csharp-ls",
-                status="fail",
-                detail=f"csharp-ls invocation failed: {exc}",
-                fix=_FIX,
-                group=self.group,
-            )
-        if result.returncode != 0:
-            return CheckResult(
-                name="csharp-ls",
-                status="fail",
-                detail=f"csharp-ls exited with code {result.returncode}",
-                fix=_FIX,
+                name="Roslyn Language Server",
+                status="pass",
+                detail=f"Found at {matches[0]}",
+                fix=None,
                 group=self.group,
             )
         return CheckResult(
-            name="csharp-ls",
-            status="pass",
-            detail=f"Found at {path}",
-            fix=None,
+            name="Roslyn Language Server",
+            status="warn",
+            detail="Roslyn Language Server not yet downloaded (will be auto-installed on first C# indexing)",
+            fix=_FIX,
             group=self.group,
         )

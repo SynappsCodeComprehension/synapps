@@ -27,11 +27,11 @@ _ALL_CHECKS = [
     ("DockerDaemonCheck", "Docker daemon", "core"),
     ("MemgraphBoltCheck", "Memgraph", "core"),
     ("DotNetCheck", ".NET SDK", "csharp"),
-    ("CSharpLSCheck", "csharp-ls", "csharp"),
+    ("CSharpLSCheck", "Roslyn Language Server", "csharp"),
     ("NodeCheck", "Node.js", "typescript"),
-    ("TypeScriptLSCheck", "typescript-language-server", "typescript"),
+    ("TypeScriptLSCheck", "npm", "typescript"),
     ("PythonCheck", "Python 3", "python"),
-    ("PylspCheck", "pylsp", "python"),
+    ("PylspCheck", "pyright", "python"),
     ("JavaCheck", "Java", "java"),
     ("JdtlsCheck", "Eclipse JDT LS", "java"),
 ]
@@ -142,6 +142,6 @@ def test_doctor_runs_all_ten_checks() -> None:
     with _all_checks_passing():
         result = runner.invoke(app, ["doctor"])
     assert result.exit_code == 0
-    for name in [".NET SDK", "csharp-ls", "Node.js", "typescript-language-server",
-                 "Python 3", "pylsp", "Java", "Eclipse JDT LS"]:
+    for name in [".NET SDK", "Roslyn Language Server", "Node.js", "npm",
+                 "Python 3", "pyright", "Java", "Eclipse JDT LS"]:
         assert name in result.output, f"Expected '{name}' in doctor output"

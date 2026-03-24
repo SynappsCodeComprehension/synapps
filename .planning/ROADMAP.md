@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Core Data Model** - Define CheckResult, DoctorCheck protocol, and DoctorService with full unit test coverage using stub checks (completed 2026-03-23)
 - [ ] **Phase 2: Infrastructure Checks and CLI** - Docker and Memgraph health checks wired to `synapse doctor` Rich table output with exit code discipline
 - [x] **Phase 3: Language Server Checks** - Eight checks covering .NET, C#, Node.js, TypeScript, Python, pylsp, Java runtime, and Java LS with inline fix instructions (completed 2026-03-23)
-- [ ] **Phase 4: MCP Tool** - `check_environment` MCP tool exposing DoctorService results as a structured dict for agent self-diagnosis
+- [x] **Phase 4: MCP Tool** - `check_environment` MCP tool exposing DoctorService results as a structured dict for agent self-diagnosis (completed 2026-03-23)
 
 ## Phase Details
 
@@ -75,7 +75,10 @@ Plans:
   1. Calling `check_environment` via MCP returns a dict (not formatted text) with a list of check results each containing name, status, detail, and fix fields
   2. The MCP tool result and the `synapse doctor` table are driven by the same DoctorService call — no divergent logic
   3. An agent can parse the structured return value to determine which dependencies are missing without scraping human-readable text
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [x] 04-01-PLAN.md — Implement check_environment MCP tool with TDD unit tests
 
 ## Progress
 
@@ -87,4 +90,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Core Data Model | 1/1 | Complete   | 2026-03-23 |
 | 2. Infrastructure Checks and CLI | 1/2 | In Progress|  |
 | 3. Language Server Checks | 5/5 | Complete   | 2026-03-23 |
-| 4. MCP Tool | 0/? | Not started | - |
+| 4. MCP Tool | 1/1 | Complete   | 2026-03-23 |

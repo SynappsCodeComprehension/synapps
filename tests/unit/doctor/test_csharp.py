@@ -67,72 +67,47 @@ def test_dotnet_group_is_csharp() -> None:
     assert DotNetCheck().group == "csharp"
 
 
-# --- CSharpLSCheck tests ---
+# --- CSharpLSCheck tests (Roslyn Language Server) ---
 
 
-def test_csharp_ls_pass_when_version_exits_zero() -> None:
-    with patch("synapse.doctor.checks.csharp_ls.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub:
-        mock_shutil.which.side_effect = lambda name: {
-            "dotnet": "/usr/local/bin/dotnet",
-            "csharp-ls": "/usr/local/bin/csharp-ls",
-        }.get(name)
+def test_roslyn_pass_when_dll_found() -> None:
+    with patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub, \
+         patch("synapse.doctor.checks.csharp_ls.glob") as mock_glob:
         mock_sub.run.return_value.returncode = 0
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
+        mock_glob.glob.return_value = ["/home/user/.solidlsp/language_servers/static/roslyn-language-server.osx-arm64.5.5.0/Microsoft.CodeAnalysis.LanguageServer.dll"]
         result = CSharpLSCheck().run()
     assert result.status == "pass"
-    assert "/usr/local/bin/csharp-ls" in result.detail
+    assert "Microsoft.CodeAnalysis.LanguageServer.dll" in result.detail
 
 
-def test_csharp_ls_fail_when_not_on_path() -> None:
-    with patch("synapse.doctor.checks.csharp_ls.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub:
-        mock_shutil.which.side_effect = lambda name: {
-            "dotnet": "/usr/local/bin/dotnet",
-            "csharp-ls": None,
-        }.get(name)
+def test_roslyn_warn_when_not_yet_downloaded() -> None:
+    with patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub, \
+         patch("synapse.doctor.checks.csharp_ls.glob") as mock_glob:
+        mock_sub.run.return_value.returncode = 0
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
+        mock_glob.glob.return_value = []
         result = CSharpLSCheck().run()
-    assert result.status == "fail"
-    assert result.fix is not None
-    assert "dotnet tool install" in result.fix
+    assert result.status == "warn"
+    assert "auto-installed" in result.detail
 
 
-def test_csharp_ls_warn_when_dotnet_absent() -> None:
-    with patch("synapse.doctor.checks.csharp_ls.shutil") as mock_shutil:
-        mock_shutil.which.side_effect = lambda name: {
-            "dotnet": None,
-        }.get(name)
+def test_roslyn_warn_when_dotnet_absent() -> None:
+    with patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub:
+        mock_sub.run.side_effect = FileNotFoundError("dotnet")
+        mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = CSharpLSCheck().run()
     assert result.status == "warn"
     assert result.fix is None
 
 
-def test_csharp_ls_fail_when_version_exits_nonzero() -> None:
-    with patch("synapse.doctor.checks.csharp_ls.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub:
-        mock_shutil.which.side_effect = lambda name: {
-            "dotnet": "/usr/local/bin/dotnet",
-            "csharp-ls": "/usr/local/bin/csharp-ls",
-        }.get(name)
+def test_roslyn_warn_when_dotnet_exits_nonzero() -> None:
+    with patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub:
         mock_sub.run.return_value.returncode = 1
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = CSharpLSCheck().run()
-    assert result.status == "fail"
+    assert result.status == "warn"
 
 
-def test_csharp_ls_fail_when_timeout() -> None:
-    with patch("synapse.doctor.checks.csharp_ls.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub:
-        mock_shutil.which.side_effect = lambda name: {
-            "dotnet": "/usr/local/bin/dotnet",
-            "csharp-ls": "/usr/local/bin/csharp-ls",
-        }.get(name)
-        mock_sub.TimeoutExpired = subprocess.TimeoutExpired
-        mock_sub.run.side_effect = subprocess.TimeoutExpired("csharp-ls", 10)
-        result = CSharpLSCheck().run()
-    assert result.status == "fail"
-
-
-def test_csharp_ls_group_is_csharp() -> None:
+def test_roslyn_group_is_csharp() -> None:
     assert CSharpLSCheck().group == "csharp"

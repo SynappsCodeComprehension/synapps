@@ -63,70 +63,55 @@ def test_python_pass_fix_is_none() -> None:
     assert result.fix is None
 
 
-# ---- PylspCheck tests ----
+# ---- PylspCheck tests (Pyright) ----
 
 
-def test_pylsp_pass_when_version_exits_zero() -> None:
-    with patch("synapse.doctor.checks.pylsp.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
-            mock_shutil.which.side_effect = lambda name: {
-                "python3": "/usr/bin/python3",
-                "pylsp": "/usr/bin/pylsp",
-            }.get(name)
-            mock_sub.run.return_value = MagicMock(returncode=0)
-            mock_sub.TimeoutExpired = subprocess.TimeoutExpired
-            result = PylspCheck().run()
+def test_pyright_pass_when_importable() -> None:
+    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+        # First call: python3 --version (check runtime)
+        # Second call: python3 -c "import pyright..." (check module)
+        mock_sub.run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(returncode=0, stdout="/usr/lib/python3/site-packages/pyright/__init__.py\n"),
+        ]
+        mock_sub.TimeoutExpired = subprocess.TimeoutExpired
+        result = PylspCheck().run()
     assert result.status == "pass"
-    assert "/usr/bin/pylsp" in result.detail
+    assert "pyright" in result.detail
 
 
-def test_pylsp_fail_when_not_on_path() -> None:
-    with patch("synapse.doctor.checks.pylsp.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
-            mock_shutil.which.side_effect = lambda name: {
-                "python3": "/usr/bin/python3",
-                "pylsp": None,
-            }.get(name)
-            mock_sub.TimeoutExpired = subprocess.TimeoutExpired
-            result = PylspCheck().run()
+def test_pyright_fail_when_not_importable() -> None:
+    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+        mock_sub.run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(returncode=1, stdout="", stderr="ModuleNotFoundError"),
+        ]
+        mock_sub.TimeoutExpired = subprocess.TimeoutExpired
+        result = PylspCheck().run()
     assert result.status == "fail"
     assert result.fix is not None
-    assert "pip install" in result.fix
+    assert "pyright" in result.fix
 
 
-def test_pylsp_warn_when_python3_absent() -> None:
-    with patch("synapse.doctor.checks.pylsp.shutil") as mock_shutil:
-        mock_shutil.which.side_effect = lambda name: None
+def test_pyright_warn_when_python3_absent() -> None:
+    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+        mock_sub.run.side_effect = FileNotFoundError("python3")
+        mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = PylspCheck().run()
     assert result.status == "warn"
     assert result.fix is None
 
 
-def test_pylsp_fail_when_version_exits_nonzero() -> None:
-    with patch("synapse.doctor.checks.pylsp.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
-            mock_shutil.which.side_effect = lambda name: {
-                "python3": "/usr/bin/python3",
-                "pylsp": "/usr/bin/pylsp",
-            }.get(name)
-            mock_sub.run.return_value = MagicMock(returncode=1)
-            mock_sub.TimeoutExpired = subprocess.TimeoutExpired
-            result = PylspCheck().run()
+def test_pyright_fail_when_timeout() -> None:
+    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+        mock_sub.run.side_effect = [
+            MagicMock(returncode=0),
+            subprocess.TimeoutExpired(cmd="python3", timeout=10),
+        ]
+        mock_sub.TimeoutExpired = subprocess.TimeoutExpired
+        result = PylspCheck().run()
     assert result.status == "fail"
 
 
-def test_pylsp_fail_when_timeout() -> None:
-    with patch("synapse.doctor.checks.pylsp.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
-            mock_shutil.which.side_effect = lambda name: {
-                "python3": "/usr/bin/python3",
-                "pylsp": "/usr/bin/pylsp",
-            }.get(name)
-            mock_sub.run.side_effect = subprocess.TimeoutExpired(cmd="pylsp", timeout=10)
-            mock_sub.TimeoutExpired = subprocess.TimeoutExpired
-            result = PylspCheck().run()
-    assert result.status == "fail"
-
-
-def test_pylsp_group_is_python() -> None:
+def test_pyright_group_is_python() -> None:
     assert PylspCheck().group == "python"

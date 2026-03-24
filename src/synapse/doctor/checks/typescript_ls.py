@@ -1,61 +1,42 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 
 from synapse.doctor.base import CheckResult
 
-_FIX = "Install: `npm install -g typescript-language-server typescript`"
+_FIX = "Install npm: https://nodejs.org/ (typescript-language-server is auto-installed by Synapse)"
 
 
 class TypeScriptLSCheck:
+    """Checks for npm — required for Synapse to auto-install typescript-language-server."""
+
     group = "typescript"
 
     def run(self) -> CheckResult:
-        # Skip-if-runtime-absent: node must be present for typescript-language-server to work
+        # Skip if node not available
         if shutil.which("node") is None:
             return CheckResult(
-                name="typescript-language-server",
+                name="npm",
                 status="warn",
-                detail="node not available — cannot check typescript-language-server",
+                detail="node not available — cannot check npm",
                 fix=None,
                 group=self.group,
             )
-        path = shutil.which("typescript-language-server")
+        # Synapse auto-installs typescript-language-server via npm,
+        # so we just need to verify npm is available
+        path = shutil.which("npm")
         if path is None:
             return CheckResult(
-                name="typescript-language-server",
+                name="npm",
                 status="fail",
-                detail="typescript-language-server not found on PATH",
-                fix=_FIX,
-                group=self.group,
-            )
-        try:
-            result = subprocess.run(
-                ["typescript-language-server", "--version"],
-                capture_output=True,
-                timeout=10,
-            )
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            return CheckResult(
-                name="typescript-language-server",
-                status="fail",
-                detail=f"typescript-language-server invocation failed: {exc}",
-                fix=_FIX,
-                group=self.group,
-            )
-        if result.returncode != 0:
-            return CheckResult(
-                name="typescript-language-server",
-                status="fail",
-                detail=f"typescript-language-server exited with code {result.returncode}",
+                detail="npm not found on PATH (required for Synapse to install typescript-language-server)",
                 fix=_FIX,
                 group=self.group,
             )
         return CheckResult(
-            name="typescript-language-server",
+            name="npm",
             status="pass",
-            detail=f"Found at {path}",
+            detail=f"Found at {path} (typescript-language-server auto-installed by Synapse)",
             fix=None,
             group=self.group,
         )
