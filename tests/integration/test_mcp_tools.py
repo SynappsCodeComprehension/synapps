@@ -28,6 +28,7 @@ EXPECTED_TOOLS = {
     "find_type_impact", "audit_architecture", "summarize_from_graph",
     "get_schema",
     "sync_project",
+    "check_environment",
 }
 
 
