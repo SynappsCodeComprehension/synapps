@@ -35,5 +35,15 @@ dependencies, and tests that might break.
 EFFICIENCY:
 - Use the scope parameter on get_context_for to control detail level: \
 "structure" for overview, "method" for focused, "edit" for modification prep.
-- Use search_symbols with kind, namespace, or file_path filters to narrow results.\
+- Use search_symbols with kind, namespace, or file_path filters to narrow results.
+
+HTTP ENDPOINTS (experimental):
+- If a project has experimental.http_endpoints enabled in .synapse/config.json, \
+the graph includes Endpoint nodes with SERVES and HTTP_CALLS edges for tracing \
+frontend-to-backend HTTP dependencies.
+- To find what frontend code calls a backend method: \
+MATCH (m:Method)-[:SERVES]->(ep:Endpoint)<-[:HTTP_CALLS]-(caller) RETURN caller, ep
+- To find what backend handler a frontend method hits: \
+MATCH (m:Method)-[:HTTP_CALLS]->(ep:Endpoint)<-[:SERVES]-(handler) RETURN handler, ep
+- Note: HTTP endpoint data is experimental and may be incomplete.\
 """
