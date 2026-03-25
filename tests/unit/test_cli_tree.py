@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from synapse.cli.tree import TreeNode, render_tree, callers_tree, callees_tree, call_depth_tree, hierarchy_tree, trace_tree
+from synapse.cli.tree import TreeNode, render_tree, callers_tree, callees_tree, call_depth_tree, hierarchy_tree, trace_tree, entry_points_tree
 
 
 class TestRenderTree:
@@ -293,3 +293,54 @@ class TestTraceTree:
         assert root.label == "A"
         assert len(root.children) == 1
         assert root.children[0].label == "B"
+
+
+class TestEntryPointsTree:
+    def test_single_entry_point(self) -> None:
+        data = {
+            "entry_points": [
+                {"entry": "Controller.Get", "path": ["Controller.Get", "Service.Find", "Repo.Query"]},
+            ],
+            "target": "Repo.Query",
+            "max_depth": 8,
+        }
+        root = entry_points_tree(data)
+        assert root.label == "Repo.Query"
+        assert root.children[0].label == "Service.Find"
+        assert root.children[0].children[0].label == "Controller.Get"
+
+    def test_multiple_entry_points_shared_intermediate(self) -> None:
+        data = {
+            "entry_points": [
+                {"entry": "Controller.Get", "path": ["Controller.Get", "Service.Find", "Repo.Query"]},
+                {"entry": "Controller.Post", "path": ["Controller.Post", "Service.Find", "Repo.Query"]},
+            ],
+            "target": "Repo.Query",
+            "max_depth": 8,
+        }
+        root = entry_points_tree(data)
+        assert root.label == "Repo.Query"
+        assert len(root.children) == 1
+        assert root.children[0].label == "Service.Find"
+        assert len(root.children[0].children) == 2
+        labels = {c.label for c in root.children[0].children}
+        assert labels == {"Controller.Get", "Controller.Post"}
+
+    def test_no_entry_points(self) -> None:
+        data = {"entry_points": [], "target": "Repo.Query", "max_depth": 8}
+        root = entry_points_tree(data)
+        assert root.label == "Repo.Query"
+        assert root.children == []
+
+    def test_direct_caller(self) -> None:
+        data = {
+            "entry_points": [
+                {"entry": "Controller.Get", "path": ["Controller.Get", "Repo.Query"]},
+            ],
+            "target": "Repo.Query",
+            "max_depth": 8,
+        }
+        root = entry_points_tree(data)
+        assert root.label == "Repo.Query"
+        assert len(root.children) == 1
+        assert root.children[0].label == "Controller.Get"

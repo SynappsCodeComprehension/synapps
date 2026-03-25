@@ -89,3 +89,8 @@ def _merge_paths_into_tree(root_label: str, paths: list[list[str]]) -> TreeNode:
 
 def trace_tree(data: dict) -> TreeNode:
     return _merge_paths_into_tree(data["start"], data["paths"])
+
+
+def entry_points_tree(data: dict) -> TreeNode:
+    reversed_paths = [ep["path"][::-1] for ep in data["entry_points"]]
+    return _merge_paths_into_tree(data["target"], reversed_paths)
