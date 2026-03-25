@@ -24,6 +24,16 @@ from synapse.doctor.service import DoctorService
 from synapse.cli.banner import print_banner
 from synapse.graph.schema import ensure_schema
 from synapse.service import SynapseService
+from synapse.cli.tree import (
+    render_tree,
+    callers_tree,
+    callees_tree,
+    call_depth_tree,
+    hierarchy_tree,
+    trace_tree,
+    entry_points_tree,
+    dependencies_tree,
+)
 
 def _verbose_callback(verbose: bool) -> None:
     if verbose:
@@ -58,6 +68,13 @@ def _fmt(sym: dict) -> str:
     fn = sym.get("full_name", "?")
     sig = sym.get("signature")
     return f"{fn} — {sig}" if sig else fn
+
+
+def _unwrap_truncated(results: list | dict) -> tuple[list, str | None]:
+    if isinstance(results, dict) and "_truncated" in results:
+        items = results["results"]
+        return items, f"showing {len(items)} of {results['_total']}"
+    return results, None
 
 
 def _require_label(svc: SynapseService, full_name: str, required: str, hint: str) -> bool:
@@ -226,6 +243,7 @@ def source(full_name: str, include_class: bool = False) -> None:
 def callers(
     method_full_name: str,
     include_tests: bool = typer.Option(False, "--include-tests", help="Include test callers"),
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
 ) -> None:
     """Find all methods that call a given method.
 
@@ -240,12 +258,21 @@ def callers(
     if not results:
         typer.echo("No results.")
         return
-    for item in results:
-        typer.echo(_fmt(item))
+    if tree:
+        items, annotation = _unwrap_truncated(results)
+        typer.echo(render_tree(callers_tree(method_full_name, items, annotation=annotation)))
+    else:
+        # NOTE: if _apply_limit truncates, `results` is a dict and this iterates keys.
+        # Pre-existing issue — fixing it is out of scope for --tree (see spec: Future Direction).
+        for item in results:
+            typer.echo(_fmt(item))
 
 
 @app.command()
-def callees(method_full_name: str) -> None:
+def callees(
+    method_full_name: str,
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
+) -> None:
     """Find all methods called by a given method."""
     svc = _get_service()
     if not _require_label(
@@ -257,8 +284,12 @@ def callees(method_full_name: str) -> None:
     if not results:
         typer.echo("No results.")
         return
-    for item in results:
-        typer.echo(_fmt(item))
+    if tree:
+        items, annotation = _unwrap_truncated(results)
+        typer.echo(render_tree(callees_tree(method_full_name, items, annotation=annotation)))
+    else:
+        for item in results:
+            typer.echo(_fmt(item))
 
 
 @app.command()
@@ -290,30 +321,36 @@ def implementations(interface_name: str) -> None:
 
 
 @app.command()
-def hierarchy(class_name: str) -> None:
+def hierarchy(
+    class_name: str,
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
+) -> None:
     """Show the full inheritance chain for a class."""
     result = _get_service().get_hierarchy(class_name)
-    parents = result["parents"]
-    children = result["children"]
-    implements = result.get("implements", [])
-    typer.echo("Parents:")
-    if parents:
-        for p in parents:
-            typer.echo(f"  {p.get('full_name', '?')}")
+    if tree:
+        typer.echo(render_tree(hierarchy_tree(class_name, result)))
     else:
-        typer.echo("  (none)")
-    typer.echo("Children:")
-    if children:
-        for c in children:
-            typer.echo(f"  {c.get('full_name', '?')}")
-    else:
-        typer.echo("  (none)")
-    typer.echo("Implements:")
-    if implements:
-        for i in implements:
-            typer.echo(f"  {i.get('full_name', '?')}")
-    else:
-        typer.echo("  (none)")
+        parents = result["parents"]
+        children = result["children"]
+        implements = result.get("implements", [])
+        typer.echo("Parents:")
+        if parents:
+            for p in parents:
+                typer.echo(f"  {p.get('full_name', '?')}")
+        else:
+            typer.echo("  (none)")
+        typer.echo("Children:")
+        if children:
+            for c in children:
+                typer.echo(f"  {c.get('full_name', '?')}")
+        else:
+            typer.echo("  (none)")
+        typer.echo("Implements:")
+        if implements:
+            for i in implements:
+                typer.echo(f"  {i.get('full_name', '?')}")
+        else:
+            typer.echo("  (none)")
 
 
 @app.command()
@@ -366,16 +403,23 @@ def usages(
 
 
 @app.command()
-def dependencies(full_name: str) -> None:
+def dependencies(
+    full_name: str,
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
+) -> None:
     """Find all types referenced by a symbol."""
     results = _get_service().find_dependencies(full_name)
     if not results:
         typer.echo("No results.")
         return
-    for item in results:
-        fn = item["type"].get("full_name", "?")
-        depth = item.get("depth", "?")
-        typer.echo(f"{fn} (depth {depth})")
+    if tree:
+        items, annotation = _unwrap_truncated(results)
+        typer.echo(render_tree(dependencies_tree(full_name, items, annotation=annotation)))
+    else:
+        for item in results:
+            fn = item["type"].get("full_name", "?")
+            depth = item.get("depth", "?")
+            typer.echo(f"{fn} (depth {depth})")
 
 
 @app.command()
@@ -396,6 +440,7 @@ def trace_chain(
     start: str = typer.Argument(help="Starting method"),
     end: str = typer.Argument(help="Ending method"),
     max_depth: int = typer.Option(6, "--depth", "-d"),
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
 ) -> None:
     """Trace call paths between two methods."""
     svc = _get_service()
@@ -403,8 +448,11 @@ def trace_chain(
     if not result["paths"]:
         typer.echo("No paths found.")
         return
-    for i, path in enumerate(result["paths"], 1):
-        typer.echo(f"Path {i}: {' → '.join(path)}")
+    if tree:
+        typer.echo(render_tree(trace_tree(result)))
+    else:
+        for i, path in enumerate(result["paths"], 1):
+            typer.echo(f"Path {i}: {' → '.join(path)}")
 
 
 @app.command("entry-points")
@@ -412,6 +460,7 @@ def entry_points(
     method: str = typer.Argument(help="Target method"),
     max_depth: int = typer.Option(8, "--depth", "-d"),
     include_tests: bool = typer.Option(False, "--include-tests", help="Include test entry points"),
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
 ) -> None:
     """Find all entry points that eventually call a method.
 
@@ -421,14 +470,18 @@ def entry_points(
     if not result["entry_points"]:
         typer.echo("No entry points found.")
         return
-    for ep in result["entry_points"]:
-        typer.echo(f"{ep['entry']} → {' → '.join(ep['path'][1:])}")
+    if tree:
+        typer.echo(render_tree(entry_points_tree(result)))
+    else:
+        for ep in result["entry_points"]:
+            typer.echo(f"{ep['entry']} → {' → '.join(ep['path'][1:])}")
 
 
 @app.command("call-depth")
 def call_depth(
     method: str = typer.Argument(help="Starting method"),
     depth: int = typer.Option(3, "--depth", "-d"),
+    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
 ) -> None:
     """Show all methods reachable from a method up to N levels."""
     svc = _get_service()
@@ -436,9 +489,12 @@ def call_depth(
     if not result["callees"]:
         typer.echo("No callees found.")
         return
-    for c in result["callees"]:
-        indent = "  " * c["depth"]
-        typer.echo(f"{indent}[depth {c['depth']}] {c['full_name']}")
+    if tree:
+        typer.echo(render_tree(call_depth_tree(result)))
+    else:
+        for c in result["callees"]:
+            indent = "  " * c["depth"]
+            typer.echo(f"{indent}[depth {c['depth']}] {c['full_name']}")
 
 
 @app.command("impact")
