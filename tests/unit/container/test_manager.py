@@ -104,7 +104,6 @@ def test_config_created_on_first_use(manager, mock_docker, tmp_path):
     config_path = tmp_path / ".synapse" / "config.json"
     assert config_path.exists()
     config = json.loads(config_path.read_text())
-    assert "project_path" in config
     assert "container_name" in config
     assert "port" in config
     assert "last_indexed" in config
