@@ -15,7 +15,7 @@ def _patched_main():
 
     mock_fastmcp = MagicMock()
 
-    with patch("synapse.mcp.server.ContainerManager", mock_cm_cls), \
+    with patch("synapse.mcp.server.ConnectionManager", mock_cm_cls), \
          patch("synapse.mcp.server.ensure_schema") as mock_ensure, \
          patch("synapse.mcp.server.SynapseService") as mock_svc_cls, \
          patch("synapse.mcp.server.FastMCP", return_value=mock_fastmcp) as mock_fmcp_cls, \
@@ -33,8 +33,8 @@ def _patched_main():
         }
 
 
-def test_main_uses_container_manager(_patched_main):
-    """Verify MCP server main() routes through ContainerManager with cwd."""
+def test_main_uses_connection_manager(_patched_main):
+    """Verify MCP server main() routes through ConnectionManager with cwd."""
     cm_cls = _patched_main["cm_cls"]
     conn = cm_cls.return_value.get_connection.return_value
 

@@ -102,3 +102,43 @@ def test_memgraph_group_is_core() -> None:
             mock_socket.create_connection.side_effect = OSError("refused")
             result = MemgraphBoltCheck().run()
     assert result.group == "core"
+
+
+def test_bolt_check_uses_shared_port() -> None:
+    """Check connects to shared_port from global config, not hardcoded 7687."""
+    with patch("synapse.doctor.checks.memgraph_bolt.load_global_config", return_value={
+        "shared_port": 9999,
+        "external_host": None,
+        "external_port": None,
+    }), patch("synapse.doctor.checks.memgraph_bolt.docker") as mock_docker, \
+         patch("synapse.doctor.checks.memgraph_bolt.socket") as mock_socket:
+        mock_docker.from_env.return_value.ping.return_value = True
+        mock_sock = MagicMock()
+        mock_sock.recv.return_value = b"\x00\x00\x04\x04"
+        mock_socket.create_connection.return_value.__enter__ = MagicMock(return_value=mock_sock)
+        mock_socket.create_connection.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = MemgraphBoltCheck().run()
+
+    mock_socket.create_connection.assert_called_once_with(("localhost", 9999), timeout=2.0)
+    assert result.status == "pass"
+
+
+def test_bolt_check_uses_external_host() -> None:
+    """When external_host is set, check connects to external host:port."""
+    with patch("synapse.doctor.checks.memgraph_bolt.load_global_config", return_value={
+        "shared_port": 7687,
+        "external_host": "db.example.com",
+        "external_port": 7688,
+    }), patch("synapse.doctor.checks.memgraph_bolt.docker") as mock_docker, \
+         patch("synapse.doctor.checks.memgraph_bolt.socket") as mock_socket:
+        mock_docker.from_env.return_value.ping.return_value = True
+        mock_sock = MagicMock()
+        mock_sock.recv.return_value = b"\x00\x00\x04\x04"
+        mock_socket.create_connection.return_value.__enter__ = MagicMock(return_value=mock_sock)
+        mock_socket.create_connection.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = MemgraphBoltCheck().run()
+
+    mock_socket.create_connection.assert_called_once_with(("db.example.com", 7688), timeout=2.0)
+    assert result.status == "pass"
