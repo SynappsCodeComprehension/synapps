@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Ready to execute
-last_updated: "2026-03-25T01:23:10.750Z"
+last_updated: "2026-03-25T01:25:20.629Z"
 last_activity: 2026-03-25
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 14
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 05 (expand-http-endpoint-mapping-to-all-languages) — EXECUTING
-Plan: 3 of 5
+Plan: 5 of 5
 
 ## Performance Metrics
 
@@ -57,6 +57,8 @@ Plan: 3 of 5
 | Phase 04-mcp-tool P01 | 1 | 1 tasks | 2 files |
 | Phase 05 P02 | 3 | 1 tasks | 2 files |
 | Phase 05 P04 | 3 | 1 tasks | 2 files |
+| Phase 05 P01 | 4 | 2 tasks | 4 files |
+| Phase 05 P03 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -87,6 +89,11 @@ Recent decisions affecting current work:
 - [Phase 05]: TypeScript server route disambiguation: arrow_function/function_expression second arg -> SERVES; identifier/object -> HTTP_CALLS (preserves api.post('/items', data) as client call)
 - [Phase 05]: _HTTPCLIENT_VERB_MAP and _RESTSHARP_METHOD_MAP as module-level dicts — mirrors existing _HTTP_VERB_MAP pattern, aligns with D-07
 - [Phase 05]: enclosing-symbol lookup uses sorted-range pattern mirrored from TypeScript extractor
+- [Phase 05-01]: _FASTAPI_FLASK_VERBS frozenset covers both FastAPI verb decorators and Flask 2.0+ shorthand in a single check — avoids branching on framework type
+- [Phase 05-01]: F-string detection uses interpolation child nodes (not prefix check) — works correctly with tree-sitter Python grammar which parses f-strings as string nodes with interpolation children
+- [Phase 05-01]: Django ViewSet routes only emitted for methods actually present in class body — prevents phantom routes for inherited methods not overridden
+- [Phase 05]: _method_invocation_name() scans backwards from argument_list to find method name — handles chained builder calls where first identifier is the receiver, not the method
+- [Phase 05]: WebClient verb detected via object field of .uri() invocation; java.net.http verb detected by parent-chain walk from URI.create() through argument_list and .uri() up to .GET()/.POST()
 
 ### Pending Todos
 
