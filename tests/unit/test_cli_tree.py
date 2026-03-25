@@ -306,11 +306,13 @@ class TestEntryPointsTree:
             "max_depth": 8,
         }
         root = entry_points_tree(data)
-        assert root.label == "Repo.Query"
-        assert root.children[0].label == "Service.Find"
-        assert root.children[0].children[0].label == "Controller.Get"
+        assert root.label == "→ Repo.Query"
+        # Top-down: Controller.Get → Service.Find → Repo.Query
+        assert root.children[0].label == "Controller.Get"
+        assert root.children[0].children[0].label == "Service.Find"
+        assert root.children[0].children[0].children[0].label == "Repo.Query"
 
-    def test_multiple_entry_points_shared_intermediate(self) -> None:
+    def test_multiple_entry_points_shared_prefix(self) -> None:
         data = {
             "entry_points": [
                 {"entry": "Controller.Get", "path": ["Controller.Get", "Service.Find", "Repo.Query"]},
@@ -320,17 +322,38 @@ class TestEntryPointsTree:
             "max_depth": 8,
         }
         root = entry_points_tree(data)
-        assert root.label == "Repo.Query"
-        assert len(root.children) == 1
-        assert root.children[0].label == "Service.Find"
-        assert len(root.children[0].children) == 2
-        labels = {c.label for c in root.children[0].children}
+        assert root.label == "→ Repo.Query"
+        # Two separate entry points at top level
+        assert len(root.children) == 2
+        labels = {c.label for c in root.children}
         assert labels == {"Controller.Get", "Controller.Post"}
+        # Both flow down to Service.Find → Repo.Query
+        for child in root.children:
+            assert child.children[0].label == "Service.Find"
+            assert child.children[0].children[0].label == "Repo.Query"
+
+    def test_multiple_entry_points_shared_entry(self) -> None:
+        data = {
+            "entry_points": [
+                {"entry": "Controller.Get", "path": ["Controller.Get", "Service.Find", "Repo.Query"]},
+                {"entry": "Controller.Get", "path": ["Controller.Get", "Service.Create", "Repo.Query"]},
+            ],
+            "target": "Repo.Query",
+            "max_depth": 8,
+        }
+        root = entry_points_tree(data)
+        # Shared entry point merges
+        assert len(root.children) == 1
+        ctrl = root.children[0]
+        assert ctrl.label == "Controller.Get"
+        assert len(ctrl.children) == 2
+        labels = {c.label for c in ctrl.children}
+        assert labels == {"Service.Find", "Service.Create"}
 
     def test_no_entry_points(self) -> None:
         data = {"entry_points": [], "target": "Repo.Query", "max_depth": 8}
         root = entry_points_tree(data)
-        assert root.label == "Repo.Query"
+        assert root.label == "→ Repo.Query"
         assert root.children == []
 
     def test_direct_caller(self) -> None:
@@ -342,9 +365,10 @@ class TestEntryPointsTree:
             "max_depth": 8,
         }
         root = entry_points_tree(data)
-        assert root.label == "Repo.Query"
+        assert root.label == "→ Repo.Query"
         assert len(root.children) == 1
         assert root.children[0].label == "Controller.Get"
+        assert root.children[0].children[0].label == "Repo.Query"
 
 
 class TestDependenciesTree:

@@ -72,11 +72,12 @@ def hierarchy_tree(class_name: str, data: dict) -> TreeNode:
     return TreeNode(label=class_name, children=categories)
 
 
-def _merge_paths_into_tree(root_label: str, paths: list[list[str]]) -> TreeNode:
+def _merge_paths_into_tree(root_label: str, paths: list[list[str]], skip_first: bool = True) -> TreeNode:
     root = TreeNode(label=root_label)
     for path in paths:
         current = root
-        for step in path[1:]:  # skip first element (it's the root)
+        start = 1 if skip_first else 0
+        for step in path[start:]:
             existing = next((c for c in current.children if c.label == step), None)
             if existing:
                 current = existing
@@ -92,8 +93,9 @@ def trace_tree(data: dict) -> TreeNode:
 
 
 def entry_points_tree(data: dict) -> TreeNode:
-    reversed_paths = [ep["path"][::-1] for ep in data["entry_points"]]
-    return _merge_paths_into_tree(data["target"], reversed_paths)
+    # Paths flow entry→target (caller→callee). Keep natural top-down direction.
+    paths = [ep["path"] for ep in data["entry_points"]]
+    return _merge_paths_into_tree(f"→ {data['target']}", paths, skip_first=False)
 
 
 def dependencies_tree(symbol_name: str, data: list[dict], annotation: str | None = None) -> TreeNode:
