@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field
 
 from synapse.indexer.http.interface import HttpClientCall, HttpEndpointDef
+from synapse.indexer.http.route_utils import strip_base_url_variable
 
 _PARAM_RE = re.compile(r"^\{[^}]+\}$")
 _API_PREFIXES = ["/api", "/api/v1", "/api/v2"]
@@ -61,7 +62,7 @@ def match_endpoints(
     unmatched_calls: list[HttpClientCall] = []
 
     for call in client_calls:
-        call_segs = _segments(call.route)
+        call_segs = _segments(strip_base_url_variable(call.route))
         matched = False
 
         candidates = [call_segs]

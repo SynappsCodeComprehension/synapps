@@ -5,6 +5,23 @@ import re
 # Matches {name:constraint} or {name:regex} patterns — captures just the name
 _PARAM_CONSTRAINT_RE = re.compile(r"\{(\w+):[^}]+\}")
 
+# Matches a leading {varName}/... where varName looks like a base URL variable
+_BASE_URL_VAR_RE = re.compile(r"^\{[^}]+\}/")
+
+
+def strip_base_url_variable(route: str) -> str:
+    """Strip a leading base URL template variable from a client-side route.
+
+    E.g. ``{apiBaseUrl}/api/users`` → ``/api/users``.
+    Only strips when the variable is followed by a ``/`` (i.e. there is a real path after it).
+    """
+    if not route:
+        return route
+    m = _BASE_URL_VAR_RE.match(route)
+    if m:
+        return "/" + route[m.end():]
+    return route
+
 
 def normalize_route(class_route: str, method_route: str = "") -> str:
     """Combine and normalize a server-side route pattern.
