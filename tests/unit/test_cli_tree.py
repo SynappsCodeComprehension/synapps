@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from synapse.cli.app import _unwrap_truncated
 from synapse.cli.tree import TreeNode, render_tree, callers_tree, callees_tree, call_depth_tree, hierarchy_tree, trace_tree, entry_points_tree, dependencies_tree
 
 
@@ -379,3 +380,22 @@ class TestDependenciesTree:
         data = [{"type": {"full_name": "A"}, "depth": 1}]
         root = dependencies_tree("Root", data, annotation="showing 1 of 60")
         assert root.annotation == "showing 1 of 60"
+
+
+class TestUnwrapTruncated:
+    def test_plain_list_returns_list_and_none(self) -> None:
+        data = [{"full_name": "A"}, {"full_name": "B"}]
+        items, annotation = _unwrap_truncated(data)
+        assert items == data
+        assert annotation is None
+
+    def test_empty_list_returns_empty_and_none(self) -> None:
+        items, annotation = _unwrap_truncated([])
+        assert items == []
+        assert annotation is None
+
+    def test_truncated_dict_returns_items_and_annotation(self) -> None:
+        data = {"results": [{"full_name": "A"}, {"full_name": "B"}], "_total": 100, "_truncated": True}
+        items, annotation = _unwrap_truncated(data)
+        assert items == [{"full_name": "A"}, {"full_name": "B"}]
+        assert annotation == "showing 2 of 100"
