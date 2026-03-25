@@ -62,12 +62,13 @@ def match_endpoints(
     unmatched_calls: list[HttpClientCall] = []
 
     for call in client_calls:
-        call_segs = _segments(strip_base_url_variable(call.route))
+        stripped_route = strip_base_url_variable(call.route)
+        call_segs = _segments(stripped_route)
         matched = False
 
         candidates = [call_segs]
         for prefix in _API_PREFIXES:
-            candidates.append(_segments(prefix + "/" + call.route.lstrip("/")))
+            candidates.append(_segments(prefix + "/" + stripped_route.lstrip("/")))
 
         for candidate_segs in candidates:
             if matched:
