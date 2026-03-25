@@ -9,7 +9,7 @@ import typer
 # Suppress INFO/WARNING chatter from the language server process — only surface errors.
 logging.getLogger("solidlsp").setLevel(logging.ERROR)
 
-from synapse.container import ContainerManager
+from synapse.container import ConnectionManager
 from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
 from synapse.doctor.checks.memgraph_bolt import MemgraphBoltCheck
 from synapse.doctor.checks.dotnet import DotNetCheck
@@ -58,7 +58,7 @@ def _get_service(project_path: str | None = None) -> SynapseService:
     global _svc
     if _svc is None:
         path = project_path or str(Path.cwd())
-        conn = ContainerManager(path).get_connection()
+        conn = ConnectionManager(path).get_connection()
         ensure_schema(conn)
         _svc = SynapseService(conn)
     return _svc

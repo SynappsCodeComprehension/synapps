@@ -162,8 +162,8 @@ def test_index_missing_dependency_shows_reinstall_hint():
     assert "pip install" in result.output
 
 
-def test_get_service_uses_container_manager():
-    """Verify _get_service routes through ContainerManager with explicit path."""
+def test_get_service_uses_connection_manager():
+    """Verify _get_service routes through ConnectionManager with explicit path."""
     mock_cm_cls = MagicMock()
     mock_conn = MagicMock()
     mock_cm_cls.return_value.get_connection.return_value = mock_conn
@@ -171,7 +171,7 @@ def test_get_service_uses_container_manager():
     original_svc = cli_module._svc
     try:
         cli_module._svc = None
-        with patch.object(cli_module, "ContainerManager", mock_cm_cls), \
+        with patch.object(cli_module, "ConnectionManager", mock_cm_cls), \
              patch.object(cli_module, "ensure_schema"), \
              patch.object(cli_module, "SynapseService") as mock_svc_cls:
             result = _get_service("/some/project")
@@ -192,7 +192,7 @@ def test_get_service_defaults_to_cwd():
     original_svc = cli_module._svc
     try:
         cli_module._svc = None
-        with patch.object(cli_module, "ContainerManager", mock_cm_cls), \
+        with patch.object(cli_module, "ConnectionManager", mock_cm_cls), \
              patch.object(cli_module, "ensure_schema"), \
              patch.object(cli_module, "SynapseService"), \
              patch("synapse.cli.app.Path") as mock_path:
