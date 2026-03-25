@@ -468,6 +468,41 @@ public class ItemService {
     assert len(result.endpoint_defs) == 0
 
 
+def test_jaxrs_symbol_with_parens_in_name() -> None:
+    """JDT LS provides names like 'getInfo()' — extractor should still match."""
+    source = """
+@Path("/info")
+public class InfoResource {
+    @GET
+    public Response getInfo() { return null; }
+}
+"""
+    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    extractor = JavaHttpExtractor()
+    # Simulate JDT LS naming: "getInfo()" instead of "getInfo"
+    result = extractor.extract("test.java", _parse(source), _symbols([("getInfo()", "InfoResource.getInfo()", 4, 5)]))
+    assert len(result.endpoint_defs) == 1
+    assert result.endpoint_defs[0].route == "/info"
+    assert result.endpoint_defs[0].handler_full_name == "InfoResource.getInfo()"
+
+
+def test_jaxrs_symbol_line_off_by_one() -> None:
+    """JDT LS may report 0-based line numbers — extractor should still match."""
+    source = """
+@Path("/route")
+public class RouteResource {
+    @GET
+    public Response getRoute() { return null; }
+}
+"""
+    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    extractor = JavaHttpExtractor()
+    # Line 3 (0-based) instead of 4 (1-based) for the method at tree-sitter line 4
+    result = extractor.extract("test.java", _parse(source), _symbols([("getRoute", "RouteResource.getRoute", 3, 5)]))
+    assert len(result.endpoint_defs) == 1
+    assert result.endpoint_defs[0].handler_full_name == "RouteResource.getRoute"
+
+
 def test_jaxrs_mixed_with_spring_in_same_file() -> None:
     """Both Spring and JAX-RS classes in the same file are detected independently."""
     source = """

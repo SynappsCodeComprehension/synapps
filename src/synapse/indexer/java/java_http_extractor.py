@@ -72,6 +72,11 @@ class JavaHttpExtractor:
         symbol_by_name_line: dict[tuple[str, int], IndexSymbol] = {}
         for sym in symbols:
             symbol_by_name_line[(sym.name, sym.line)] = sym
+            # JDT LS includes parameter types in names (e.g. "getInfo()");
+            # also index by bare name (stripping parens) for tree-sitter lookup
+            bare = sym.name.split("(")[0] if "(" in sym.name else None
+            if bare:
+                symbol_by_name_line[(bare, sym.line)] = sym
 
         # Sorted list for enclosing symbol lookup (0-indexed lines)
         sorted_symbols: list[tuple[int, int, str]] = sorted(
@@ -144,12 +149,7 @@ class JavaHttpExtractor:
             return
 
         method_line = node.start_point[0] + 1
-        sym = symbol_map.get((method_name, method_line))
-        if sym is None:
-            for (name, _line), s in symbol_map.items():
-                if name == method_name:
-                    sym = s
-                    break
+        sym = _lookup_symbol(method_name, method_line, symbol_map)
         if sym is None:
             return
 
@@ -189,12 +189,7 @@ class JavaHttpExtractor:
             return
 
         method_line = node.start_point[0] + 1
-        sym = symbol_map.get((method_name, method_line))
-        if sym is None:
-            for (name, _line), s in symbol_map.items():
-                if name == method_name:
-                    sym = s
-                    break
+        sym = _lookup_symbol(method_name, method_line, symbol_map)
         if sym is None:
             return
 
@@ -281,6 +276,37 @@ class JavaHttpExtractor:
                                 line=line_0 + 1,
                                 col=col_0,
                             ))
+
+
+# ---------------------------------------------------------------------------
+# Symbol lookup helpers
+# ---------------------------------------------------------------------------
+
+def _lookup_symbol(
+    method_name: str,
+    method_line_1based: int,
+    symbol_map: dict[tuple[str, int], IndexSymbol],
+) -> IndexSymbol | None:
+    """Look up an IndexSymbol by tree-sitter name and line.
+
+    Handles JDT LS naming conventions where names include parameter types
+    (e.g. ``getInfo()`` or ``create(Item)``). The bare name index entries
+    added in ``extract()`` cover the primary key lookup; the fallback loop
+    uses startswith to handle any remaining mismatches.
+    """
+    # Primary key: exact match (handles bare names and pre-indexed stripped names)
+    sym = symbol_map.get((method_name, method_line_1based))
+    if sym is not None:
+        return sym
+    # JDT LS may report 0-based lines; try ±1
+    sym = symbol_map.get((method_name, method_line_1based - 1))
+    if sym is not None:
+        return sym
+    # Fallback: name-only match (tolerant of parens suffix)
+    for (name, _line), s in symbol_map.items():
+        if name == method_name or name.split("(")[0] == method_name:
+            return s
+    return None
 
 
 # ---------------------------------------------------------------------------
