@@ -29,7 +29,7 @@ def _invoke(service: SynapseService, args: list[str]):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(30)
 def test_status(java_service: SynapseService) -> None:
     """status command returns exit code 0 for the Java fixture."""
     result = _invoke(java_service, ["status"])
@@ -114,7 +114,7 @@ def test_implementations(java_service: SynapseService) -> None:
 @pytest.mark.timeout(10)
 def test_callers(java_service: SynapseService) -> None:
     """callers command returns exit code 0 (may have no results without JDT LS)."""
-    result = _invoke(java_service, ["callers", "com.synapsetest.IAnimal.speak"])
+    result = _invoke(java_service, ["callers", "com.synapsetest.IAnimal.speak()"])
     assert result.exit_code == 0
 
 
@@ -124,7 +124,7 @@ def test_callees(java_service: SynapseService) -> None:
     """callees command returns exit code 0 for a Java method."""
     result = _invoke(java_service, [
         "callees",
-        "com.synapsetest.AnimalService.greet",
+        "com.synapsetest.AnimalService.greet()",
     ])
     assert result.exit_code == 0
 

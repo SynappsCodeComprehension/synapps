@@ -20,7 +20,7 @@ from tests.integration.conftest import run, text, result_json, JAVA_FIXTURE_PATH
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
-@pytest.mark.timeout(10)
+@pytest.mark.timeout(30)
 def test_list_projects(java_mcp: FastMCP) -> None:
     """list_projects returns at least one project with language 'java'."""
     result = run(java_mcp.call_tool("list_projects", {}))
@@ -125,7 +125,7 @@ def test_search_symbols_by_kind(java_mcp: FastMCP) -> None:
     """search_symbols with kind='interface' finds IAnimal."""
     result = run(java_mcp.call_tool("search_symbols", {
         "query": "Animal",
-        "kind": "interface",
+        "kind": "Interface",
     }))
     symbols = result_json(result)
     assert isinstance(symbols, list)

@@ -255,14 +255,19 @@ class EclipseJDTLS(SolidLanguageServer):
             log.info("LSP: window/logMessage: %s", msg)
 
         def progress_handler(params: dict) -> None:
-            # JDT LS signals readiness via ServiceReady progress notification
             value = params.get("value", {})
             if isinstance(value, dict) and value.get("kind") == "end":
+                self.server_ready.set()
+
+        def language_status_handler(params: dict) -> None:
+            # JDT LS 1.57+ signals readiness via language/status notification
+            if params.get("type") == "ServiceReady":
                 self.server_ready.set()
 
         self.server.on_request("client/registerCapability", register_capability_handler)
         self.server.on_notification("window/logMessage", window_log_message)
         self.server.on_notification("$/progress", progress_handler)
+        self.server.on_notification("language/status", language_status_handler)
         self.server.on_notification("textDocument/publishDiagnostics", do_nothing)
 
         log.info("Starting Eclipse JDT LS server process")
