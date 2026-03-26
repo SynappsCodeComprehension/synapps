@@ -8,17 +8,6 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
-from synapse.doctor.checks.memgraph_bolt import MemgraphBoltCheck
-from synapse.doctor.checks.dotnet import DotNetCheck
-from synapse.doctor.checks.csharp_ls import CSharpLSCheck
-from synapse.doctor.checks.node import NodeCheck
-from synapse.doctor.checks.typescript_ls import TypeScriptLSCheck
-from synapse.doctor.checks.python3 import PythonCheck
-from synapse.doctor.checks.pylsp import PylspCheck
-from synapse.doctor.checks.java import JavaCheck
-from synapse.doctor.checks.jdtls import JdtlsCheck
-from synapse.doctor.service import DoctorService
 from synapse.indexer.git import is_git_repo, rev_parse_head
 from synapse.graph.nodes import get_last_indexed_commit
 from synapse.service import SynapseService
@@ -66,7 +55,7 @@ SymbolKindLiteral = Literal[
     "Class", "Interface", "Method", "Property", "Field",
     "Namespace", "File", "Directory", "Repository",
 ]
-AuditRuleLiteral = Literal["layering_violations", "untested_services"]
+SummaryActionLiteral = Literal["get", "set", "list"]
 
 _GRAPH_SCHEMA = {
     "node_labels": {
@@ -179,15 +168,16 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         return f"Indexed {path}"
 
     @mcp.tool()
-    def list_projects() -> list[dict]:
-        """List all indexed projects. Returns path, languages (list), and last-indexed timestamp for each."""
-        return service.list_projects()
+    def list_projects(path: str | None = None) -> list[dict] | dict | None:
+        """List all indexed projects. Returns path, languages (list), and last-indexed timestamp for each.
 
-    @mcp.tool()
-    def delete_project(path: str) -> str:
-        """Delete a project and all its graph data (nodes, edges, summaries). This is irreversible."""
-        service.delete_project(path)
-        return f"Deleted {path}"
+        path: if provided, returns detailed index status for that specific project
+        (file count, symbol count, per-label breakdown) instead of the project list.
+        """
+        if path:
+            _auto_sync_check()
+            return service.get_index_status(path)
+        return service.list_projects()
 
     @mcp.tool()
     def sync_project(path: str) -> str:
@@ -202,12 +192,6 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         except ValueError as e:
             return f"Error: {e}"
         return f"Synced: {result.updated} updated, {result.deleted} deleted, {result.unchanged} unchanged"
-
-    @mcp.tool()
-    def get_index_status(path: str) -> dict | None:
-        """Return indexing status for a project including file count, symbol count, and per-label symbol breakdown. The path parameter is the project root path, as returned by list_projects."""
-        _auto_sync_check()
-        return service.get_index_status(path)
 
     @mcp.tool()
     def get_symbol(full_name: str) -> dict | None:
@@ -270,14 +254,21 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         method_full_name: str,
         include_interface_dispatch: bool = True,
         limit: int = 50,
+        depth: int | None = None,
     ) -> list[dict] | dict:
         """Find methods called by the given method.
 
         By default, includes concrete implementations when the call site targets an
         interface method (common in C# DI codebases). Set include_interface_dispatch=False
         for direct CALLS edges only.
+
+        depth: if provided, returns all methods reachable up to N levels deep (like a call tree).
+        When depth is set, include_interface_dispatch and limit are ignored.
+        Returns {root, callees: [{full_name, file_path, depth}], depth_limit}.
         """
         _auto_sync_check()
+        if depth is not None:
+            return service.get_call_depth(method_full_name, depth)
         return service.find_callees(method_full_name, include_interface_dispatch, limit=limit)
 
     @mcp.tool()
@@ -314,23 +305,30 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         return service.search_symbols(query, kind, namespace, file_path, language, limit=limit)
 
     @mcp.tool()
-    def set_summary(full_name: str, content: str) -> str:
-        """Persist a human-readable summary string on a symbol node, making it retrievable via get_summary and visible in list_summarized."""
-        _auto_sync_check()
-        service.set_summary(full_name, content)
-        return f"Summary saved for {full_name}"
+    def summary(
+        action: SummaryActionLiteral,
+        full_name: str | None = None,
+        content: str | None = None,
+        project_path: str | None = None,
+    ) -> str | list[dict] | None:
+        """Manage symbol summaries. Actions: 'set' (persist summary on a symbol), 'get' (retrieve summary), 'list' (list all summarized symbols).
 
-    @mcp.tool()
-    def get_summary(full_name: str) -> str | None:
-        """Retrieve a previously stored summary for a symbol. Returns None if no summary has been set."""
+        set: requires full_name and content.
+        get: requires full_name.
+        list: optional project_path to filter by project.
+        """
         _auto_sync_check()
-        return service.get_summary(full_name)
-
-    @mcp.tool()
-    def list_summarized(project_path: str | None = None) -> list[dict]:
-        """List all symbols that have been annotated with a summary via set_summary."""
-        _auto_sync_check()
-        return service.list_summarized(project_path)
+        if action == "set":
+            if not full_name or not content:
+                return "Error: 'set' requires both full_name and content"
+            service.set_summary(full_name, content)
+            return f"Summary saved for {full_name}"
+        elif action == "get":
+            if not full_name:
+                return "Error: 'get' requires full_name"
+            return service.get_summary(full_name)
+        elif action == "list":
+            return service.list_summarized(project_path)
 
     @mcp.tool()
     def get_schema() -> dict:
@@ -361,24 +359,29 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         return service.execute_query(cypher)
 
     @mcp.tool()
-    def find_type_references(full_name: str, kind: str | None = None, limit: int = 50) -> list[dict] | dict:
-        """Return all symbols that reference the given type as a parameter, return type, or property type.
-
-        kind: optional filter — one of 'parameter', 'return_type', 'property_type'.
-        Each result includes a kind field indicating the relationship.
-        """
-        _auto_sync_check()
-        return service.find_type_references(full_name, kind=kind, limit=limit)
-
-    @mcp.tool()
-    def find_usages(full_name: str, exclude_test_callers: bool = True, limit: int = 20) -> str:
+    def find_usages(
+        full_name: str,
+        exclude_test_callers: bool = True,
+        limit: int = 20,
+        kind: str | None = None,
+        include_test_breakdown: bool = False,
+    ) -> str | list[dict] | dict:
         """Find all code that uses a symbol — returns a compact text summary.
 
         For methods/properties/fields: lists callers with file locations.
         For classes/interfaces: shows type reference count, method callers grouped by method with top callers, and affected file count.
         Test usages are excluded by default. Set exclude_test_callers=False to include them.
+
+        kind: optional filter for type references — one of 'parameter', 'return_type', 'property_type'.
+        When kind is set, returns structured type reference list instead of text summary.
+        include_test_breakdown: if True, returns prod/test categorized impact analysis dict
+        with keys {type, references, prod_count, test_count, _total_references}.
         """
         _auto_sync_check()
+        if kind is not None:
+            return service.find_type_references(full_name, kind=kind, limit=limit)
+        if include_test_breakdown:
+            return service.find_type_impact(full_name, limit=limit)
         return service.find_usages(full_name, exclude_test_callers, limit=limit)
 
     @mcp.tool()
@@ -449,15 +452,6 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         return service.find_entry_points(method, max_depth, exclude_pattern, exclude_test_callers)
 
     @mcp.tool()
-    def get_call_depth(method: str, depth: int = 3) -> dict:
-        """Get all methods reachable from a starting method up to N levels deep.
-
-        Returns {root, callees: [{full_name, file_path, depth}], depth_limit}.
-        """
-        _auto_sync_check()
-        return service.get_call_depth(method, depth)
-
-    @mcp.tool()
     def analyze_change_impact(method: str) -> str:
         """Analyze the impact of changing a method — returns a compact text summary of direct callers, transitive callers, test coverage, and direct callees.
 
@@ -465,36 +459,6 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         """
         _auto_sync_check()
         return service.analyze_change_impact(method)
-
-    @mcp.tool()
-    def find_interface_contract(method: str) -> dict:
-        """Find the interface contract a method satisfies and all sibling implementations.
-
-        Returns {method, interface, contract_method, sibling_implementations}.
-        When a short type name matches both an interface and concrete class, the interface is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
-        """
-        _auto_sync_check()
-        return service.find_interface_contract(method)
-
-    @mcp.tool()
-    def find_type_impact(type_name: str, limit: int = 50) -> dict:
-        """Find all code affected if a type's shape changes, categorized as prod or test.
-
-        Returns {type, references: [{full_name, file_path, context}], prod_count, test_count, _total_references}.
-        limit: max number of references to return (default 50). When truncated, _truncated=True and _total_references shows the full count.
-        """
-        _auto_sync_check()
-        return service.find_type_impact(type_name, limit=limit)
-
-    @mcp.tool()
-    def audit_architecture(rule: AuditRuleLiteral) -> dict:
-        """Run an architectural audit rule against the codebase graph.
-
-        Returns {rule, description, violations: [dict], count}.
-        These rules are C#/.NET-specific.
-        """
-        _auto_sync_check()
-        return service.audit_architecture(rule)
 
     @mcp.tool()
     def summarize_from_graph(class_name: str) -> dict:
@@ -506,34 +470,3 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         _auto_sync_check()
         return service.summarize_from_graph(class_name)
 
-    @mcp.tool()
-    def check_environment() -> list[dict]:
-        """Check the Synapse runtime environment and return structured results for each dependency.
-
-        Returns a list of dicts, one per check, each with:
-          - name: human-readable check name (e.g. "Docker daemon")
-          - status: "pass", "warn", or "fail"
-          - detail: resolved path or error message
-          - fix: install/fix instruction string, or null if not applicable
-
-        "warn" means degraded-but-working (e.g. optional tool absent).
-        "fail" means a required dependency is missing or unreachable.
-        Use this to determine which dependencies need attention before indexing.
-        """
-        checks = [
-            DockerDaemonCheck(),
-            MemgraphBoltCheck(),
-            DotNetCheck(),
-            CSharpLSCheck(),
-            NodeCheck(),
-            TypeScriptLSCheck(),
-            PythonCheck(),
-            PylspCheck(),
-            JavaCheck(),
-            JdtlsCheck(),
-        ]
-        report = DoctorService(checks).run()
-        return [
-            {"name": r.name, "status": r.status, "detail": r.detail, "fix": r.fix}
-            for r in report.checks
-        ]
