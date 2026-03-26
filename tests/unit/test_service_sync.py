@@ -30,8 +30,8 @@ def test_sync_project_uses_plugin_detection(tmp_path):
 
     fake_result = SyncResult(updated=1, deleted=0, unchanged=0)
 
-    with patch("synapse.service._sync_project", return_value=fake_result) as mock_sync:
-        with patch("synapse.service.Indexer") as mock_indexer_cls:
+    with patch("synapse.service.indexing._sync_project", return_value=fake_result) as mock_sync:
+        with patch("synapse.service.indexing.Indexer") as mock_indexer_cls:
             svc = SynapseService(conn, registry=registry)
             result = svc.sync_project(str(tmp_path))
 
@@ -58,8 +58,8 @@ def test_sync_project_uses_predetected_files(tmp_path):
 
     fake_result = SyncResult(updated=1, deleted=0, unchanged=0)
 
-    with patch("synapse.service._sync_project", return_value=fake_result) as mock_sync:
-        with patch("synapse.service.Indexer"):
+    with patch("synapse.service.indexing._sync_project", return_value=fake_result) as mock_sync:
+        with patch("synapse.service.indexing.Indexer"):
             svc = SynapseService(conn, registry=registry)
             result = svc.sync_project(str(tmp_path), plugin_files=plugin_files)
 

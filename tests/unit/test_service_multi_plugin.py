@@ -29,7 +29,7 @@ def test_index_project_calls_indexer_for_each_plugin() -> None:
     svc = SynapseService(conn, registry=registry)
 
     mock_indexer = MagicMock()
-    with patch("synapse.service.Indexer", return_value=mock_indexer) as MockIndexer:
+    with patch("synapse.service.indexing.Indexer", return_value=mock_indexer) as MockIndexer:
         svc.index_project("/some/path")
 
     assert MockIndexer.call_count == 2
@@ -44,7 +44,7 @@ def test_index_project_single_plugin_works() -> None:
     svc = SynapseService(conn, registry=registry)
 
     mock_indexer = MagicMock()
-    with patch("synapse.service.Indexer", return_value=mock_indexer) as MockIndexer:
+    with patch("synapse.service.indexing.Indexer", return_value=mock_indexer) as MockIndexer:
         svc.index_project("/some/path")
 
     assert MockIndexer.call_count == 1
@@ -71,7 +71,7 @@ def test_index_project_on_progress_called_per_plugin() -> None:
     progress_calls: list[str] = []
 
     mock_indexer = MagicMock()
-    with patch("synapse.service.Indexer", return_value=mock_indexer):
+    with patch("synapse.service.indexing.Indexer", return_value=mock_indexer):
         svc.index_project("/some/path", on_progress=progress_calls.append)
 
     # Each plugin should have triggered at least one progress message

@@ -32,30 +32,30 @@ def svc(conn, registry):
     return SynapseService(conn, registry=registry)
 
 
-@patch("synapse.service.is_git_repo", return_value=False)
+@patch("synapse.service.indexing.is_git_repo", return_value=False)
 def test_no_repo_node_runs_full_index(mock_git, svc, conn):
     conn.query.return_value = []  # no Repository rows
-    with patch.object(svc, "index_project") as mock_idx:
+    with patch.object(svc._indexing, "index_project") as mock_idx:
         result = svc.smart_index("/project", "csharp")
     assert result == "full-index"
     mock_idx.assert_called_once()
 
 
-@patch("synapse.service.set_last_indexed_commit")
-@patch("synapse.service.rev_parse_head", return_value="abc123")
-@patch("synapse.service.is_git_repo", return_value=True)
+@patch("synapse.service.indexing.set_last_indexed_commit")
+@patch("synapse.service.indexing.rev_parse_head", return_value="abc123")
+@patch("synapse.service.indexing.is_git_repo", return_value=True)
 def test_full_index_on_git_project_stores_sha(mock_git, mock_rev, mock_set, svc, conn):
     conn.query.return_value = []  # no Repository rows
-    with patch.object(svc, "index_project"):
+    with patch.object(svc._indexing, "index_project"):
         result = svc.smart_index("/project", "csharp")
     assert result == "full-index"
     mock_set.assert_called_once_with(conn, "/project", "abc123")
 
 
-@patch("synapse.service._git_sync_project")
-@patch("synapse.service.compute_git_diff")
-@patch("synapse.service.get_last_indexed_commit", return_value="stored_sha")
-@patch("synapse.service.is_git_repo", return_value=True)
+@patch("synapse.service.indexing._git_sync_project")
+@patch("synapse.service.indexing.compute_git_diff")
+@patch("synapse.service.indexing.get_last_indexed_commit", return_value="stored_sha")
+@patch("synapse.service.indexing.is_git_repo", return_value=True)
 def test_git_repo_with_stored_sha_runs_git_sync(mock_git, mock_get_sha, mock_diff, mock_sync, svc, conn, registry):
     conn.query.return_value = [["some/path"]]  # has Repository
     mock_diff.return_value = GitDiff(to_reindex={"/project/a.cs"}, to_delete=set(), renames=[])
@@ -68,10 +68,10 @@ def test_git_repo_with_stored_sha_runs_git_sync(mock_git, mock_get_sha, mock_dif
     assert call_kwargs.kwargs.get("stored_sha") == "stored_sha" or call_kwargs[1].get("stored_sha") == "stored_sha"
 
 
-@patch("synapse.service._git_sync_project")
-@patch("synapse.service.compute_git_diff")
-@patch("synapse.service.get_last_indexed_commit", return_value=None)
-@patch("synapse.service.is_git_repo", return_value=True)
+@patch("synapse.service.indexing._git_sync_project")
+@patch("synapse.service.indexing.compute_git_diff")
+@patch("synapse.service.indexing.get_last_indexed_commit", return_value=None)
+@patch("synapse.service.indexing.is_git_repo", return_value=True)
 def test_git_repo_no_stored_sha_uses_empty_tree(mock_git, mock_get_sha, mock_diff, mock_sync, svc, conn, registry):
     conn.query.return_value = [["some/path"]]  # has Repository
     mock_diff.return_value = GitDiff(to_reindex={"/project/a.cs"}, to_delete=set(), renames=[])
@@ -84,21 +84,21 @@ def test_git_repo_no_stored_sha_uses_empty_tree(mock_git, mock_get_sha, mock_dif
     assert effective_sha == "4b825dc642cb6eb9a060e54bf899d69f82cf7180"
 
 
-@patch("synapse.service.get_last_indexed_commit", return_value=None)
-@patch("synapse.service.is_git_repo", return_value=False)
+@patch("synapse.service.indexing.get_last_indexed_commit", return_value=None)
+@patch("synapse.service.indexing.is_git_repo", return_value=False)
 def test_non_git_repo_runs_mtime_sync(mock_git, mock_get_sha, svc, conn, registry):
     conn.query.return_value = [["some/path"]]  # has Repository
     plugin_files = registry.detect_with_files.return_value
-    with patch.object(svc, "sync_project") as mock_sync:
+    with patch.object(svc._indexing, "sync_project") as mock_sync:
         result = svc.smart_index("/project", "csharp")
     assert result == "mtime-sync"
     mock_sync.assert_called_once_with("/project", plugin_files=plugin_files)
 
 
-@patch("synapse.service._git_sync_project")
-@patch("synapse.service.compute_git_diff")
-@patch("synapse.service.get_last_indexed_commit", return_value="sha1")
-@patch("synapse.service.is_git_repo", return_value=True)
+@patch("synapse.service.indexing._git_sync_project")
+@patch("synapse.service.indexing.compute_git_diff")
+@patch("synapse.service.indexing.get_last_indexed_commit", return_value="sha1")
+@patch("synapse.service.indexing.is_git_repo", return_value=True)
 def test_git_sync_shuts_down_lsp(mock_git, mock_get_sha, mock_diff, mock_sync, svc, conn, registry):
     conn.query.return_value = [["some/path"]]
     mock_diff.return_value = GitDiff(to_reindex={"/project/a.cs"}, to_delete=set(), renames=[])
@@ -109,10 +109,10 @@ def test_git_sync_shuts_down_lsp(mock_git, mock_get_sha, mock_diff, mock_sync, s
     lsp.shutdown.assert_called_once()
 
 
-@patch("synapse.service._git_sync_project")
-@patch("synapse.service.compute_git_diff")
-@patch("synapse.service.get_last_indexed_commit", return_value="sha1")
-@patch("synapse.service.is_git_repo", return_value=True)
+@patch("synapse.service.indexing._git_sync_project")
+@patch("synapse.service.indexing.compute_git_diff")
+@patch("synapse.service.indexing.get_last_indexed_commit", return_value="sha1")
+@patch("synapse.service.indexing.is_git_repo", return_value=True)
 def test_git_sync_skips_language_with_no_changes(mock_git, mock_get_sha, mock_diff, mock_sync, conn):
     """If git diff only has .py changes, TypeScript LSP should not be started."""
     py_plugin = MagicMock()
