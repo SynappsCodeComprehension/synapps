@@ -311,8 +311,12 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         content: str | None = None,
         project_path: str | None = None,
     ) -> str | list[dict] | None:
-        """Manage symbol summaries. Actions: 'set' (persist summary on a symbol), 'get' (retrieve summary), 'list' (list all summarized symbols).
+        """Persist non-derivable context on a symbol — design rationale, constraints, ownership, deprecation plans.
 
+        Do NOT store structural descriptions (interfaces, method counts, dependencies) — those are
+        already queryable live via get_context_for, find_dependencies, etc.
+
+        Actions: 'set' (persist summary on a symbol), 'get' (retrieve summary), 'list' (list all summarized symbols).
         set: requires full_name and content.
         get: requires full_name.
         list: optional project_path to filter by project.
@@ -460,13 +464,4 @@ def register_tools(mcp: object, service: SynapseService, project_path: str = "")
         _auto_sync_check()
         return service.analyze_change_impact(method)
 
-    @mcp.tool()
-    def summarize_from_graph(class_name: str) -> dict:
-        """Auto-generate a structural summary of a class from graph data.
-
-        Returns {full_name, summary, data: {kind, interfaces, method_count, dependencies, dependents, test_classes}}.
-        The summary is NOT stored automatically — call set_summary to persist after review.
-        """
-        _auto_sync_check()
-        return service.summarize_from_graph(class_name)
 

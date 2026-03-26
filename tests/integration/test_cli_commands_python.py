@@ -252,14 +252,6 @@ def test_audit(python_service: SynapseService) -> None:
     assert "layering_violations" in result.output
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_summarize(python_service: SynapseService) -> None:
-    """summarize command returns exit code 0 and prints a summary for a Python class."""
-    result = _invoke(python_service, ["summarize", "synapsepytest.animals.Dog"])
-    assert result.exit_code == 0
-
-
 # ---------------------------------------------------------------------------
 # Summary subcommands
 # ---------------------------------------------------------------------------

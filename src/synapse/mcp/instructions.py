@@ -24,7 +24,9 @@ type references, include_test_breakdown=True for prod/test split
 - Find all classes implementing an interface: find_implementations
 - Understand class inheritance: get_hierarchy
 - Find constructor/field dependencies: find_dependencies
-- Manage symbol summaries: summary with action='set'/'get'/'list'
+- Annotate symbols with non-derivable context (design rationale, constraints, ownership, \
+deprecation plans): summary with action='set'/'get'/'list'. Do NOT store structural descriptions \
+— use get_context_for, find_dependencies, etc. for that
 - Custom graph queries: call get_schema first, then execute_query (last resort -- prefer dedicated tools)
 
 AVOID:

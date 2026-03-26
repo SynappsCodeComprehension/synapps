@@ -228,13 +228,6 @@ def test_audit(service: SynapseService) -> None:
     assert "untested_services" in result.output
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_summarize(service: SynapseService) -> None:
-    result = _invoke(service, ["summarize", "SynapseTest.Services.TaskService"])
-    assert result.exit_code == 0
-
-
 # ---------------------------------------------------------------------------
 # Summary subcommands
 # ---------------------------------------------------------------------------

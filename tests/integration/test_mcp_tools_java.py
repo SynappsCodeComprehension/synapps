@@ -324,22 +324,6 @@ def test_find_type_impact(java_mcp: FastMCP) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Audit / summarize tools
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_summarize_from_graph(java_mcp: FastMCP) -> None:
-    """summarize_from_graph returns a summary dict for a Java class."""
-    result = run(java_mcp.call_tool("summarize_from_graph", {
-        "class_name": "com.synapsetest.Dog",
-    }))
-    summary = result_json(result)
-    assert summary is not None
-    assert "summary" in summary
-
-
-# ---------------------------------------------------------------------------
 # Summary tools
 # ---------------------------------------------------------------------------
 

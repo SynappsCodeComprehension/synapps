@@ -558,20 +558,6 @@ def audit(
         typer.echo(f"  {v}")
 
 
-@app.command("summarize")
-def summarize(
-    class_name: str = typer.Argument(help="Class to summarize"),
-) -> None:
-    """Auto-generate a structural summary of a class from graph data."""
-    svc = _get_service()
-    result = svc.summarize_from_graph(class_name)
-    if not result:
-        typer.echo("Symbol not found.")
-        raise typer.Exit(1)
-    typer.echo(result["summary"])
-    typer.echo(f"\nTo persist: synapse summary set '{result['full_name']}' '<content>'")
-
-
 @summary_app.command("get")
 def summary_get(full_name: str) -> None:
     """Get the summary for a symbol."""

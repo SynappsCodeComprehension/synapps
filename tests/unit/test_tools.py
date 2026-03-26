@@ -279,6 +279,6 @@ def test_removed_tools_not_registered() -> None:
     removed = {"set_summary", "get_summary", "list_summarized", "get_call_depth",
                 "find_type_references", "find_type_impact", "get_index_status",
                 "find_interface_contract", "audit_architecture", "check_environment",
-                "delete_project"}
+                "delete_project", "summarize_from_graph"}
     present = removed & set(fns.keys())
     assert not present, f"Removed tools still registered: {present}"

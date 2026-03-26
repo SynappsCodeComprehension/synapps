@@ -23,7 +23,7 @@ EXPECTED_TOOLS = {
     "find_callees", "get_hierarchy", "search_symbols", "summary",
     "execute_query", "find_usages", "find_dependencies",
     "get_context_for", "trace_call_chain", "find_entry_points",
-    "analyze_change_impact", "summarize_from_graph",
+    "analyze_change_impact",
     "get_schema",
 }
 
@@ -398,21 +398,6 @@ def test_get_call_depth(mcp_server: FastMCP) -> None:
     }))
     depth_result = result_json(result)
     assert len(depth_result["callees"]) > 0
-
-
-# ---------------------------------------------------------------------------
-# Audit / summarize tools
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_summarize_from_graph(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("summarize_from_graph", {
-        "class_name": "SynapseTest.Services.TaskService",
-    }))
-    summary = result_json(result)
-    assert summary is not None
-    assert "summary" in summary
 
 
 # ---------------------------------------------------------------------------

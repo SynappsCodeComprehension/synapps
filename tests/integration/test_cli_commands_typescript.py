@@ -260,14 +260,6 @@ def test_audit(typescript_service: SynapseService) -> None:
     assert "layering_violations" in result.output
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_summarize(typescript_service: SynapseService) -> None:
-    """summarize command returns exit code 0 for a TypeScript class."""
-    result = _invoke(typescript_service, ["summarize", "src/animals.Dog"])
-    assert result.exit_code == 0
-
-
 # ---------------------------------------------------------------------------
 # Summary subcommands
 # ---------------------------------------------------------------------------

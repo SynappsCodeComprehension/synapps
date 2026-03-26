@@ -137,8 +137,8 @@ Plans:
   5. `list_projects` with path param replaces standalone get_index_status tool
   6. check_environment, delete_project, find_interface_contract, and audit_architecture are not registered as MCP tools
   7. MCP instructions document consolidated tools and list CLI-only capabilities
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 07-01-PLAN.md — Merge, remove, and demote tools in tools.py with unit test updates
-- [ ] 07-02-PLAN.md — Rewrite MCP instructions and update all integration tests
+- [x] 07-02-PLAN.md — Rewrite MCP instructions and update all integration tests
