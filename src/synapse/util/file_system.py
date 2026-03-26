@@ -11,6 +11,47 @@ from sensai.util.logging import LogTime
 
 log = logging.getLogger(__name__)
 
+_SYNIGNORE_FILENAME = ".synignore"
+
+
+class SynignoreFilter:
+    """Filters paths based on .synignore patterns (gitignore-style syntax)."""
+
+    def __init__(self, root_path: str, spec: PathSpec) -> None:
+        self._root_path = root_path
+        self._spec = spec
+
+    def is_ignored(self, abs_path: str) -> bool:
+        rel = os.path.relpath(abs_path, self._root_path).replace(os.sep, "/")
+        if os.path.isdir(abs_path):
+            rel += "/"
+        return self._spec.match_file(rel)
+
+    def is_dir_ignored(self, abs_dir_path: str) -> bool:
+        rel = os.path.relpath(abs_dir_path, self._root_path).replace(os.sep, "/") + "/"
+        return self._spec.match_file(rel)
+
+    def is_file_ignored(self, abs_file_path: str) -> bool:
+        rel = os.path.relpath(abs_file_path, self._root_path).replace(os.sep, "/")
+        return self._spec.match_file(rel)
+
+
+def load_synignore(root_path: str) -> SynignoreFilter | None:
+    """Load .synignore from the project root. Returns None if absent or empty."""
+    synignore_path = os.path.join(root_path, _SYNIGNORE_FILENAME)
+    try:
+        with open(synignore_path, encoding="utf-8") as f:
+            lines = f.readlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+    patterns = [line.rstrip() for line in lines if line.strip() and not line.strip().startswith("#")]
+    if not patterns:
+        return None
+
+    spec = PathSpec.from_lines("gitignore", patterns)
+    return SynignoreFilter(root_path, spec)
+
 
 class ScanResult(NamedTuple):
     """Result of scanning a directory."""

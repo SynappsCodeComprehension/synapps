@@ -8,6 +8,8 @@ from pathlib import Path
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from synapse.util.file_system import SynignoreFilter, load_synignore
+
 log = logging.getLogger(__name__)
 
 
@@ -30,11 +32,13 @@ class FileWatcher:
         self._observer = Observer()
         self._debounce_timers: dict[str, threading.Timer] = {}
         self._lock = threading.Lock()
+        self._synignore = load_synignore(root_path)
 
     def start(self) -> None:
         handler = _ChangeHandler(
             self._on_change, self._on_delete, self._debounce_seconds,
             self._debounce_timers, self._lock, self._watched_extensions,
+            self._synignore,
         )
         self._observer.schedule(handler, self._root_path, recursive=True)
         self._observer.start()
@@ -59,6 +63,7 @@ class _ChangeHandler(FileSystemEventHandler):
         timers: dict[str, threading.Timer],
         lock: threading.Lock,
         watched_extensions: frozenset[str],
+        synignore: SynignoreFilter | None = None,
     ) -> None:
         self._on_change = on_change
         self._on_delete = on_delete
@@ -66,17 +71,27 @@ class _ChangeHandler(FileSystemEventHandler):
         self._timers = timers
         self._lock = lock
         self._watched_extensions = watched_extensions
+        self._synignore = synignore
+
+    def _should_handle(self, event: FileSystemEvent) -> bool:
+        if event.is_directory:
+            return False
+        if Path(event.src_path).suffix not in self._watched_extensions:
+            return False
+        if self._synignore is not None and self._synignore.is_file_ignored(event.src_path):
+            return False
+        return True
 
     def on_modified(self, event: FileSystemEvent) -> None:
-        if not event.is_directory and Path(event.src_path).suffix in self._watched_extensions:
+        if self._should_handle(event):
             self._debounce(event.src_path, self._on_change)
 
     def on_created(self, event: FileSystemEvent) -> None:
-        if not event.is_directory and Path(event.src_path).suffix in self._watched_extensions:
+        if self._should_handle(event):
             self._debounce(event.src_path, self._on_change)
 
     def on_deleted(self, event: FileSystemEvent) -> None:
-        if not event.is_directory and Path(event.src_path).suffix in self._watched_extensions:
+        if self._should_handle(event):
             self._debounce(event.src_path, self._on_delete)
 
     def _debounce(self, path: str, callback: Callable[[str], None]) -> None:

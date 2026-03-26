@@ -50,10 +50,16 @@ class CSharpLSPAdapter:
         return cls(ls)
 
     def get_workspace_files(self, root_path: str) -> list[str]:
+        from synapse.util.file_system import load_synignore
+
+        synignore = load_synignore(root_path)
         files = []
         for path in Path(root_path).rglob("*.cs"):
             if ".git" not in path.parts and "bin" not in path.parts and "obj" not in path.parts:
-                files.append(str(path))
+                abs_path = str(path)
+                if synignore is not None and synignore.is_file_ignored(abs_path):
+                    continue
+                files.append(abs_path)
         return files
 
     def get_document_symbols(self, file_path: str) -> list[IndexSymbol]:

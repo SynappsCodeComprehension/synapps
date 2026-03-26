@@ -1,0 +1,11 @@
+# Tooling and IDE metadata
+.claude/
+.planning/
+.serena/
+
+# Documentation not part of the codebase
+docs/superpowers/
+docs/demo/
+
+# Test fixtures (indexed separately by integration tests)
+tests/fixtures/

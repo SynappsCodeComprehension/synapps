@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from synapse.graph.connection import GraphConnection
 from synapse.graph.nodes import rename_file_node, set_last_indexed_commit
 from synapse.indexer.git import compute_git_diff, rev_parse_head
+from synapse.util.file_system import load_synignore
 
 log = logging.getLogger(__name__)
 
@@ -73,6 +74,13 @@ def git_sync_project(
         diff.to_delete = {p for p in diff.to_delete if os.path.splitext(p)[1].lower() in file_extensions}
         diff.to_reindex = {p for p in diff.to_reindex if os.path.splitext(p)[1].lower() in file_extensions}
         diff.renames = [(o, n) for o, n in diff.renames if os.path.splitext(n)[1].lower() in file_extensions]
+
+    # Filter out .synignore'd paths
+    synignore = load_synignore(root_path)
+    if synignore is not None:
+        diff.to_delete = {p for p in diff.to_delete if not synignore.is_file_ignored(p)}
+        diff.to_reindex = {p for p in diff.to_reindex if not synignore.is_file_ignored(p)}
+        diff.renames = [(o, n) for o, n in diff.renames if not synignore.is_file_ignored(n)]
 
     if not diff.to_delete and not diff.to_reindex and not diff.renames:
         return SyncResult(updated=0, deleted=0, unchanged=0)

@@ -95,11 +95,17 @@ class PythonLSPAdapter:
         return cls(ls, root_path)
 
     def get_workspace_files(self, root_path: str) -> list[str]:
+        from synapse.util.file_system import load_synignore
+
         _exclude = {"__pycache__", ".venv", "venv", ".git", "node_modules"}
+        synignore = load_synignore(root_path)
         files: list[str] = []
         for path in Path(root_path).rglob("*.py"):
             if not any(part in _exclude for part in path.parts):
-                files.append(str(path))
+                abs_path = str(path)
+                if synignore is not None and synignore.is_file_ignored(abs_path):
+                    continue
+                files.append(abs_path)
         return files
 
     def get_document_symbols(self, file_path: str) -> list[IndexSymbol]:

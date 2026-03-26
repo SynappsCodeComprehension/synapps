@@ -175,11 +175,17 @@ class JavaLSPAdapter:
         return cls(ls, root_path)
 
     def get_workspace_files(self, root_path: str) -> list[str]:
+        from synapse.util.file_system import load_synignore
+
         t0 = time.monotonic()
+        synignore = load_synignore(root_path)
         files: list[str] = []
         for path in Path(root_path).rglob("*.java"):
             if not any(part in _EXCLUDE_DIRS for part in path.parts):
-                files.append(str(path))
+                abs_path = str(path)
+                if synignore is not None and synignore.is_file_ignored(abs_path):
+                    continue
+                files.append(abs_path)
         log.info("Discovered %d Java files in %.1fs", len(files), time.monotonic() - t0)
         return files
 

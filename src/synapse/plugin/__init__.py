@@ -52,18 +52,26 @@ class LanguageRegistry:
         return next((p for p in self._plugins if p.name == name), None)
 
     def detect_with_files(self, root_path: str) -> list[tuple[LanguagePlugin, list[str]]]:
+        from synapse.util.file_system import load_synignore
+
         ext_to_plugins: dict[str, list[LanguagePlugin]] = {}
         for p in self._plugins:
             for ext in p.file_extensions:
                 ext_to_plugins.setdefault(ext, []).append(p)
 
+        synignore = load_synignore(root_path)
+
         files_by_plugin: dict[str, list[str]] = {p.name: [] for p in self._plugins}
         for dirpath, dirnames, filenames in os.walk(root_path):
             dirnames[:] = [d for d in dirnames if d not in _ALWAYS_SKIP]
+            if synignore is not None:
+                dirnames[:] = [d for d in dirnames if not synignore.is_dir_ignored(os.path.join(dirpath, d))]
             for fname in filenames:
                 ext = os.path.splitext(fname)[1].lower()
                 for plugin in ext_to_plugins.get(ext, []):
                     full_path = os.path.join(dirpath, fname)
+                    if synignore is not None and synignore.is_file_ignored(full_path):
+                        continue
                     excluded = getattr(plugin, "excluded_suffixes", frozenset())
                     if not any(fname.endswith(s) for s in excluded):
                         files_by_plugin[plugin.name].append(full_path)

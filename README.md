@@ -201,7 +201,7 @@ synapse <command> [args]
 
 ### Summaries
 
-Summaries are free-text annotations attached to any symbol — useful for capturing architectural context that the graph alone doesn't convey.
+Summaries let you attach non-derivable context to symbols — design rationale, constraints, ownership, deprecation plans. Don't use them for structural descriptions (interfaces, dependencies, method counts) — that information is already queryable live via `get_context_for`, `find_dependencies`, etc.
 
 | Command | Description |
 |---|---|
@@ -295,10 +295,7 @@ These tools are available to any MCP client connected to `synapse-mcp`.
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `set_summary` | `full_name`, `content` | Attach a free-text summary to a symbol |
-| `get_summary` | `full_name` | Retrieve the summary for a symbol |
-| `list_summarized` | `project_path?` | List all symbols that have summaries |
-| `summarize_from_graph` | `class_name` | Auto-generate a structural summary from the graph |
+| `summary` | `action` (`set`/`get`/`list`), `full_name?`, `content?`, `project_path?` | Persist non-derivable context on a symbol (design rationale, constraints, ownership) |
 
 ### Raw queries
 
@@ -329,7 +326,7 @@ Symbol nodes (identified by `full_name`):
 - `:Property` — properties (with `type_name`)
 - `:Field` — fields (with `type_name`)
 
-A `:Summarized` label is added to any node that has a user-attached summary.
+A `:Summarized` label is added to any node that has an attached summary (non-derivable context like design rationale or constraints).
 
 When HTTP endpoint extraction is enabled:
 
@@ -379,6 +376,23 @@ docker ps --filter "name=synapse-"     # list Synapse containers
 docker stop synapse-abc123def456       # stop a specific container
 docker rm synapse-abc123def456         # remove a specific container
 ```
+
+## Ignoring Files (`.synignore`)
+
+Place a `.synignore` file in your project root to exclude directories or files from indexing. It uses `.gitignore` syntax:
+
+```gitignore
+# Directories to skip entirely
+worktrees/
+generated/
+vendor/
+
+# File patterns
+*.generated.cs
+**/test_data/**
+```
+
+Patterns are applied during file discovery, file watching, and git-based sync — ignored paths are never indexed or re-indexed. Without a `.synignore` file, Synapse uses its built-in exclusion list (`.git`, `node_modules`, `__pycache__`, `dist`, `build`, etc.).
 
 ## Development
 

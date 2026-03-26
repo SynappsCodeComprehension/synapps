@@ -81,12 +81,18 @@ class TypeScriptLSPAdapter:
         return cls(ls, root_path)
 
     def get_workspace_files(self, root_path: str) -> list[str]:
+        from synapse.util.file_system import load_synignore
+
+        synignore = load_synignore(root_path)
         files: list[str] = []
         for path in Path(root_path).rglob("*"):
             if path.suffix.lower() in _TS_EXTENSIONS:
                 if not any(part in _EXCLUDE_DIRS for part in path.parts):
                     if not path.name.endswith(_EXCLUDE_FILE_SUFFIXES):
-                        files.append(str(path))
+                        abs_path = str(path)
+                        if synignore is not None and synignore.is_file_ignored(abs_path):
+                            continue
+                        files.append(abs_path)
         return files
 
     def get_document_symbols(self, file_path: str) -> list[IndexSymbol]:
