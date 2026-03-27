@@ -13,6 +13,13 @@ log = logging.getLogger(__name__)
 
 _SYNIGNORE_FILENAME = ".synignore"
 
+ALWAYS_SKIP_DIRS = frozenset({
+    ".git", "node_modules", "__pycache__", ".venv", "venv",
+    "bin", "obj", "dist", "build", ".gradle", ".idea", "target",
+    "coverage", ".settings", ".mvn", ".next", ".nuxt", "out",
+    ".cache", ".angular", ".svelte-kit",
+})
+
 
 class SynignoreFilter:
     """Filters paths based on .synignore patterns (gitignore-style syntax)."""
@@ -51,6 +58,40 @@ def load_synignore(root_path: str) -> SynignoreFilter | None:
 
     spec = PathSpec.from_lines("gitignore", patterns)
     return SynignoreFilter(root_path, spec)
+
+
+class ProjectFileFilter:
+    """Unified file filter combining ALWAYS_SKIP_DIRS, .gitignore, and .synignore.
+
+    Use this as the single source of truth for deciding whether a file or
+    directory should be processed during indexing or watch events.
+    """
+
+    def __init__(self, root_path: str) -> None:
+        self._root_path = root_path
+        self._gitignore = GitignoreParser(root_path)
+        self._synignore = load_synignore(root_path)
+
+    def is_dir_ignored(self, abs_dir_path: str) -> bool:
+        dir_name = os.path.basename(abs_dir_path)
+        if dir_name in ALWAYS_SKIP_DIRS:
+            return True
+        if self._gitignore.should_ignore(abs_dir_path):
+            return True
+        if self._synignore is not None and self._synignore.is_dir_ignored(abs_dir_path):
+            return True
+        return False
+
+    def is_file_ignored(self, abs_file_path: str) -> bool:
+        rel = os.path.relpath(abs_file_path, self._root_path)
+        parts = Path(rel).parts
+        if any(part in ALWAYS_SKIP_DIRS for part in parts[:-1]):
+            return True
+        if self._gitignore.should_ignore(abs_file_path):
+            return True
+        if self._synignore is not None and self._synignore.is_file_ignored(abs_file_path):
+            return True
+        return False
 
 
 class ScanResult(NamedTuple):

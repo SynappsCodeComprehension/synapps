@@ -109,16 +109,94 @@ def test_watcher_ignores_non_py_files_when_watching_python() -> None:
 
 
 @pytest.mark.timeout(5)
+def test_watcher_ignores_gitignored_cs_file() -> None:
+    on_change = MagicMock()
+    on_delete = MagicMock()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Set up a .gitignore that ignores the obj/ directory
+        (Path(tmpdir) / ".gitignore").write_text("obj/\n")
+        obj_dir = Path(tmpdir) / "obj"
+        obj_dir.mkdir()
+
+        watcher = FileWatcher(
+            root_path=tmpdir,
+            on_change=on_change,
+            on_delete=on_delete,
+            debounce_seconds=0.05,
+        )
+        watcher.start()
+        try:
+            (obj_dir / "Generated.cs").write_text("// generated")
+            time.sleep(0.3)
+            on_change.assert_not_called()
+        finally:
+            watcher.stop()
+
+
+@pytest.mark.timeout(5)
+def test_watcher_allows_non_gitignored_cs_file() -> None:
+    on_change = MagicMock()
+    on_delete = MagicMock()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # .gitignore ignores obj/ but not src/
+        (Path(tmpdir) / ".gitignore").write_text("obj/\n")
+        src_dir = Path(tmpdir) / "src"
+        src_dir.mkdir()
+
+        watcher = FileWatcher(
+            root_path=tmpdir,
+            on_change=on_change,
+            on_delete=on_delete,
+            debounce_seconds=0.05,
+        )
+        watcher.start()
+        try:
+            (src_dir / "App.cs").write_text("// real code")
+            wait_for_call(on_change)
+            assert on_change.call_args[0][0].endswith(".cs")
+        finally:
+            watcher.stop()
+
+
+@pytest.mark.timeout(5)
+def test_watcher_ignores_synignored_file() -> None:
+    on_change = MagicMock()
+    on_delete = MagicMock()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        (Path(tmpdir) / ".synignore").write_text("generated/\n")
+        gen_dir = Path(tmpdir) / "generated"
+        gen_dir.mkdir()
+
+        watcher = FileWatcher(
+            root_path=tmpdir,
+            on_change=on_change,
+            on_delete=on_delete,
+            debounce_seconds=0.05,
+        )
+        watcher.start()
+        try:
+            (gen_dir / "Output.cs").write_text("// generated")
+            time.sleep(0.3)
+            on_change.assert_not_called()
+        finally:
+            watcher.stop()
+
+
+@pytest.mark.timeout(5)
 def test_watcher_stop_joins_observer_thread() -> None:
-    watcher = FileWatcher(
-        root_path=tempfile.gettempdir(),
-        on_change=MagicMock(),
-        on_delete=MagicMock(),
-        debounce_seconds=0.05,
-    )
-    watcher.start()
-    watcher.stop()
-    assert not watcher.is_running()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        watcher = FileWatcher(
+            root_path=tmpdir,
+            on_change=MagicMock(),
+            on_delete=MagicMock(),
+            debounce_seconds=0.05,
+        )
+        watcher.start()
+        watcher.stop()
+        assert not watcher.is_running()
 
 
 _TS_EXTENSIONS = frozenset({".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"})

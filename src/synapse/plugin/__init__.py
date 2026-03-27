@@ -8,14 +8,6 @@ from synapse.indexer.tree_sitter_util import ParsedFile
 from synapse.lsp.interface import LSPAdapter
 
 
-_ALWAYS_SKIP = frozenset({
-    ".git", "node_modules", "__pycache__", ".venv", "venv",
-    "bin", "obj", "dist", "build", ".gradle", ".idea", "target",
-    "coverage", ".settings", ".mvn", ".next", ".nuxt", "out",
-    ".cache", ".angular", ".svelte-kit",
-})
-
-
 @runtime_checkable
 class LanguagePlugin(Protocol):
     @property
@@ -52,25 +44,23 @@ class LanguageRegistry:
         return next((p for p in self._plugins if p.name == name), None)
 
     def detect_with_files(self, root_path: str) -> list[tuple[LanguagePlugin, list[str]]]:
-        from synapse.util.file_system import load_synignore
+        from synapse.util.file_system import ProjectFileFilter
 
         ext_to_plugins: dict[str, list[LanguagePlugin]] = {}
         for p in self._plugins:
             for ext in p.file_extensions:
                 ext_to_plugins.setdefault(ext, []).append(p)
 
-        synignore = load_synignore(root_path)
+        file_filter = ProjectFileFilter(root_path)
 
         files_by_plugin: dict[str, list[str]] = {p.name: [] for p in self._plugins}
         for dirpath, dirnames, filenames in os.walk(root_path):
-            dirnames[:] = [d for d in dirnames if d not in _ALWAYS_SKIP]
-            if synignore is not None:
-                dirnames[:] = [d for d in dirnames if not synignore.is_dir_ignored(os.path.join(dirpath, d))]
+            dirnames[:] = [d for d in dirnames if not file_filter.is_dir_ignored(os.path.join(dirpath, d))]
             for fname in filenames:
                 ext = os.path.splitext(fname)[1].lower()
                 for plugin in ext_to_plugins.get(ext, []):
                     full_path = os.path.join(dirpath, fname)
-                    if synignore is not None and synignore.is_file_ignored(full_path):
+                    if file_filter.is_file_ignored(full_path):
                         continue
                     excluded = getattr(plugin, "excluded_suffixes", frozenset())
                     if not any(fname.endswith(s) for s in excluded):
