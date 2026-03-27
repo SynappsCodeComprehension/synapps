@@ -216,22 +216,20 @@ class Indexer:
                 log.warning("Could not process %s for attribute extraction", file_path)
         log.info("Attribute extraction: %.1fs", time.monotonic() - t_attr)
 
-        # Phase 4: HTTP endpoint extraction (experimental, opt-in)
+        # Phase 4: HTTP endpoint extraction
         # Extraction only — matching and graph writes happen at the project
         # level in SynapseService after all languages have been extracted.
         if self._http_extractor_factory is not None:
-            from synapse.config import is_http_endpoints_enabled
-            if is_http_endpoints_enabled(root_path):
-                from synapse.indexer.http.interface import HttpExtractionResult
-                http_extractor = self._http_extractor_factory()
-                for fp, pf in parsed_cache.items():
-                    try:
-                        file_symbols = symbols_by_file.get(fp, [])
-                        self._http_extraction_results.append(
-                            http_extractor.extract(fp, pf.tree, file_symbols),
-                        )
-                    except Exception:
-                        log.warning("Could not extract HTTP endpoints from %s", fp)
+            from synapse.indexer.http.interface import HttpExtractionResult
+            http_extractor = self._http_extractor_factory()
+            for fp, pf in parsed_cache.items():
+                try:
+                    file_symbols = symbols_by_file.get(fp, [])
+                    self._http_extraction_results.append(
+                        http_extractor.extract(fp, pf.tree, file_symbols),
+                    )
+                except Exception:
+                    log.warning("Could not extract HTTP endpoints from %s", fp)
 
         # Phase 1.5: method-level IMPLEMENTS edges (requires all class-level IMPLEMENTS to exist)
         MethodImplementsIndexer(self._conn).index()

@@ -53,14 +53,9 @@ class IndexingService:
 
         # HTTP endpoint matching — runs once after all languages are indexed
         # so frontend client calls can be matched to backend server endpoints
-        from synapse.config import is_http_endpoints_enabled
-        if all_http_results and is_http_endpoints_enabled(path):
+        if all_http_results:
             import time
             t_http = time.monotonic()
-            log.info(
-                "[EXPERIMENTAL] HTTP endpoint extraction is enabled. "
-                "This feature is experimental and may produce incomplete or incorrect endpoint mappings."
-            )
             from synapse.indexer.http_phase import HttpPhase
             http_phase = HttpPhase(self._conn, path)
             http_phase.run(all_http_results)
@@ -172,7 +167,7 @@ class IndexingService:
             finally:
                 lsp.shutdown()
 
-        # Post-sync HTTP re-matching (experimental)
+        # Post-sync HTTP re-matching
         self._run_http_rematch(path)
 
         return total
@@ -243,7 +238,7 @@ class IndexingService:
                 finally:
                     lsp.shutdown()
 
-            # Post-sync HTTP re-matching (experimental)
+            # Post-sync HTTP re-matching
             self._run_http_rematch(path)
 
             return "git-sync"
@@ -254,27 +249,25 @@ class IndexingService:
         return "mtime-sync"
 
     def _run_http_rematch(self, path: str) -> None:
-        """Post-sync HTTP endpoint re-matching (experimental).
+        """Post-sync HTTP endpoint re-matching.
 
         Rebuilds HTTP data from the graph (for unchanged files) and re-runs
         matching. Clears existing HTTP edges first to avoid call_sites
         duplication from re-MERGE over existing edges.
         """
-        from synapse.config import is_http_endpoints_enabled
-        if is_http_endpoints_enabled(path):
-            from synapse.indexer.http_phase import HttpPhase
-            from synapse.indexer.http.interface import HttpExtractionResult
-            http_phase = HttpPhase(self._conn, path)
-            existing_defs, existing_calls = http_phase.rebuild_from_graph()
-            # Clear all HTTP edges before re-matching to avoid call_sites duplication
-            self._conn.execute(
-                "MATCH (r:Repository {path: $repo})-[:CONTAINS]->(ep:Endpoint)<-[rel]-(m:Method) "
-                "WHERE type(rel) IN ['SERVES', 'HTTP_CALLS'] "
-                "DELETE rel",
-                {"repo": path},
-            )
-            http_phase.run([HttpExtractionResult(endpoint_defs=existing_defs, client_calls=existing_calls)])
-            http_phase.cleanup_orphans()
+        from synapse.indexer.http_phase import HttpPhase
+        from synapse.indexer.http.interface import HttpExtractionResult
+        http_phase = HttpPhase(self._conn, path)
+        existing_defs, existing_calls = http_phase.rebuild_from_graph()
+        # Clear all HTTP edges before re-matching to avoid call_sites duplication
+        self._conn.execute(
+            "MATCH (r:Repository {path: $repo})-[:CONTAINS]->(ep:Endpoint)<-[rel]-(m:Method) "
+            "WHERE type(rel) IN ['SERVES', 'HTTP_CALLS'] "
+            "DELETE rel",
+            {"repo": path},
+        )
+        http_phase.run([HttpExtractionResult(endpoint_defs=existing_defs, client_calls=existing_calls)])
+        http_phase.cleanup_orphans()
 
     @staticmethod
     def _git_empty_tree_sha() -> str:
