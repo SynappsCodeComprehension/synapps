@@ -600,11 +600,15 @@ def _collect_assignment(node, constants: dict[str, str]) -> None:
 
 
 def _find_enclosing_symbol(call_line_0: int, sorted_symbols: list[tuple[int, int, str]]) -> str | None:
-    """Return the full_name of the innermost symbol whose range contains call_line_0."""
+    """Return the full_name of the narrowest symbol whose range contains call_line_0."""
     best: str | None = None
+    best_span = float("inf")
     for start_0, end_0, full_name in sorted_symbols:
         if start_0 <= call_line_0 <= end_0:
-            best = full_name
+            span = end_0 - start_0
+            if span < best_span:
+                best_span = span
+                best = full_name
         elif start_0 > call_line_0:
             break
     return best
