@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from synapse.indexer.http.interface import HttpEndpointDef, HttpClientCall, HttpExtractionResult
 from synapse.indexer.http_phase import HttpPhase
+
+
+def _def(route: str, method: str, handler: str, line: int = 1) -> HttpEndpointDef:
+    return HttpEndpointDef(route=route, http_method=method, handler_full_name=handler, line=line)
 
 
 def _mock_conn() -> MagicMock:
@@ -68,3 +72,64 @@ def test_rebuild_from_graph_queries_existing_data() -> None:
     assert defs == []
     assert calls == []
     assert conn.query.call_count == 2
+
+
+def test_conflict_warning_emitted() -> None:
+    conn = _mock_conn()
+    phase = HttpPhase(conn, repo_path="/repo")
+    result = HttpExtractionResult(
+        endpoint_defs=[
+            _def("/api/items", "GET", "CtrlA.GetAll", 10),
+            _def("/api/items", "GET", "CtrlB.GetAll", 20),
+        ],
+    )
+    with patch("synapse.indexer.http_phase.log") as mock_log:
+        phase.run([result])
+    mock_log.warning.assert_called_once()
+    warning_msg = mock_log.warning.call_args[0]
+    assert any("CtrlA.GetAll" in str(a) for a in warning_msg)
+    assert any("CtrlB.GetAll" in str(a) for a in warning_msg)
+
+
+def test_conflict_warning_emitted_once_per_pair() -> None:
+    conn = _mock_conn()
+    phase = HttpPhase(conn, repo_path="/repo")
+    result = HttpExtractionResult(
+        endpoint_defs=[
+            _def("/api/items", "GET", "CtrlA.GetAll", 10),
+            _def("/api/items", "GET", "CtrlB.GetAll", 20),
+            _def("/api/items", "GET", "CtrlC.GetAll", 30),
+        ],
+    )
+    with patch("synapse.indexer.http_phase.log") as mock_log:
+        phase.run([result])
+    assert mock_log.warning.call_count == 1
+    warning_msg = mock_log.warning.call_args[0]
+    assert any("CtrlA.GetAll" in str(a) for a in warning_msg)
+    assert any("CtrlB.GetAll" in str(a) for a in warning_msg)
+    assert any("CtrlC.GetAll" in str(a) for a in warning_msg)
+
+
+def test_no_conflict_warning_for_single_handler() -> None:
+    conn = _mock_conn()
+    phase = HttpPhase(conn, repo_path="/repo")
+    result = HttpExtractionResult(
+        endpoint_defs=[_def("/api/items", "GET", "Ctrl.GetAll", 10)],
+    )
+    with patch("synapse.indexer.http_phase.log") as mock_log:
+        phase.run([result])
+    mock_log.warning.assert_not_called()
+
+
+def test_no_conflict_for_different_routes() -> None:
+    conn = _mock_conn()
+    phase = HttpPhase(conn, repo_path="/repo")
+    result = HttpExtractionResult(
+        endpoint_defs=[
+            _def("/api/items", "GET", "Ctrl.GetItems", 10),
+            _def("/api/orders", "GET", "Ctrl.GetOrders", 20),
+        ],
+    )
+    with patch("synapse.indexer.http_phase.log") as mock_log:
+        phase.run([result])
+    mock_log.warning.assert_not_called()
