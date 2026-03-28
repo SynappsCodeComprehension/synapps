@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-28
+
+### Added
+- `find_http_endpoints` MCP tool — search endpoints by route pattern, HTTP method, or language
+- `trace_http_dependency` MCP tool — find server handler and all client call sites for an endpoint
+- Route conflict detection — indexer warns when multiple methods serve the same (HTTP method, route) pair
+- JAX-RS annotation support (`@Path`, `@GET`, `@POST`, etc.) in Java server-side extraction
+- README HTTP Endpoint Tracing section with supported frameworks table, tool examples, and known limitations
+
+### Fixed
+- Nested class HTTP call attribution now uses narrowest-range matching instead of last-match across all 4 extractors
+- JAX-RS route constraints (`{param: regex}`) correctly normalized to `{param}` during extraction
+
+### Changed
+- HTTP endpoint extraction now runs by default — no longer requires `experimental.http_endpoints` config flag
+- MCP tool count increased from 19 to 21
+- Removed all "experimental" qualifiers from schema notes, agent instructions, and log messages
+
 ## [1.0.0] - 2026-03-26
 
 ### Added
