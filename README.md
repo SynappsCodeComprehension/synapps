@@ -132,10 +132,10 @@ Synapse traces HTTP dependencies across language boundaries by detecting server-
 
 | Language | Server Frameworks | Client Libraries |
 |----------|------------------|-----------------|
-| C# | ASP.NET Core (`[ApiController]`, `[Route]`, `[HttpGet/Post/Put/Delete]`) | -- |
+| C# | ASP.NET Core (`[ApiController]`, `[Route]`, `[HttpGet/Post/Put/Delete]`) | HttpClient, RestSharp |
 | TypeScript / JavaScript | Express, NestJS | axios, fetch |
-| Python | Flask, Django, FastAPI | requests, httpx, urllib |
-| Java | Spring Boot (`@RequestMapping`, `@GetMapping`, etc.), JAX-RS | -- |
+| Python | Flask, Django, FastAPI | requests |
+| Java | Spring Boot (`@RequestMapping`, `@GetMapping`, etc.), JAX-RS | RestTemplate, WebClient, java.net.http |
 
 **Tools:** `find_http_endpoints`, `trace_http_dependency`
 
