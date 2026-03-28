@@ -5,6 +5,7 @@ dist/
 *.egg-info/
 .env
 .DS_Store
+*.DS_Store
 .pytest_cache/
 htmlcov/
 .coverage
