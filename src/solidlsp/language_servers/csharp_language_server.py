@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from overrides import override
 
-from synapse.util.dotnet import DotNETUtil
+from synapps.util.dotnet import DotNETUtil
 from solidlsp.ls import DocumentSymbols, LanguageServerDependencyProvider, LSPFileBuffer, SolidLanguageServer
 from solidlsp.ls_config import LanguageServerConfig
 from solidlsp.ls_exceptions import SolidLSPException

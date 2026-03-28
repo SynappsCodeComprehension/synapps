@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import MagicMock, call
 
-from synapse.graph.lookups import search_symbols
+from synapps.graph.lookups import search_symbols
 
 
 def _conn(return_value: list) -> MagicMock:

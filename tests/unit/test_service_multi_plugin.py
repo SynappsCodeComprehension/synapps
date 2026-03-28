@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import MagicMock, patch, call
 
-from synapse.service import SynapseService
+from synapps.service import SynappsService
 
 
 def _make_plugin(name: str) -> MagicMock:
@@ -26,10 +26,10 @@ def test_index_project_calls_indexer_for_each_plugin() -> None:
     plugin_b = _make_plugin("python")
     registry = _make_registry([plugin_a, plugin_b])
     conn = MagicMock()
-    svc = SynapseService(conn, registry=registry)
+    svc = SynappsService(conn, registry=registry)
 
     mock_indexer = MagicMock()
-    with patch("synapse.service.indexing.Indexer", return_value=mock_indexer) as MockIndexer:
+    with patch("synapps.service.indexing.Indexer", return_value=mock_indexer) as MockIndexer:
         svc.index_project("/some/path")
 
     assert MockIndexer.call_count == 2
@@ -41,10 +41,10 @@ def test_index_project_single_plugin_works() -> None:
     plugin = _make_plugin("csharp")
     registry = _make_registry([plugin])
     conn = MagicMock()
-    svc = SynapseService(conn, registry=registry)
+    svc = SynappsService(conn, registry=registry)
 
     mock_indexer = MagicMock()
-    with patch("synapse.service.indexing.Indexer", return_value=mock_indexer) as MockIndexer:
+    with patch("synapps.service.indexing.Indexer", return_value=mock_indexer) as MockIndexer:
         svc.index_project("/some/path")
 
     assert MockIndexer.call_count == 1
@@ -55,7 +55,7 @@ def test_index_project_no_plugins_raises_value_error() -> None:
     """When no plugins are detected, index_project raises ValueError (existing behavior)."""
     registry = _make_registry([])
     conn = MagicMock()
-    svc = SynapseService(conn, registry=registry)
+    svc = SynappsService(conn, registry=registry)
 
     with pytest.raises(ValueError, match="No language plugin found"):
         svc.index_project("/some/path")
@@ -67,11 +67,11 @@ def test_index_project_on_progress_called_per_plugin() -> None:
     plugin_b = _make_plugin("python")
     registry = _make_registry([plugin_a, plugin_b])
     conn = MagicMock()
-    svc = SynapseService(conn, registry=registry)
+    svc = SynappsService(conn, registry=registry)
     progress_calls: list[str] = []
 
     mock_indexer = MagicMock()
-    with patch("synapse.service.indexing.Indexer", return_value=mock_indexer):
+    with patch("synapps.service.indexing.Indexer", return_value=mock_indexer):
         svc.index_project("/some/path", on_progress=progress_calls.append)
 
     # Each plugin should have triggered at least one progress message

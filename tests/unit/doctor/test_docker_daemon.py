@@ -5,18 +5,18 @@ from unittest.mock import MagicMock, patch
 import docker.errors
 import pytest
 
-from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
+from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
 
 
 def test_docker_daemon_pass_when_ping_succeeds() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.from_env.return_value.ping.return_value = None
         result = DockerDaemonCheck().run()
     assert result.status == "pass"
 
 
 def test_docker_daemon_fail_when_ping_raises() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.side_effect = docker.errors.DockerException("daemon not running")
         result = DockerDaemonCheck().run()
@@ -24,7 +24,7 @@ def test_docker_daemon_fail_when_ping_raises() -> None:
 
 
 def test_docker_daemon_fail_contains_exception_message() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.side_effect = docker.errors.DockerException("daemon not running")
         result = DockerDaemonCheck().run()
@@ -32,10 +32,10 @@ def test_docker_daemon_fail_contains_exception_message() -> None:
 
 
 def test_docker_daemon_fix_on_macos() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.side_effect = docker.errors.DockerException("no daemon")
-        with patch("synapse.doctor.checks.docker_daemon.platform") as mock_platform:
+        with patch("synapps.doctor.checks.docker_daemon.platform") as mock_platform:
             mock_platform.system.return_value = "Darwin"
             result = DockerDaemonCheck().run()
     assert result.fix is not None
@@ -43,10 +43,10 @@ def test_docker_daemon_fix_on_macos() -> None:
 
 
 def test_docker_daemon_fix_on_linux() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.side_effect = docker.errors.DockerException("no daemon")
-        with patch("synapse.doctor.checks.docker_daemon.platform") as mock_platform:
+        with patch("synapps.doctor.checks.docker_daemon.platform") as mock_platform:
             mock_platform.system.return_value = "Linux"
             result = DockerDaemonCheck().run()
     assert result.fix is not None
@@ -54,14 +54,14 @@ def test_docker_daemon_fix_on_linux() -> None:
 
 
 def test_docker_daemon_pass_has_no_fix() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.from_env.return_value.ping.return_value = None
         result = DockerDaemonCheck().run()
     assert result.fix is None
 
 
 def test_docker_daemon_group_is_core() -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.from_env.return_value.ping.return_value = None
         result = DockerDaemonCheck().run()
     assert result.group == "core"

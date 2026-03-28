@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-from synapse.indexer.indexer import Indexer
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.indexer.indexer import Indexer
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 
 def _mock_lsp(files: list[str], symbols_by_file: dict[str, list[IndexSymbol]]) -> MagicMock:
@@ -35,8 +35,8 @@ public class TaskController {
     lsp = _mock_lsp([file_path], {file_path: symbols})
     conn = MagicMock()
 
-    with patch("synapse.indexer.indexer.SymbolResolver"), \
-         patch("synapse.indexer.indexer.MethodImplementsIndexer"):
+    with patch("synapps.indexer.indexer.SymbolResolver"), \
+         patch("synapps.indexer.indexer.MethodImplementsIndexer"):
         indexer = Indexer(conn, lsp)
         indexer.index_project(str(tmp_path), "csharp")
 
@@ -64,8 +64,8 @@ public class Foo { }
     lsp = _mock_lsp([file_path], {file_path: symbols})
     conn = MagicMock()
 
-    with patch("synapse.indexer.indexer.SymbolResolver"), \
-         patch("synapse.indexer.indexer.MethodImplementsIndexer"):
+    with patch("synapps.indexer.indexer.SymbolResolver"), \
+         patch("synapps.indexer.indexer.MethodImplementsIndexer"):
         indexer = Indexer(conn, lsp)
         indexer.reindex_file(file_path, str(tmp_path))
 

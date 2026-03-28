@@ -12,10 +12,10 @@ import tree_sitter_python
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
-from synapse.indexer.http.matcher import match_endpoints
-from synapse.indexer.python.python_http_extractor import PythonHttpExtractor
-from synapse.indexer.typescript.typescript_http_extractor import TypeScriptHttpExtractor
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.indexer.http.matcher import match_endpoints
+from synapps.indexer.python.python_http_extractor import PythonHttpExtractor
+from synapps.indexer.typescript.typescript_http_extractor import TypeScriptHttpExtractor
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 _py_lang = Language(tree_sitter_python.language())
 _py_parser = Parser(_py_lang)

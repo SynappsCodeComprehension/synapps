@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from synapse.lsp.interface import SymbolKind
+from synapps.lsp.interface import SymbolKind
 
 
 def test_symbol_kind_values_cover_csharp_types() -> None:
@@ -12,14 +12,14 @@ def test_symbol_kind_values_cover_csharp_types() -> None:
 
 
 def test_csharp_adapter_implements_protocol() -> None:
-    from synapse.lsp.interface import LSPAdapter
-    from synapse.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.interface import LSPAdapter
+    from synapps.lsp.csharp import CSharpLSPAdapter
     # Protocol runtime check — isinstance works for protocols with non-method members
     mock_adapter = MagicMock(spec=CSharpLSPAdapter)
     assert isinstance(mock_adapter, LSPAdapter) or hasattr(CSharpLSPAdapter, "get_workspace_files")
 
 
-from synapse.lsp.util import build_full_name
+from synapps.lsp.util import build_full_name
 
 
 def test_build_full_name_root_symbol() -> None:
@@ -53,7 +53,7 @@ def test_build_full_name_overload_no_paren_in_detail() -> None:
 
 
 def test_convert_produces_qualified_full_name() -> None:
-    from synapse.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.csharp import CSharpLSPAdapter
 
     grandparent = {"name": "MyNs", "kind": 3, "parent": None}
     parent = {"name": "MyClass", "kind": 5, "parent": grandparent}
@@ -79,8 +79,8 @@ def test_convert_produces_qualified_full_name() -> None:
 
 
 def test_find_method_calls_returns_empty() -> None:
-    from synapse.lsp.csharp import CSharpLSPAdapter
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
 
     adapter = CSharpLSPAdapter(MagicMock())
     symbol = IndexSymbol(
@@ -91,8 +91,8 @@ def test_find_method_calls_returns_empty() -> None:
 
 
 def test_find_overridden_method_returns_none() -> None:
-    from synapse.lsp.csharp import CSharpLSPAdapter
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
 
     adapter = CSharpLSPAdapter(MagicMock())
     symbol = IndexSymbol(
@@ -103,7 +103,7 @@ def test_find_overridden_method_returns_none() -> None:
 
 
 def test_index_symbol_has_parent_full_name_field() -> None:
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
     sym = IndexSymbol(
         name="DoWork", full_name="MyNs.MyClass.DoWork",
         kind=SymbolKind.METHOD, file_path="/proj/Foo.cs", line=10,
@@ -113,7 +113,7 @@ def test_index_symbol_has_parent_full_name_field() -> None:
 
 
 def test_index_symbol_parent_full_name_defaults_to_none() -> None:
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
     sym = IndexSymbol(
         name="MyClass", full_name="MyNs.MyClass",
         kind=SymbolKind.CLASS, file_path="/proj/Foo.cs", line=1,
@@ -122,7 +122,7 @@ def test_index_symbol_parent_full_name_defaults_to_none() -> None:
 
 
 def test_get_document_symbols_sets_parent_full_name_on_nested_symbol() -> None:
-    from synapse.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.csharp import CSharpLSPAdapter
 
     grandparent = {"name": "MyNs", "kind": 3, "parent": None}
     parent_raw = {"name": "MyClass", "kind": 5, "parent": grandparent, "children": []}
@@ -145,7 +145,7 @@ def test_get_document_symbols_sets_parent_full_name_on_nested_symbol() -> None:
 
 
 def test_get_document_symbols_sets_none_parent_for_top_level() -> None:
-    from synapse.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.csharp import CSharpLSPAdapter
 
     class_raw = {
         "name": "MyClass", "kind": 5, "parent": None, "children": [],
@@ -164,13 +164,13 @@ def test_get_document_symbols_sets_none_parent_for_top_level() -> None:
 
 
 def test_index_symbol_has_end_line_default():
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
     sym = IndexSymbol(name="Foo", full_name="Ns.Foo", kind=SymbolKind.CLASS, file_path="/f.cs", line=0)
     assert sym.end_line == 0
 
 
 def test_convert_captures_end_line():
-    from synapse.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.csharp import CSharpLSPAdapter
     ls = MagicMock()
     adapter = CSharpLSPAdapter(ls)
     raw = {
@@ -191,7 +191,7 @@ def test_convert_captures_end_line():
 def test_create_uses_csharp_language_enum() -> None:
     import sys
     from unittest.mock import patch, MagicMock
-    from synapse.lsp.csharp import CSharpLSPAdapter
+    from synapps.lsp.csharp import CSharpLSPAdapter
 
     mock_config_class = MagicMock()
 

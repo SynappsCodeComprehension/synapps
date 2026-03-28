@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from synapse.plugin.csharp import CSharpPlugin
-from synapse.plugin.typescript import TypeScriptPlugin
-from synapse.plugin.python import PythonPlugin
-from synapse.plugin.java import JavaPlugin
+from synapps.plugin.csharp import CSharpPlugin
+from synapps.plugin.typescript import TypeScriptPlugin
+from synapps.plugin.python import PythonPlugin
+from synapps.plugin.java import JavaPlugin
 
 
 def test_csharp_plugin_has_http_extractor() -> None:

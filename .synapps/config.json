@@ -1,0 +1,9 @@
+{
+  "project_path": "/Users/alex/Dev/mcpcontext",
+  "container_name": "synapps-mcpcontext",
+  "port": 57481,
+  "last_indexed": null,
+  "experimental": {
+    "http_endpoints": true
+  }
+}

@@ -1,4 +1,4 @@
-# Contributing to Synapse
+# Contributing to Synapps
 
 Thanks for your interest in contributing! This guide will help you get set up and make your first contribution.
 
@@ -6,8 +6,8 @@ Thanks for your interest in contributing! This guide will help you get set up an
 
 ```bash
 # Clone the repo
-git clone https://github.com/alexjsmith0115/synapse.git
-cd synapse
+git clone https://github.com/SynappsCodeComprehension/synapps.git
+cd synapps
 
 # Create a virtual environment and install
 python -m venv .venv
@@ -48,7 +48,7 @@ Unit tests should always pass before submitting a PR. Integration tests require 
 
 ## Project structure
 
-- `src/synapse/` — main application code
+- `src/synapps/` — main application code
 - `src/solidlsp/` — LSP process management library
 - `tests/unit/` — unit tests (no external dependencies)
 - `tests/integration/` — integration tests (require Docker + Memgraph)

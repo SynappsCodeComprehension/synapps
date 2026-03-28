@@ -3,8 +3,8 @@ from __future__ import annotations
 import tree_sitter_python
 from tree_sitter import Language, Parser
 
-from synapse.indexer.python.python_http_extractor import PythonHttpExtractor
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.indexer.python.python_http_extractor import PythonHttpExtractor
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 _lang = Language(tree_sitter_python.language())
 _parser = Parser(_lang)
@@ -420,7 +420,7 @@ def fetch_external():
 # _find_enclosing_symbol narrowest-range tests -- PROD-04 regression
 # ---------------------------------------------------------------------------
 
-from synapse.indexer.python.python_http_extractor import _find_enclosing_symbol
+from synapps.indexer.python.python_http_extractor import _find_enclosing_symbol
 
 
 def test_find_enclosing_symbol_nested_class_narrowest_range() -> None:

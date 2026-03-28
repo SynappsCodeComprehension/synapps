@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from synapse.util.file_system import SynignoreFilter, load_synignore
+from synapps.util.file_system import SynignoreFilter, load_synignore
 
 
 class TestLoadSynignore:
@@ -111,7 +111,7 @@ class TestSynignoreFilter:
 class TestSynignoreInDetectWithFiles:
     def test_synignore_excludes_directory_from_detection(self, tmp_path):
         """detect_with_files should skip directories listed in .synignore."""
-        from synapse.plugin import default_registry
+        from synapps.plugin import default_registry
 
         src = tmp_path / "src"
         src.mkdir()
@@ -129,7 +129,7 @@ class TestSynignoreInDetectWithFiles:
 
     def test_synignore_excludes_file_pattern(self, tmp_path):
         """detect_with_files should skip files matching .synignore patterns."""
-        from synapse.plugin import default_registry
+        from synapps.plugin import default_registry
 
         (tmp_path / "app.py").write_text("x = 1")
         (tmp_path / "generated.py").write_text("y = 2")
@@ -143,7 +143,7 @@ class TestSynignoreInDetectWithFiles:
 
     def test_no_synignore_file_behaves_normally(self, tmp_path):
         """Without .synignore, all files should be discovered."""
-        from synapse.plugin import default_registry
+        from synapps.plugin import default_registry
 
         (tmp_path / "app.py").write_text("x = 1")
         registry = default_registry()

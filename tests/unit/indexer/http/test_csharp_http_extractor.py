@@ -3,8 +3,8 @@ from __future__ import annotations
 import tree_sitter_c_sharp
 from tree_sitter import Language, Parser
 
-from synapse.indexer.csharp.csharp_http_extractor import CSharpHttpExtractor
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.indexer.csharp.csharp_http_extractor import CSharpHttpExtractor
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 _lang = Language(tree_sitter_c_sharp.language())
 _parser = Parser(_lang)
@@ -428,7 +428,7 @@ public class SomeService {
 # _find_enclosing_symbol narrowest-range tests -- PROD-04 regression
 # ---------------------------------------------------------------------------
 
-from synapse.indexer.csharp.csharp_http_extractor import _find_enclosing_symbol
+from synapps.indexer.csharp.csharp_http_extractor import _find_enclosing_symbol
 
 
 def test_find_enclosing_symbol_nested_class_narrowest_range() -> None:

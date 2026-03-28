@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from synapse.indexer.sync import SyncResult, compute_sync_diff, sync_project
+from synapps.indexer.sync import SyncResult, compute_sync_diff, sync_project
 
 
 def _ts(year=2026, month=3, day=20, hour=12) -> str:

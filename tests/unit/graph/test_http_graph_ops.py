@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from synapse.graph.nodes import upsert_endpoint
-from synapse.graph.edges import (
+from synapps.graph.nodes import upsert_endpoint
+from synapps.graph.edges import (
     upsert_serves,
     upsert_http_calls,
     batch_upsert_serves,

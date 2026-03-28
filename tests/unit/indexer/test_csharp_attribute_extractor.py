@@ -1,6 +1,6 @@
 import tree_sitter_c_sharp
 from tree_sitter import Language, Parser
-from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
+from synapps.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
 
 _lang = Language(tree_sitter_c_sharp.language())
 _parser = Parser(_lang)

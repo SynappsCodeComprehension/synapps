@@ -2,8 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.service import SynapseService
-from synapse.service.formatting import _p, _slim, _apply_limit, _short_ref
+from synapps.service import SynappsService
+from synapps.service.formatting import _p, _slim, _apply_limit, _short_ref
 from conftest import _MockNode
 
 
@@ -16,17 +16,17 @@ def _node(labels: list[str], props: dict) -> _MockNode:
 @pytest.fixture(autouse=True)
 def bypass_resolve(monkeypatch):
     """Make resolve_full_name return the name unchanged for all service tests."""
-    monkeypatch.setattr("synapse.service.resolve_full_name", lambda conn, name: name)
+    monkeypatch.setattr("synapps.service.resolve_full_name", lambda conn, name: name)
 
 
-def _service() -> SynapseService:
+def _service() -> SynappsService:
     conn = MagicMock()
-    return SynapseService(conn=conn)
+    return SynappsService(conn=conn)
 
 
 def test_set_summary_delegates_to_nodes() -> None:
     svc = _service()
-    with patch("synapse.service.set_summary") as mock_set:
+    with patch("synapps.service.set_summary") as mock_set:
         svc.set_summary("MyNs.MyClass", "Auth handler")
         mock_set.assert_called_once_with(svc._conn, "MyNs.MyClass", "Auth handler")
 
@@ -40,7 +40,7 @@ def test_watch_project_registers_watcher() -> None:
     mock_lsp = MagicMock()
     mock_lsp.get_workspace_files.return_value = []
 
-    with patch("synapse.service.indexing.FileWatcher", mock_watcher_cls):
+    with patch("synapps.service.indexing.FileWatcher", mock_watcher_cls):
         svc.watch_project("/proj", lsp_adapter=mock_lsp)
         mock_watcher.start.assert_called_once()
         assert "/proj" in svc._indexing._watchers
@@ -63,7 +63,7 @@ def test_watch_project_creates_single_watcher_for_multi_language() -> None:
     registry = MagicMock()
     registry.detect.return_value = [cs_plugin, py_plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
 
     mock_watcher = MagicMock()
 
@@ -71,8 +71,8 @@ def test_watch_project_creates_single_watcher_for_multi_language() -> None:
         mock_watcher.watched_extensions = kwargs.get("watched_extensions")
         return mock_watcher
 
-    with patch("synapse.service.indexing.FileWatcher", side_effect=make_watcher), \
-         patch("synapse.service.indexing.Indexer"):
+    with patch("synapps.service.indexing.FileWatcher", side_effect=make_watcher), \
+         patch("synapps.service.indexing.Indexer"):
         svc.watch_project("/proj")
 
     assert svc._indexing._watchers["/proj"] is mock_watcher
@@ -102,12 +102,12 @@ def test_watch_project_multi_language_creates_exactly_one_file_watcher() -> None
     registry = MagicMock()
     registry.detect.return_value = [cs_plugin, py_plugin, ts_plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
     watcher_cls = MagicMock()
     watcher_cls.return_value = MagicMock()
 
-    with patch("synapse.service.indexing.FileWatcher", watcher_cls), \
-         patch("synapse.service.indexing.Indexer"):
+    with patch("synapps.service.indexing.FileWatcher", watcher_cls), \
+         patch("synapps.service.indexing.Indexer"):
         svc.watch_project("/proj")
 
     watcher_cls.assert_called_once()
@@ -130,7 +130,7 @@ def test_watch_project_invokes_on_file_event_for_change_and_delete() -> None:
 
     events: list[tuple[str, str]] = []
 
-    with patch("synapse.service.indexing.FileWatcher", side_effect=capture_watcher):
+    with patch("synapps.service.indexing.FileWatcher", side_effect=capture_watcher):
         svc.watch_project("/proj", lsp_adapter=mock_lsp, on_file_event=lambda ev, fp: events.append((ev, fp)))
 
     captured_callbacks["on_change"]("/proj/Foo.cs")
@@ -157,9 +157,9 @@ def test_get_symbol_source_reads_file_and_returns_lines(tmp_path):
     source_file.write_text("line0\nline1\nline2\nline3\nline4\nline5\n")
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
-    with patch("synapse.service.context.get_symbol_source_info") as mock_query:
+    with patch("synapps.service.context.get_symbol_source_info") as mock_query:
         mock_query.return_value = {"file_path": str(source_file), "line": 1, "end_line": 3}
         result = svc.get_symbol_source("Ns.C.M")
 
@@ -171,9 +171,9 @@ def test_get_symbol_source_reads_file_and_returns_lines(tmp_path):
 
 def test_get_symbol_source_returns_none_when_symbol_not_found():
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
-    with patch("synapse.service.context.get_symbol_source_info") as mock_query:
+    with patch("synapps.service.context.get_symbol_source_info") as mock_query:
         mock_query.return_value = None
         result = svc.get_symbol_source("Ns.Missing")
 
@@ -183,9 +183,9 @@ def test_get_symbol_source_returns_none_when_symbol_not_found():
 def test_get_symbol_source_returns_error_when_end_line_missing(tmp_path):
     """When end_line is 0, the symbol was indexed before line ranges were added."""
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
-    with patch("synapse.service.context.get_symbol_source_info") as mock_query:
+    with patch("synapps.service.context.get_symbol_source_info") as mock_query:
         mock_query.return_value = {"file_path": str(tmp_path / "F.cs"), "line": 5, "end_line": 0}
         result = svc.get_symbol_source("Ns.C.M")
 
@@ -206,10 +206,10 @@ def test_get_context_for_method_includes_all_sections(tmp_path):
     )
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value={"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "line": 2, "end_line": 4}),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 2, "end_line": 4}),
         get_containing_type=MagicMock(return_value={"full_name": "Ns.MyClass", "name": "MyClass", "kind": "class", "line": 1, "end_line": 5}),
@@ -237,9 +237,9 @@ def test_get_context_for_method_includes_all_sections(tmp_path):
 
 def test_get_context_for_returns_none_when_symbol_not_found():
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
-    with patch("synapse.service.context.get_symbol", return_value=None):
+    with patch("synapps.service.context.get_symbol", return_value=None):
         result = svc.get_context_for("Ns.Missing")
 
     assert result is None
@@ -259,7 +259,7 @@ def test_p_passes_through_plain_dict():
 def test_find_callers_returns_plain_dicts():
     svc = _service()
     node = _node(["Method"], {"full_name": "A.Caller", "file_path": "/src/A.cs", "line": 5, "signature": "Caller() : void"})
-    with patch("synapse.service.find_callers", return_value=[node]):
+    with patch("synapps.service.find_callers", return_value=[node]):
         result = svc.find_callers("A.B")
     assert result == [{"full_name": "A.Caller", "file_path": "/src/A.cs", "line": 5}]
 
@@ -267,7 +267,7 @@ def test_find_callers_returns_plain_dicts():
 def test_find_implementations_returns_plain_dicts():
     svc = _service()
     node = _node(["Class"], {"full_name": "A.Impl", "file_path": "/src/Impl.cs", "line": 1})
-    with patch("synapse.service.find_implementations", return_value=[node]):
+    with patch("synapps.service.find_implementations", return_value=[node]):
         result = svc.find_implementations("A.IService")
     assert result == [{"full_name": "A.Impl", "file_path": "/src/Impl.cs", "line": 1}]
 
@@ -275,14 +275,14 @@ def test_find_implementations_returns_plain_dicts():
 def test_get_symbol_returns_plain_dict_with_labels():
     svc = _service()
     node = _node(["Class"], {"full_name": "A.Cls"})
-    with patch("synapse.service.get_symbol", return_value=node):
+    with patch("synapps.service.get_symbol", return_value=node):
         result = svc.get_symbol("A.Cls")
     assert result == {"full_name": "A.Cls", "_labels": ["Class"]}
 
 
 def test_get_symbol_returns_none_when_not_found():
     svc = _service()
-    with patch("synapse.service.get_symbol", return_value=None):
+    with patch("synapps.service.get_symbol", return_value=None):
         result = svc.get_symbol("Missing")
     assert result is None
 
@@ -290,24 +290,24 @@ def test_get_symbol_returns_none_when_not_found():
 def test_find_type_references_unwraps_nested_nodes():
     svc = _service()
     node = _node(["Method"], {"full_name": "A.Caller", "file_path": "/src/A.cs"})
-    with patch("synapse.service.query_find_type_references", return_value=[{"symbol": node, "kind": "parameter"}]):
+    with patch("synapps.service.query_find_type_references", return_value=[{"symbol": node, "kind": "parameter"}]):
         result = svc.find_type_references("A.IService")
     assert result == [{"symbol": {"full_name": "A.Caller", "file_path": "/src/A.cs"}, "kind": "parameter"}]
 
 
 def test_find_type_references_rejects_invalid_kind() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name", return_value="Ns.Dto"):
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name", return_value="Ns.Dto"):
         with pytest.raises(ValueError, match="Unknown reference kind"):
             svc.find_type_references("Dto", kind="invalid")
 
 
 def test_find_type_references_passes_valid_kind() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name", return_value="Ns.Dto"), \
-         patch("synapse.service.query_find_type_references", return_value=[]) as mock_query:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name", return_value="Ns.Dto"), \
+         patch("synapps.service.query_find_type_references", return_value=[]) as mock_query:
         svc.find_type_references("Dto", kind="parameter")
     mock_query.assert_called_once_with(conn, "Ns.Dto", kind="parameter")
 
@@ -315,7 +315,7 @@ def test_find_type_references_passes_valid_kind() -> None:
 def test_find_dependencies_unwraps_nested_nodes():
     svc = _service()
     node = _node(["Class"], {"full_name": "A.Dep", "file_path": "/src/Dep.cs"})
-    with patch("synapse.service.query_find_dependencies", return_value=[{"type": node, "depth": 1}]):
+    with patch("synapps.service.query_find_dependencies", return_value=[{"type": node, "depth": 1}]):
         result = svc.find_dependencies("A.Method")
     assert result == [{"type": {"full_name": "A.Dep", "file_path": "/src/Dep.cs"}, "depth": 1}]
 
@@ -325,10 +325,10 @@ def test_get_context_for_includes_summaries_when_available(tmp_path):
     source_file.write_text("class Foo { void Bar() {} }\n")
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value={"full_name": "Ns.Foo.Bar", "name": "Bar"}),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 0}),
         get_containing_type=MagicMock(return_value={"full_name": "Ns.Foo", "name": "Foo", "kind": "class"}),
@@ -349,10 +349,10 @@ def test_get_context_for_no_summaries_section_when_none_exist(tmp_path):
     source_file.write_text("class Foo { void Bar() {} }\n")
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value={"full_name": "Ns.Foo.Bar", "name": "Bar"}),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 0}),
         get_containing_type=MagicMock(return_value=None),
@@ -368,7 +368,7 @@ def test_get_hierarchy_unwraps_nodes():
     parent = _node(["Class"], {"full_name": "A.Base", "file_path": "/src/Base.cs"})
     child = _node(["Class"], {"full_name": "A.Child", "file_path": "/src/Child.cs"})
     iface = _node(["Interface"], {"full_name": "A.IFoo", "file_path": "/src/IFoo.cs"})
-    with patch("synapse.service.get_hierarchy", return_value={"parents": [parent], "children": [child], "implements": [iface]}):
+    with patch("synapps.service.get_hierarchy", return_value={"parents": [parent], "children": [child], "implements": [iface]}):
         result = svc.get_hierarchy("A.Middle")
     assert result["parents"] == [{"full_name": "A.Base", "file_path": "/src/Base.cs"}]
     assert result["children"] == [{"full_name": "A.Child", "file_path": "/src/Child.cs"}]
@@ -392,7 +392,7 @@ def test_get_context_for_scope_structure_returns_signatures_only(tmp_path):
                                     "line": 2, "end_line": 2})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_constructor=MagicMock(return_value=ctor_node),
         get_symbol_source_info=MagicMock(return_value={
@@ -427,7 +427,7 @@ def test_get_context_for_scope_structure_on_interface():
     symbol = _node(["Interface"], {"full_name": "Ns.IFoo", "name": "IFoo", "kind": "interface"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_constructor=MagicMock(return_value=None),
         get_members_overview=MagicMock(return_value=[
@@ -450,7 +450,7 @@ def test_get_context_for_scope_structure_empty_type_returns_message():
     symbol = _node(["Class"], {"full_name": "Ns.Empty", "name": "Empty", "kind": "class"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_constructor=MagicMock(return_value=None),
         get_members_overview=MagicMock(return_value=[]),
@@ -465,7 +465,7 @@ def test_get_context_for_scope_structure_empty_type_returns_message():
 
 
 def test_get_constructor_returns_constructor_node():
-    from synapse.graph.lookups import get_constructor
+    from synapps.graph.lookups import get_constructor
     conn = MagicMock()
     ctor_node = _node(["Method"], {"full_name": "Ns.Foo.Foo", "name": "Foo"})
     conn.query.return_value = [[ctor_node]]
@@ -476,7 +476,7 @@ def test_get_constructor_returns_constructor_node():
 
 
 def test_get_constructor_returns_none_when_no_constructor():
-    from synapse.graph.lookups import get_constructor
+    from synapps.graph.lookups import get_constructor
     conn = MagicMock()
     conn.query.return_value = []
     result = get_constructor(conn, "Ns.Foo")
@@ -484,9 +484,9 @@ def test_get_constructor_returns_none_when_no_constructor():
 
 
 def test_index_method_implements_calls_indexer() -> None:
-    """SynapseService.index_method_implements must delegate to MethodImplementsIndexer."""
+    """SynappsService.index_method_implements must delegate to MethodImplementsIndexer."""
     svc = _service()
-    with patch("synapse.service.indexing.MethodImplementsIndexer") as mock_cls:
+    with patch("synapps.service.indexing.MethodImplementsIndexer") as mock_cls:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
         svc.index_method_implements()
@@ -498,7 +498,7 @@ def test_index_method_implements_calls_indexer() -> None:
 def test_get_context_for_scope_structure_on_method_returns_error():
     svc = _service()
     symbol = _node(["Method"], {"full_name": "Ns.Foo.Bar", "name": "Bar", "kind": "method"})
-    with patch("synapse.service.context.get_symbol", return_value=symbol):
+    with patch("synapps.service.context.get_symbol", return_value=symbol):
         result = svc.get_context_for("Ns.Foo.Bar", scope="structure")
     assert result is not None
     assert "scope='structure' requires a type" in result
@@ -508,7 +508,7 @@ def test_get_context_for_scope_structure_on_method_returns_error():
 def test_get_context_for_scope_method_on_class_returns_error():
     svc = _service()
     symbol = _node(["Class"], {"full_name": "Ns.Foo", "name": "Foo", "kind": "class"})
-    with patch("synapse.service.context.get_symbol", return_value=symbol):
+    with patch("synapps.service.context.get_symbol", return_value=symbol):
         result = svc.get_context_for("Ns.Foo", scope="method")
     assert result is not None
     assert "scope='method' requires a method or property" in result
@@ -518,7 +518,7 @@ def test_get_context_for_scope_method_on_class_returns_error():
 def test_get_context_for_unknown_scope_returns_error():
     svc = _service()
     symbol = _node(["Class"], {"full_name": "Ns.Foo", "name": "Foo", "kind": "class"})
-    with patch("synapse.service.context.get_symbol", return_value=symbol):
+    with patch("synapps.service.context.get_symbol", return_value=symbol):
         result = svc.get_context_for("Ns.Foo", scope="bogus")
     assert result is not None
     assert "Unknown scope" in result
@@ -541,7 +541,7 @@ def test_get_context_for_scope_method_returns_focused_context(tmp_path):
     symbol = _node(["Method"], {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "kind": "method"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": str(source_file), "line": 2, "end_line": 4,
@@ -591,7 +591,7 @@ def test_get_context_for_scope_method_empty_callees_and_no_interface(tmp_path):
     symbol = _node(["Method"], {"full_name": "Ns.Foo.Simple", "name": "Simple", "kind": "method"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": str(source_file), "line": 0, "end_line": 0,
@@ -626,7 +626,7 @@ def test_get_context_for_scope_method_interface_contract_only_matching(tmp_path)
     symbol = _node(["Method"], {"full_name": "Ns.Foo.DoWork", "name": "DoWork", "kind": "method"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": str(source_file), "line": 0, "end_line": 0,
@@ -653,7 +653,7 @@ def test_get_context_for_scope_method_interface_contract_only_matching(tmp_path)
 def test_callers_section_formats_callers_with_sites():
     svc = _service()
     caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
-    with patch("synapse.service.context.find_callers_with_sites", return_value=[
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[
         {"caller": caller, "call_sites": [[32, 5], [58, 8]]},
     ]):
         result = svc._context._callers_section("Ns.Svc.DoWork")
@@ -665,7 +665,7 @@ def test_callers_section_formats_callers_with_sites():
 def test_callers_section_single_line_uses_singular():
     svc = _service()
     caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
-    with patch("synapse.service.context.find_callers_with_sites", return_value=[
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[
         {"caller": caller, "call_sites": [[32, 5]]},
     ]):
         result = svc._context._callers_section("Ns.Svc.DoWork")
@@ -676,7 +676,7 @@ def test_callers_section_single_line_uses_singular():
 def test_callers_section_no_sites_omits_parenthetical():
     svc = _service()
     caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
-    with patch("synapse.service.context.find_callers_with_sites", return_value=[
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[
         {"caller": caller, "call_sites": []},
     ]):
         result = svc._context._callers_section("Ns.Svc.DoWork")
@@ -686,7 +686,7 @@ def test_callers_section_no_sites_omits_parenthetical():
 
 def test_callers_section_returns_none_when_no_callers():
     svc = _service()
-    with patch("synapse.service.context.find_callers_with_sites", return_value=[]):
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[]):
         result = svc._context._callers_section("Ns.Svc.DoWork")
     assert result is None
 
@@ -697,14 +697,14 @@ def test_callers_section_limits_to_15_callers():
         {"caller": _node(["Method"], {"full_name": f"A.C{i}", "file_path": f"/src/{i}.cs"}), "call_sites": []}
         for i in range(20)
     ]
-    with patch("synapse.service.context.find_callers_with_sites", return_value=callers):
+    with patch("synapps.service.context.find_callers_with_sites", return_value=callers):
         result = svc._context._callers_section("Ns.Svc.DoWork")
     assert "... and 5 more callers" in result
 
 
 def test_test_coverage_section_formats_test_methods():
     svc = _service()
-    with patch("synapse.service.context.find_test_coverage", return_value=[
+    with patch("synapps.service.context.find_test_coverage", return_value=[
         {"full_name": "Ns.Tests.FooTests.TestBar", "file_path": "/tests/FooTests.cs"},
     ]):
         result = svc._context._test_coverage_section("Ns.Foo.Bar")
@@ -714,7 +714,7 @@ def test_test_coverage_section_formats_test_methods():
 
 def test_test_coverage_section_returns_none_when_empty():
     svc = _service()
-    with patch("synapse.service.context.find_test_coverage", return_value=[]):
+    with patch("synapps.service.context.find_test_coverage", return_value=[]):
         result = svc._context._test_coverage_section("Ns.Foo.Bar")
     assert result is None
 
@@ -726,7 +726,7 @@ def test_find_callers_returns_slim_dicts() -> None:
         "full_name": "Ns.Ctrl.Action", "file_path": "/src/Ctrl.cs",
         "line": 10, "end_line": 20, "language": "csharp", "signature": "void Action()",
     })
-    with patch("synapse.service.find_callers", return_value=[caller]):
+    with patch("synapps.service.find_callers", return_value=[caller]):
         result = svc.find_callers("Ns.Svc.Do")
     assert result == [{"full_name": "Ns.Ctrl.Action", "file_path": "/src/Ctrl.cs", "line": 10}]
     assert "end_line" not in result[0]
@@ -740,7 +740,7 @@ def test_search_symbols_returns_slim_dicts() -> None:
         "full_name": "Ns.MyClass", "name": "MyClass", "kind": "class",
         "file_path": "/src/My.cs", "line": 5, "end_line": 100, "language": "csharp",
     })
-    with patch("synapse.service.search_symbols", return_value=[node]):
+    with patch("synapps.service.search_symbols", return_value=[node]):
         result = svc.search_symbols("MyClass")
     assert result == [{"full_name": "Ns.MyClass", "name": "MyClass", "kind": "class", "file_path": "/src/My.cs", "line": 5, "language": "csharp"}]
     assert "end_line" not in result[0]
@@ -752,7 +752,7 @@ def test_get_hierarchy_returns_slim_dicts() -> None:
     parent = _node(["Class"], {"full_name": "Ns.Base", "file_path": "/src/Base.cs", "line": 1, "end_line": 50})
     child = _node(["Class"], {"full_name": "Ns.Derived", "file_path": "/src/Derived.cs", "line": 1, "end_line": 30})
     iface = _node(["Interface"], {"full_name": "Ns.IFoo", "file_path": "/src/IFoo.cs", "line": 1, "end_line": 10})
-    with patch("synapse.service.get_hierarchy", return_value={"parents": [parent], "children": [child], "implements": [iface]}):
+    with patch("synapps.service.get_hierarchy", return_value={"parents": [parent], "children": [child], "implements": [iface]}):
         result = svc.get_hierarchy("Ns.Derived")
     assert result["parents"] == [{"full_name": "Ns.Base", "file_path": "/src/Base.cs"}]
     assert "end_line" not in result["parents"][0]
@@ -761,8 +761,8 @@ def test_get_hierarchy_returns_slim_dicts() -> None:
 def test_relevant_deps_section_shows_member_signatures():
     svc = _service()
     dep = _node(["Interface"], {"full_name": "Ns.IRepo"})
-    with patch("synapse.service.context.find_relevant_deps", return_value=[dep]), \
-         patch("synapse.service.context.get_called_members", return_value=[
+    with patch("synapps.service.context.find_relevant_deps", return_value=[dep]), \
+         patch("synapps.service.context.get_called_members", return_value=[
              {"full_name": "Ns.IRepo.Save", "name": "Save", "signature": "Task Save(Entity)"},
          ]):
         result = svc._context._relevant_deps_section("Ns.MyClass", "Ns.MyClass.DoWork")
@@ -773,17 +773,17 @@ def test_relevant_deps_section_shows_member_signatures():
 
 def test_relevant_deps_section_returns_none_when_empty():
     svc = _service()
-    with patch("synapse.service.context.find_relevant_deps", return_value=[]):
+    with patch("synapps.service.context.find_relevant_deps", return_value=[]):
         result = svc._context._relevant_deps_section("Ns.MyClass", "Ns.MyClass.DoWork")
     assert result is None
 
 
 def test_relevant_deps_section_shows_only_called_members() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
     dep_node = {"full_name": "Ns.DbContext", "name": "DbContext"}
-    with patch("synapse.service.context.find_relevant_deps", return_value=[dep_node]), \
-         patch("synapse.service.context.get_called_members") as mock_called:
+    with patch("synapps.service.context.find_relevant_deps", return_value=[dep_node]), \
+         patch("synapps.service.context.get_called_members") as mock_called:
         mock_called.return_value = [
             {"full_name": "Ns.DbContext.MeetingNotes", "name": "MeetingNotes", "type_name": "DbSet<MeetingNote>"},
         ]
@@ -794,11 +794,11 @@ def test_relevant_deps_section_shows_only_called_members() -> None:
 
 def test_relevant_deps_section_fallback_to_all_members() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
     dep_node = {"full_name": "Ns.DbContext", "name": "DbContext"}
-    with patch("synapse.service.context.find_relevant_deps", return_value=[dep_node]), \
-         patch("synapse.service.context.get_called_members", return_value=[]), \
-         patch("synapse.service.context.get_members_overview") as mock_members:
+    with patch("synapps.service.context.find_relevant_deps", return_value=[dep_node]), \
+         patch("synapps.service.context.get_called_members", return_value=[]), \
+         patch("synapps.service.context.get_members_overview") as mock_members:
         mock_members.return_value = [
             {"full_name": "Ns.DbContext.All", "name": "All", "type_name": "DbSet<All>"},
         ]
@@ -821,7 +821,7 @@ def test_get_context_for_default_scope_unchanged(tmp_path):
     )
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     patches = dict(
         get_symbol=MagicMock(return_value=_node(
@@ -842,9 +842,9 @@ def test_get_context_for_default_scope_unchanged(tmp_path):
         get_summary=MagicMock(return_value=None),
     )
 
-    with patch.multiple("synapse.service.context", **patches):
+    with patch.multiple("synapps.service.context", **patches):
         result_default = svc.get_context_for("Ns.MyClass.GetUser")
-    with patch.multiple("synapse.service.context", **patches):
+    with patch.multiple("synapps.service.context", **patches):
         result_explicit = svc.get_context_for("Ns.MyClass.GetUser", scope=None)
 
     assert result_default == result_explicit
@@ -870,7 +870,7 @@ def test_get_context_for_scope_edit_method_includes_all_sections(tmp_path):
     dep = _node(["Interface"], {"full_name": "Ns.IRepo"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": str(source_file), "line": 2, "end_line": 4,
@@ -918,7 +918,7 @@ def test_get_context_for_scope_edit_method_omits_empty_sections(tmp_path):
     symbol = _node(["Method"], {"full_name": "Ns.Foo.Simple", "name": "Simple", "kind": "method"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": str(source_file), "line": 0, "end_line": 0,
@@ -944,7 +944,7 @@ def test_get_context_for_scope_edit_method_omits_empty_sections(tmp_path):
 def test_get_context_for_scope_edit_rejects_property():
     svc = _service()
     symbol = _node(["Property"], {"full_name": "Ns.Foo.Name", "name": "Name", "kind": "property"})
-    with patch("synapse.service.context.get_symbol", return_value=symbol):
+    with patch("synapps.service.context.get_symbol", return_value=symbol):
         result = svc.get_context_for("Ns.Foo.Name", scope="edit")
     assert "scope='edit' requires" in result
     assert "property" in result
@@ -967,7 +967,7 @@ def test_get_context_for_scope_edit_class_includes_all_sections(tmp_path):
     dep = _node(["Interface"], {"full_name": "Ns.IRepo"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": str(source_file), "line": 1, "end_line": 3,
@@ -1002,7 +1002,7 @@ def test_get_context_for_scope_edit_interface_skips_constructor_deps():
     symbol = _node(["Interface"], {"full_name": "Ns.ISvc", "name": "ISvc", "kind": "interface"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": "/src/ISvc.cs", "line": 0, "end_line": 5,
@@ -1026,7 +1026,7 @@ def test_get_context_for_scope_edit_class_no_methods_shows_note():
     symbol = _node(["Class"], {"full_name": "Ns.Empty", "name": "Empty", "kind": "class"})
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
             "file_path": "/src/Empty.cs", "line": 0, "end_line": 1,
@@ -1050,7 +1050,7 @@ def test_find_usages_method_returns_text_with_callers() -> None:
     svc = _service()
     method_node = _node(["Method"], {"full_name": "Ns.Svc.DoWork", "name": "DoWork"})
 
-    with patch("synapse.service.get_symbol", return_value=method_node):
+    with patch("synapps.service.get_symbol", return_value=method_node):
         svc.find_callers = MagicMock(return_value=[
             {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "line": 10},
         ])
@@ -1071,7 +1071,7 @@ def test_find_usages_class_returns_text_summary() -> None:
     ref_symbol = _node(["Field"], {"full_name": "Ns.Controller._svc", "file_path": "/src/Controller.cs"})
 
     with patch.multiple(
-        "synapse.service",
+        "synapps.service",
         get_symbol=MagicMock(return_value=class_node),
         get_members_overview=MagicMock(return_value=[method_member]),
         query_find_type_references=MagicMock(return_value=[{"symbol": ref_symbol, "kind": "field_type"}]),
@@ -1095,7 +1095,7 @@ def test_find_usages_class_affected_files_deduplicates() -> None:
     ref2 = _node(["Field"], {"full_name": "Ns.C1._s2", "file_path": "/src/C1.cs"})  # same file
 
     with patch.multiple(
-        "synapse.service",
+        "synapps.service",
         get_symbol=MagicMock(return_value=class_node),
         get_members_overview=MagicMock(return_value=[]),
         query_find_type_references=MagicMock(return_value=[
@@ -1112,7 +1112,7 @@ def test_find_usages_class_affected_files_deduplicates() -> None:
 
 def test_find_usages_symbol_not_found() -> None:
     svc = _service()
-    with patch("synapse.service.get_symbol", return_value=None):
+    with patch("synapps.service.get_symbol", return_value=None):
         result = svc.find_usages("Ns.Missing")
     assert isinstance(result, str)
     assert "not found" in result.lower()
@@ -1121,7 +1121,7 @@ def test_find_usages_symbol_not_found() -> None:
 def test_find_usages_unsupported_label() -> None:
     svc = _service()
     file_node = _node(["File"], {"full_name": "/src/Foo.cs", "name": "Foo.cs"})
-    with patch("synapse.service.get_symbol", return_value=file_node):
+    with patch("synapps.service.get_symbol", return_value=file_node):
         result = svc.find_usages("/src/Foo.cs")
     assert isinstance(result, str)
     assert "does not support" in result.lower()
@@ -1135,7 +1135,7 @@ def test_find_usages_class_filters_test_type_references() -> None:
     test_ref = _node(["Field"], {"full_name": "Ns.Tests.Setup._svc", "file_path": "/proj/MyApp.Tests/Setup.cs"})
 
     with patch.multiple(
-        "synapse.service",
+        "synapps.service",
         get_symbol=MagicMock(return_value=class_node),
         get_members_overview=MagicMock(return_value=[]),
         query_find_type_references=MagicMock(return_value=[
@@ -1160,7 +1160,7 @@ def test_find_usages_class_includes_test_refs_when_requested() -> None:
     test_ref = _node(["Field"], {"full_name": "Ns.Tests.Setup._svc", "file_path": "/proj/MyApp.Tests/Setup.cs"})
 
     with patch.multiple(
-        "synapse.service",
+        "synapps.service",
         get_symbol=MagicMock(return_value=class_node),
         get_members_overview=MagicMock(return_value=[]),
         query_find_type_references=MagicMock(return_value=[
@@ -1180,7 +1180,7 @@ def test_find_usages_property_returns_text() -> None:
     svc = _service()
     prop_node = _node(["Property"], {"full_name": "Ns.Svc.Name", "name": "Name"})
 
-    with patch("synapse.service.get_symbol", return_value=prop_node):
+    with patch("synapps.service.get_symbol", return_value=prop_node):
         svc.find_callers = MagicMock(return_value=[
             {"full_name": "Ns.Controller.Action", "file_path": "/src/Controller.cs", "line": 5},
         ])
@@ -1201,7 +1201,7 @@ def test_get_context_for_falls_back_to_structure_when_source_exceeds_max_lines(t
     source_file.write_text(source_lines)
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     class_node = _node(["Class"], {
         "full_name": "Ns.BigClass", "name": "BigClass", "kind": "class",
@@ -1213,7 +1213,7 @@ def test_get_context_for_falls_back_to_structure_when_source_exceeds_max_lines(t
     })
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 299}),
         get_containing_type=MagicMock(return_value=None),
@@ -1236,7 +1236,7 @@ def test_get_context_for_shows_full_source_when_under_max_lines(tmp_path) -> Non
     source_file.write_text("public class Small {}\nint x;\n")
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     class_node = _node(["Class"], {
         "full_name": "Ns.Small", "name": "Small", "kind": "class",
@@ -1244,7 +1244,7 @@ def test_get_context_for_shows_full_source_when_under_max_lines(tmp_path) -> Non
     })
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 1}),
         get_containing_type=MagicMock(return_value=None),
@@ -1266,7 +1266,7 @@ def test_get_context_for_max_lines_zero_always_uses_structure(tmp_path) -> None:
     source_file.write_text("class X {}\n")
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     class_node = _node(["Class"], {
         "full_name": "Ns.X", "name": "X", "kind": "class",
@@ -1274,7 +1274,7 @@ def test_get_context_for_max_lines_zero_always_uses_structure(tmp_path) -> None:
     })
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 0}),
         get_containing_type=MagicMock(return_value=None),
@@ -1296,7 +1296,7 @@ def test_get_context_for_negative_max_lines_disables_fallback(tmp_path) -> None:
     source_file.write_text(source_lines)
 
     conn = MagicMock()
-    svc = SynapseService(conn)
+    svc = SynappsService(conn)
 
     class_node = _node(["Class"], {
         "full_name": "Ns.Huge", "name": "Huge", "kind": "class",
@@ -1304,7 +1304,7 @@ def test_get_context_for_negative_max_lines_disables_fallback(tmp_path) -> None:
     })
 
     with patch.multiple(
-        "synapse.service.context",
+        "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
         get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 499}),
         get_containing_type=MagicMock(return_value=None),
@@ -1326,7 +1326,7 @@ def test_get_context_for_negative_max_lines_disables_fallback(tmp_path) -> None:
 def test_find_callers_respects_limit() -> None:
     svc = _service()
     callers = [_node(["Method"], {"full_name": f"Ns.C{i}", "file_path": f"/f{i}.cs", "line": i}) for i in range(10)]
-    with patch("synapse.service.find_callers", return_value=callers):
+    with patch("synapps.service.find_callers", return_value=callers):
         result = svc.find_callers("Ns.Svc.Do", limit=3)
     assert result["_truncated"] is True
     assert result["_total"] == 10
@@ -1336,7 +1336,7 @@ def test_find_callers_respects_limit() -> None:
 def test_find_callers_no_truncation_when_under_limit() -> None:
     svc = _service()
     callers = [_node(["Method"], {"full_name": "Ns.C1", "file_path": "/f.cs", "line": 1})]
-    with patch("synapse.service.find_callers", return_value=callers):
+    with patch("synapps.service.find_callers", return_value=callers):
         result = svc.find_callers("Ns.Svc.Do", limit=50)
     assert isinstance(result, list)
     assert len(result) == 1
@@ -1345,7 +1345,7 @@ def test_find_callers_no_truncation_when_under_limit() -> None:
 def test_search_symbols_respects_limit() -> None:
     svc = _service()
     nodes = [_node(["Class"], {"full_name": f"Ns.C{i}", "name": f"C{i}", "kind": "class", "file_path": f"/f{i}.cs", "line": i}) for i in range(10)]
-    with patch("synapse.service.search_symbols", return_value=nodes):
+    with patch("synapps.service.search_symbols", return_value=nodes):
         result = svc.search_symbols("C", limit=2)
     assert result["_truncated"] is True
     assert result["_total"] == 10
@@ -1354,9 +1354,9 @@ def test_search_symbols_respects_limit() -> None:
 
 def test_resolve_preference_concrete_selects_class() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve, \
-         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve, \
+         patch("synapps.service.resolve_full_name_with_labels") as mock_labels:
         mock_resolve.return_value = ["Ns.ITaskService", "Ns.TaskService"]
         mock_labels.return_value = [("Ns.ITaskService", ["Interface"]), ("Ns.TaskService", ["Class"])]
         result = svc._resolve("TaskService", preference="concrete")
@@ -1365,9 +1365,9 @@ def test_resolve_preference_concrete_selects_class() -> None:
 
 def test_resolve_preference_interface_selects_interface() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve, \
-         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve, \
+         patch("synapps.service.resolve_full_name_with_labels") as mock_labels:
         mock_resolve.return_value = ["Ns.ITaskService", "Ns.TaskService"]
         mock_labels.return_value = [("Ns.ITaskService", ["Interface"]), ("Ns.TaskService", ["Class"])]
         result = svc._resolve("TaskService", preference="interface")
@@ -1376,8 +1376,8 @@ def test_resolve_preference_interface_selects_interface() -> None:
 
 def test_resolve_preference_none_raises_on_ambiguity() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve:
         mock_resolve.return_value = ["Ns.ITaskService", "Ns.TaskService"]
         with pytest.raises(ValueError, match="Ambiguous"):
             svc._resolve("TaskService")
@@ -1385,9 +1385,9 @@ def test_resolve_preference_none_raises_on_ambiguity() -> None:
 
 def test_resolve_preference_still_raises_if_multiple_match() -> None:
     conn = MagicMock()
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve, \
-         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve, \
+         patch("synapps.service.resolve_full_name_with_labels") as mock_labels:
         mock_resolve.return_value = ["Ns.A.TaskService", "Ns.B.TaskService"]
         mock_labels.return_value = [("Ns.A.TaskService", ["Class"]), ("Ns.B.TaskService", ["Class"])]
         with pytest.raises(ValueError, match="Ambiguous"):
@@ -1402,9 +1402,9 @@ def test_resolve_preference_method_checks_parent_type() -> None:
         ["Ns.MeetingService.CreateAsync", ["Class"]],
         ["Ns.IMeetingService.CreateAsync", ["Interface"]],
     ]
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve, \
-         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve, \
+         patch("synapps.service.resolve_full_name_with_labels") as mock_labels:
         mock_resolve.return_value = ["Ns.IMeetingService.CreateAsync", "Ns.MeetingService.CreateAsync"]
         mock_labels.return_value = [
             ("Ns.IMeetingService.CreateAsync", ["Method"]),
@@ -1421,9 +1421,9 @@ def test_resolve_preference_method_interface_checks_parent() -> None:
         ["Ns.MeetingService.CreateAsync", ["Class"]],
         ["Ns.IMeetingService.CreateAsync", ["Interface"]],
     ]
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve, \
-         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve, \
+         patch("synapps.service.resolve_full_name_with_labels") as mock_labels:
         mock_resolve.return_value = ["Ns.IMeetingService.CreateAsync", "Ns.MeetingService.CreateAsync"]
         mock_labels.return_value = [
             ("Ns.IMeetingService.CreateAsync", ["Method"]),
@@ -1440,9 +1440,9 @@ def test_resolve_preference_method_still_ambiguous_if_multiple_concrete() -> Non
         ["Ns.A.CreateAsync", ["Class"]],
         ["Ns.B.CreateAsync", ["Class"]],
     ]
-    svc = SynapseService(conn)
-    with patch("synapse.service.resolve_full_name") as mock_resolve, \
-         patch("synapse.service.resolve_full_name_with_labels") as mock_labels:
+    svc = SynappsService(conn)
+    with patch("synapps.service.resolve_full_name") as mock_resolve, \
+         patch("synapps.service.resolve_full_name_with_labels") as mock_labels:
         mock_resolve.return_value = ["Ns.A.CreateAsync", "Ns.B.CreateAsync"]
         mock_labels.return_value = [
             ("Ns.A.CreateAsync", ["Method"]),
@@ -1456,7 +1456,7 @@ def test_resolve_preference_method_still_ambiguous_if_multiple_concrete() -> Non
 # index_calls() Python wiring tests
 # ---------------------------------------------------------------------------
 # SymbolResolver and OverridesIndexer are imported at module level in service.py,
-# so they can be patched via "synapse.service.indexing.SymbolResolver" etc.
+# so they can be patched via "synapps.service.indexing.SymbolResolver" etc.
 
 def _make_python_plugin():
     """Return a mock plugin with name='python'."""
@@ -1493,11 +1493,11 @@ def test_index_calls_python_builds_module_full_names_and_passes_to_resolver() ->
     registry = MagicMock()
     registry.detect.return_value = [plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
 
-    with patch("synapse.service.indexing.get_method_symbol_map", return_value={}), \
-         patch("synapse.service.indexing.SymbolResolver") as MockResolver, \
-         patch("synapse.service.indexing.OverridesIndexer"):
+    with patch("synapps.service.indexing.get_method_symbol_map", return_value={}), \
+         patch("synapps.service.indexing.SymbolResolver") as MockResolver, \
+         patch("synapps.service.indexing.OverridesIndexer"):
 
         mock_resolver_inst = MagicMock()
         mock_resolver_inst._unresolved_sites = []
@@ -1532,11 +1532,11 @@ def test_index_calls_python_wires_module_name_resolver() -> None:
     registry = MagicMock()
     registry.detect.return_value = [plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
 
-    with patch("synapse.service.indexing.get_method_symbol_map", return_value={}), \
-         patch("synapse.service.indexing.SymbolResolver") as MockResolver, \
-         patch("synapse.service.indexing.OverridesIndexer"):
+    with patch("synapps.service.indexing.get_method_symbol_map", return_value={}), \
+         patch("synapps.service.indexing.SymbolResolver") as MockResolver, \
+         patch("synapps.service.indexing.OverridesIndexer"):
 
         mock_resolver_inst = MagicMock()
         mock_resolver_inst._unresolved_sites = []
@@ -1563,11 +1563,11 @@ def test_index_calls_python_calls_overrides_indexer() -> None:
     registry = MagicMock()
     registry.detect.return_value = [plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
 
-    with patch("synapse.service.indexing.get_method_symbol_map", return_value={}), \
-         patch("synapse.service.indexing.SymbolResolver") as MockResolver, \
-         patch("synapse.service.indexing.OverridesIndexer") as MockOverrides:
+    with patch("synapps.service.indexing.get_method_symbol_map", return_value={}), \
+         patch("synapps.service.indexing.SymbolResolver") as MockResolver, \
+         patch("synapps.service.indexing.OverridesIndexer") as MockOverrides:
 
         mock_resolver_inst = MagicMock()
         mock_resolver_inst._unresolved_sites = []
@@ -1591,12 +1591,12 @@ def test_index_calls_python_iterates_unresolved_sites() -> None:
     registry = MagicMock()
     registry.detect.return_value = [plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
 
-    with patch("synapse.service.indexing.get_method_symbol_map", return_value={}), \
-         patch("synapse.service.indexing.SymbolResolver") as MockResolver, \
-         patch("synapse.service.indexing.OverridesIndexer"), \
-         patch("synapse.service.indexing.log") as mock_log:
+    with patch("synapps.service.indexing.get_method_symbol_map", return_value={}), \
+         patch("synapps.service.indexing.SymbolResolver") as MockResolver, \
+         patch("synapps.service.indexing.OverridesIndexer"), \
+         patch("synapps.service.indexing.log") as mock_log:
 
         mock_resolver_inst = MagicMock()
         mock_resolver_inst._unresolved_sites = ["site1: unresolved", "site2: unresolved"]
@@ -1622,11 +1622,11 @@ def test_index_calls_csharp_no_module_full_names_no_overrides_indexer() -> None:
     registry = MagicMock()
     registry.detect.return_value = [plugin]
 
-    svc = SynapseService(conn=conn, registry=registry)
+    svc = SynappsService(conn=conn, registry=registry)
 
-    with patch("synapse.service.indexing.get_method_symbol_map", return_value={}), \
-         patch("synapse.service.indexing.SymbolResolver") as MockResolver, \
-         patch("synapse.service.indexing.OverridesIndexer") as MockOverrides:
+    with patch("synapps.service.indexing.get_method_symbol_map", return_value={}), \
+         patch("synapps.service.indexing.SymbolResolver") as MockResolver, \
+         patch("synapps.service.indexing.OverridesIndexer") as MockOverrides:
 
         mock_resolver_inst = MagicMock()
         MockResolver.return_value = mock_resolver_inst
@@ -1682,7 +1682,7 @@ def test_find_type_impact_applies_limit() -> None:
     svc = _service()
     refs = [{"full_name": f"Ns.R{i}", "file_path": f"/f{i}.cs", "context": "prod"} for i in range(10)]
     impact = {"type": "Ns.Foo", "references": refs, "prod_count": 10, "test_count": 0}
-    with patch("synapse.service.find_type_impact", return_value=impact):
+    with patch("synapps.service.find_type_impact", return_value=impact):
         result = svc.find_type_impact("Ns.Foo", limit=3)
     assert result["_total_references"] == 10
     assert len(result["references"]) == 3
@@ -1733,7 +1733,7 @@ def test_analyze_change_impact_returns_text() -> None:
         "direct_callees": [{"full_name": "Ns.Repo.Save", "file_path": "/proj/src/Repo.cs"}],
         "total_affected": 3,
     }
-    with patch("synapse.service.analyze_change_impact", return_value=impact):
+    with patch("synapps.service.analyze_change_impact", return_value=impact):
         result = svc.analyze_change_impact("Ns.Svc.Do")
 
     assert isinstance(result, str)
@@ -1753,6 +1753,6 @@ def test_search_symbols_returns_relative_paths() -> None:
         "full_name": "Ns.Foo", "name": "Foo", "kind": "class",
         "file_path": "/proj/src/Foo.cs", "line": 1,
     })
-    with patch("synapse.service.search_symbols", return_value=[node]):
+    with patch("synapps.service.search_symbols", return_value=[node]):
         result = svc.search_symbols("Foo")
     assert result[0]["file_path"] == "src/Foo.cs"

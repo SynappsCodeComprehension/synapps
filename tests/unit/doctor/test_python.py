@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.doctor.checks.python3 import PythonCheck
-from synapse.doctor.checks.pylsp import PylspCheck
+from synapps.doctor.checks.python3 import PythonCheck
+from synapps.doctor.checks.pylsp import PylspCheck
 
 
 def test_python_pass_when_version_exits_zero() -> None:
-    with patch("synapse.doctor.checks.python3.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.python3.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.python3.shutil") as mock_shutil:
+        with patch("synapps.doctor.checks.python3.subprocess") as mock_sub:
             mock_shutil.which.return_value = "/usr/bin/python3"
             mock_sub.run.return_value = MagicMock(returncode=0)
             mock_sub.TimeoutExpired = subprocess.TimeoutExpired
@@ -21,7 +21,7 @@ def test_python_pass_when_version_exits_zero() -> None:
 
 
 def test_python_fail_when_not_on_path() -> None:
-    with patch("synapse.doctor.checks.python3.shutil") as mock_shutil:
+    with patch("synapps.doctor.checks.python3.shutil") as mock_shutil:
         mock_shutil.which.return_value = None
         result = PythonCheck().run()
     assert result.status == "fail"
@@ -30,8 +30,8 @@ def test_python_fail_when_not_on_path() -> None:
 
 
 def test_python_fail_when_version_exits_nonzero() -> None:
-    with patch("synapse.doctor.checks.python3.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.python3.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.python3.shutil") as mock_shutil:
+        with patch("synapps.doctor.checks.python3.subprocess") as mock_sub:
             mock_shutil.which.return_value = "/usr/bin/python3"
             mock_sub.run.return_value = MagicMock(returncode=1)
             mock_sub.TimeoutExpired = subprocess.TimeoutExpired
@@ -40,8 +40,8 @@ def test_python_fail_when_version_exits_nonzero() -> None:
 
 
 def test_python_fail_when_timeout() -> None:
-    with patch("synapse.doctor.checks.python3.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.python3.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.python3.shutil") as mock_shutil:
+        with patch("synapps.doctor.checks.python3.subprocess") as mock_sub:
             mock_shutil.which.return_value = "/usr/bin/python3"
             mock_sub.run.side_effect = subprocess.TimeoutExpired(cmd="python3", timeout=10)
             mock_sub.TimeoutExpired = subprocess.TimeoutExpired
@@ -54,8 +54,8 @@ def test_python_group_is_python() -> None:
 
 
 def test_python_pass_fix_is_none() -> None:
-    with patch("synapse.doctor.checks.python3.shutil") as mock_shutil:
-        with patch("synapse.doctor.checks.python3.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.python3.shutil") as mock_shutil:
+        with patch("synapps.doctor.checks.python3.subprocess") as mock_sub:
             mock_shutil.which.return_value = "/usr/bin/python3"
             mock_sub.run.return_value = MagicMock(returncode=0)
             mock_sub.TimeoutExpired = subprocess.TimeoutExpired
@@ -67,7 +67,7 @@ def test_python_pass_fix_is_none() -> None:
 
 
 def test_pyright_pass_when_importable() -> None:
-    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.pylsp.subprocess") as mock_sub:
         mock_sub.run.return_value = MagicMock(returncode=0, stdout="/usr/lib/python3/site-packages/pyright/__init__.py\n")
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = PylspCheck().run()
@@ -76,7 +76,7 @@ def test_pyright_pass_when_importable() -> None:
 
 
 def test_pyright_fail_when_not_importable() -> None:
-    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.pylsp.subprocess") as mock_sub:
         mock_sub.run.return_value = MagicMock(returncode=1, stdout="", stderr="ModuleNotFoundError")
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = PylspCheck().run()
@@ -86,7 +86,7 @@ def test_pyright_fail_when_not_importable() -> None:
 
 
 def test_pyright_fail_when_executable_not_found() -> None:
-    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.pylsp.subprocess") as mock_sub:
         mock_sub.run.side_effect = FileNotFoundError("python")
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = PylspCheck().run()
@@ -94,7 +94,7 @@ def test_pyright_fail_when_executable_not_found() -> None:
 
 
 def test_pyright_fail_when_timeout() -> None:
-    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.pylsp.subprocess") as mock_sub:
         mock_sub.run.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=10)
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = PylspCheck().run()

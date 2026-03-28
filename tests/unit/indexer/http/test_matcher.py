@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from synapse.indexer.http.interface import HttpClientCall, HttpEndpointDef
-from synapse.indexer.http.matcher import match_endpoints, MatchedEndpoint
+from synapps.indexer.http.interface import HttpClientCall, HttpEndpointDef
+from synapps.indexer.http.matcher import match_endpoints, MatchedEndpoint
 
 
 def _ep(route: str, method: str = "GET", handler: str = "Handler") -> HttpEndpointDef:

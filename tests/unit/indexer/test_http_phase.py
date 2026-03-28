@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from synapse.indexer.http.interface import HttpEndpointDef, HttpClientCall, HttpExtractionResult
-from synapse.indexer.http_phase import HttpPhase
+from synapps.indexer.http.interface import HttpEndpointDef, HttpClientCall, HttpExtractionResult
+from synapps.indexer.http_phase import HttpPhase
 
 
 def _def(route: str, method: str, handler: str, line: int = 1) -> HttpEndpointDef:
@@ -83,7 +83,7 @@ def test_conflict_warning_emitted() -> None:
             _def("/api/items", "GET", "CtrlB.GetAll", 20),
         ],
     )
-    with patch("synapse.indexer.http_phase.log") as mock_log:
+    with patch("synapps.indexer.http_phase.log") as mock_log:
         phase.run([result])
     mock_log.warning.assert_called_once()
     warning_msg = mock_log.warning.call_args[0]
@@ -101,7 +101,7 @@ def test_conflict_warning_emitted_once_per_pair() -> None:
             _def("/api/items", "GET", "CtrlC.GetAll", 30),
         ],
     )
-    with patch("synapse.indexer.http_phase.log") as mock_log:
+    with patch("synapps.indexer.http_phase.log") as mock_log:
         phase.run([result])
     assert mock_log.warning.call_count == 1
     warning_msg = mock_log.warning.call_args[0]
@@ -116,7 +116,7 @@ def test_no_conflict_warning_for_single_handler() -> None:
     result = HttpExtractionResult(
         endpoint_defs=[_def("/api/items", "GET", "Ctrl.GetAll", 10)],
     )
-    with patch("synapse.indexer.http_phase.log") as mock_log:
+    with patch("synapps.indexer.http_phase.log") as mock_log:
         phase.run([result])
     mock_log.warning.assert_not_called()
 
@@ -130,6 +130,6 @@ def test_no_conflict_for_different_routes() -> None:
             _def("/api/orders", "GET", "Ctrl.GetOrders", 20),
         ],
     )
-    with patch("synapse.indexer.http_phase.log") as mock_log:
+    with patch("synapps.indexer.http_phase.log") as mock_log:
         phase.run([result])
     mock_log.warning.assert_not_called()

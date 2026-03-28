@@ -1,9 +1,9 @@
 """Tests for TypeScript-specific kind_str overrides in Indexer._upsert_symbol."""
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
-from synapse.indexer.indexer import Indexer
-from synapse.indexer.assignment_ref import AssignmentRef
-from synapse.lsp.interface import IndexSymbol, SymbolKind, LSPAdapter
+from synapps.indexer.indexer import Indexer
+from synapps.indexer.assignment_ref import AssignmentRef
+from synapps.lsp.interface import IndexSymbol, SymbolKind, LSPAdapter
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def _make_ts_method_symbol(name: str, parent_full_name: str | None = "src/foo.My
     )
 
 
-from synapse.indexer.indexer import _is_minified, _is_minified_source
+from synapps.indexer.indexer import _is_minified, _is_minified_source
 
 
 def test_is_minified_returns_true_for_long_first_line(tmp_path):
@@ -255,7 +255,7 @@ def test_index_project_builds_assignment_map_for_python(tmp_path):
     )
     lsp.get_document_symbols.return_value = [cls_sym, method_sym]
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         mock_resolver_instance = MagicMock()
         MockResolver.return_value = mock_resolver_instance
         indexer.index_project(str(tmp_path), "python")
@@ -296,7 +296,7 @@ def test_index_project_skips_assignment_map_for_csharp(tmp_path):
     )
     lsp.get_document_symbols.return_value = [cls_sym]
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         mock_resolver_instance = MagicMock()
         MockResolver.return_value = mock_resolver_instance
         indexer.index_project(str(tmp_path), "csharp")
@@ -335,7 +335,7 @@ def test_reindex_file_builds_assignment_map(tmp_path):
     )
     lsp.get_document_symbols.return_value = [cls_sym, method_sym]
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         mock_resolver_instance = MagicMock()
         MockResolver.return_value = mock_resolver_instance
         indexer.reindex_file(str(py_file), str(tmp_path))
@@ -416,7 +416,7 @@ def test_index_project_catches_lsp_timeout_and_continues(tmp_path):
     """ERR-06: TimeoutError on one file doesn't abort entire indexing."""
     indexer, lsp, conn, file_a, file_b = _make_two_file_indexer(tmp_path)
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         MockResolver.return_value = MagicMock()
         indexer.index_project(str(tmp_path), "python")
 
@@ -430,9 +430,9 @@ def test_index_project_logs_timed_out_file_name(tmp_path):
     import logging
     indexer, lsp, conn, file_a, file_b = _make_two_file_indexer(tmp_path)
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         MockResolver.return_value = MagicMock()
-        with patch("synapse.indexer.indexer.log") as mock_log:
+        with patch("synapps.indexer.indexer.log") as mock_log:
             indexer.index_project(str(tmp_path), "python")
 
     # Check that a warning was emitted mentioning file_a
@@ -444,9 +444,9 @@ def test_index_project_logs_verbose_suggestion_on_timeout(tmp_path):
     """ERR-06: End-of-index summary suggests --verbose."""
     indexer, lsp, conn, file_a, file_b = _make_two_file_indexer(tmp_path)
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         MockResolver.return_value = MagicMock()
-        with patch("synapse.indexer.indexer.log") as mock_log:
+        with patch("synapps.indexer.indexer.log") as mock_log:
             indexer.index_project(str(tmp_path), "python")
 
     # Check that a warning containing --verbose was emitted

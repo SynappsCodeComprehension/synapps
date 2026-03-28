@@ -24,18 +24,18 @@ jobs:
           python3 -m venv /tmp/smoke-venv
           /tmp/smoke-venv/bin/python -m pip install --quiet dist/*.whl
           /tmp/smoke-venv/bin/python -c "
-          import synapse
+          import synapps
           import solidlsp
           import tree_sitter_python
           import tree_sitter_c_sharp
           import tree_sitter_typescript
           import tree_sitter_java
-          print(f'synapse.__version__ = {synapse.__version__!r}')
-          assert synapse.__version__ != 'dev', 'version must not be dev in wheel'
+          print(f'synapps.__version__ = {synapps.__version__!r}')
+          assert synapps.__version__ != 'dev', 'version must not be dev in wheel'
           print('All imports OK')
           "
-          /tmp/smoke-venv/bin/synapse --help
-          /tmp/smoke-venv/bin/synapse-mcp --help
+          /tmp/smoke-venv/bin/synapps --help
+          /tmp/smoke-venv/bin/synapps-mcp --help
 
       - uses: actions/upload-artifact@v4
         with:
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/synapse-mcp/
+      url: https://pypi.org/project/synapps-mcp/
     permissions:
       id-token: write
     steps:

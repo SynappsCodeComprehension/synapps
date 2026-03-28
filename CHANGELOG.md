@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Synapse will be documented in this file.
+All notable changes to Synapps will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
@@ -9,19 +9,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [1.2.0] - 2026-03-28
 
 ### Added
-- **PyPI distribution** — install via `pip install synapse-mcp` (package renamed from `synapse` to `synapse-mcp`)
-- **`synapse init` command** — interactive setup wizard that detects project languages, checks prerequisites, indexes the project, and configures MCP clients (Claude Desktop, Claude Code, Cursor, Copilot)
-- **`__version__` attribute** — `synapse.__version__` returns the installed version at runtime via `importlib.metadata`
+- **PyPI distribution** — install via `pip install synapps-mcp` (package renamed from `synapps` to `synapps-mcp`)
+- **`synapps init` command** — interactive setup wizard that detects project languages, checks prerequisites, indexes the project, and configures MCP clients (Claude Desktop, Claude Code, Cursor, Copilot)
+- **`__version__` attribute** — `synapps.__version__` returns the installed version at runtime via `importlib.metadata`
 - **CI/CD publish workflow** — `.github/workflows/publish.yml` builds, smoke-tests, and publishes to PyPI on `v*` tags via OIDC trusted publishing
 - **Wheel smoke test** — CI verifies `solidlsp` and all 4 tree-sitter grammars are included in the published wheel
 - **Platform-aware doctor fix strings** — every failed check shows exact install commands for macOS (`brew`) or Linux (`apt-get`)
 - **Actionable error messages** — Docker-not-running, Memgraph connection lost, project-not-indexed, and language server timeout errors all show recovery commands
-- **MCP client auto-detection** — `synapse init` finds installed MCP clients and offers to write config with atomic merge (preserves existing server entries)
+- **MCP client auto-detection** — `synapps init` finds installed MCP clients and offers to write config with atomic merge (preserves existing server entries)
 
 ### Changed
-- Package distribution name changed from `synapse` to `synapse-mcp` (Python import paths unchanged)
-- `synapse doctor` now exits with code 1 when any check fails (enables use in scripts and CI)
-- SYNAPSE logo banner moved from `synapse index` (first run) to `synapse init`
+- Package distribution name changed from `synapps` to `synapps-mcp` (Python import paths unchanged)
+- `synapps doctor` now exits with code 1 when any check fails (enables use in scripts and CI)
+- SYNAPPS logo banner moved from `synapps index` (first run) to `synapps init`
 - Version bumped from 1.0.0 to 1.2.0
 
 ### Fixed
@@ -54,7 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - CLI with full query and management capabilities
 - Automatic per-project Docker container management
 - Incremental sync via git diff
-- Live file watching with `synapse watch`
+- Live file watching with `synapps watch`
 - Interface dispatch resolution in call graph traversal
 - Impact analysis with test coverage detection
 - Token-efficient output format for AI consumption

@@ -1,7 +1,7 @@
 import pytest
 import tree_sitter_python
 from tree_sitter import Language, Parser
-from synapse.indexer.python.python_import_extractor import PythonImportExtractor
+from synapps.indexer.python.python_import_extractor import PythonImportExtractor
 
 _lang = Language(tree_sitter_python.language())
 _parser = Parser(_lang)
@@ -17,36 +17,36 @@ def extractor() -> PythonImportExtractor:
 
 
 def test_from_import_single(extractor: PythonImportExtractor) -> None:
-    source = "from synapsepytest.animals import Dog"
+    source = "from synappspytest.animals import Dog"
     result = extractor.extract("test.py", _parse(source))
-    assert result == [("synapsepytest.animals", "Dog")]
+    assert result == [("synappspytest.animals", "Dog")]
 
 
 def test_from_import_multiple(extractor: PythonImportExtractor) -> None:
-    source = "from synapsepytest.animals import Dog, Cat"
+    source = "from synappspytest.animals import Dog, Cat"
     result = extractor.extract("test.py", _parse(source))
-    assert ("synapsepytest.animals", "Dog") in result
-    assert ("synapsepytest.animals", "Cat") in result
+    assert ("synappspytest.animals", "Dog") in result
+    assert ("synappspytest.animals", "Cat") in result
     assert len(result) == 2
 
 
 def test_bare_import(extractor: PythonImportExtractor) -> None:
-    source = "import synapsepytest.animals"
+    source = "import synappspytest.animals"
     result = extractor.extract("test.py", _parse(source))
-    assert result == [("synapsepytest.animals", None)]
+    assert result == [("synappspytest.animals", None)]
 
 
 def test_star_import_skipped(extractor: PythonImportExtractor) -> None:
-    source = "from synapsepytest.animals import *"
+    source = "from synappspytest.animals import *"
     result = extractor.extract("test.py", _parse(source))
     assert result == []
 
 
 def test_relative_import_single_dot() -> None:
-    extractor = PythonImportExtractor(source_root="tests/fixtures/SynapsePyTest")
+    extractor = PythonImportExtractor(source_root="tests/fixtures/SynappsPyTest")
     source = "from . import animals"
-    result = extractor.extract("tests/fixtures/SynapsePyTest/synapsepytest/services.py", _parse(source))
-    assert result == [("synapsepytest", "animals")]
+    result = extractor.extract("tests/fixtures/SynappsPyTest/synappspytest/services.py", _parse(source))
+    assert result == [("synappspytest", "animals")]
 
 
 def test_relative_import_double_dot() -> None:

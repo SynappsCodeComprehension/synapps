@@ -3,8 +3,8 @@ from __future__ import annotations
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
-from synapse.indexer.typescript.typescript_http_extractor import TypeScriptHttpExtractor
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.indexer.typescript.typescript_http_extractor import TypeScriptHttpExtractor
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 _lang = Language(tree_sitter_typescript.language_typescript())
 _parser = Parser(_lang)
@@ -318,7 +318,7 @@ function getItems() {
 # _find_enclosing_symbol narrowest-range tests -- PROD-04 regression
 # ---------------------------------------------------------------------------
 
-from synapse.indexer.typescript.typescript_http_extractor import _find_enclosing_symbol
+from synapps.indexer.typescript.typescript_http_extractor import _find_enclosing_symbol
 
 
 def test_find_enclosing_symbol_nested_class_narrowest_range() -> None:

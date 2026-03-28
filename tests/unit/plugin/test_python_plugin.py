@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.graph.connection import GraphConnection
-from synapse.plugin import LanguagePlugin, LanguageRegistry, default_registry
-from synapse.plugin.python import PythonPlugin
-from synapse.indexer.python.python_base_type_extractor import PythonBaseTypeExtractor
-from synapse.indexer.python.python_import_extractor import PythonImportExtractor
+from synapps.graph.connection import GraphConnection
+from synapps.plugin import LanguagePlugin, LanguageRegistry, default_registry
+from synapps.plugin.python import PythonPlugin
+from synapps.indexer.python.python_base_type_extractor import PythonBaseTypeExtractor
+from synapps.indexer.python.python_import_extractor import PythonImportExtractor
 
 
 def test_name_returns_python():
@@ -41,19 +41,19 @@ def test_create_import_extractor_with_source_root():
 
 
 def test_create_call_extractor_returns_python_call_extractor():
-    from synapse.indexer.python.python_call_extractor import PythonCallExtractor
+    from synapps.indexer.python.python_call_extractor import PythonCallExtractor
     extractor = PythonPlugin().create_call_extractor()
     assert isinstance(extractor, PythonCallExtractor)
 
 
 def test_create_attribute_extractor_returns_python_attribute_extractor():
-    from synapse.indexer.python.python_attribute_extractor import PythonAttributeExtractor
+    from synapps.indexer.python.python_attribute_extractor import PythonAttributeExtractor
     extractor = PythonPlugin().create_attribute_extractor()
     assert isinstance(extractor, PythonAttributeExtractor)
 
 
 def test_create_type_ref_extractor_returns_python_type():
-    from synapse.indexer.python.python_type_ref_extractor import PythonTypeRefExtractor
+    from synapps.indexer.python.python_type_ref_extractor import PythonTypeRefExtractor
     extractor = PythonPlugin().create_type_ref_extractor()
     assert isinstance(extractor, PythonTypeRefExtractor)
 
@@ -72,7 +72,7 @@ def test_detect_returns_python_plugin_for_py_directory(tmp_path):
 
 
 def test_upsert_symbol_imports_creates_imports_edge():
-    from synapse.graph.edges import upsert_symbol_imports
+    from synapps.graph.edges import upsert_symbol_imports
 
     conn = MagicMock(spec=GraphConnection)
     upsert_symbol_imports(conn, "/proj/main.py", "mypackage.MyClass")
@@ -87,7 +87,7 @@ def test_upsert_symbol_imports_creates_imports_edge():
 
 
 def test_create_lsp_adapter_delegates_to_python_adapter():
-    with patch("synapse.lsp.python.PythonLSPAdapter.create") as mock_create:
+    with patch("synapps.lsp.python.PythonLSPAdapter.create") as mock_create:
         mock_adapter = mock_create.return_value
         result = PythonPlugin().create_lsp_adapter("/path/to/project")
         mock_create.assert_called_once_with("/path/to/project")

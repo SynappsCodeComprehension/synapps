@@ -10,7 +10,7 @@ import pytest
 
 class TestDetectMCPClients:
     def test_detect_clients_includes_claude_code(self, tmp_path: Path) -> None:
-        from synapse.onboarding.mcp_configurator import detect_mcp_clients
+        from synapps.onboarding.mcp_configurator import detect_mcp_clients
 
         clients = detect_mcp_clients(str(tmp_path))
         names = [c.name for c in clients]
@@ -26,10 +26,10 @@ class TestDetectMCPClients:
             return str(tmp_path / f"{key}_config.json")
 
         with patch(
-            "synapse.onboarding.mcp_configurator.get_config_path",
+            "synapps.onboarding.mcp_configurator.get_config_path",
             side_effect=fake_get_config_path,
         ):
-            from synapse.onboarding.mcp_configurator import detect_mcp_clients
+            from synapps.onboarding.mcp_configurator import detect_mcp_clients
 
             clients = detect_mcp_clients(str(tmp_path))
             names = [c.name for c in clients]
@@ -47,10 +47,10 @@ class TestDetectMCPClients:
             return str(tmp_path / f"{key}_config.json")
 
         with patch(
-            "synapse.onboarding.mcp_configurator.get_config_path",
+            "synapps.onboarding.mcp_configurator.get_config_path",
             side_effect=fake_get_config_path,
         ):
-            from synapse.onboarding.mcp_configurator import detect_mcp_clients
+            from synapps.onboarding.mcp_configurator import detect_mcp_clients
 
             clients = detect_mcp_clients(str(tmp_path))
             names = [c.name for c in clients]
@@ -62,15 +62,15 @@ class TestWriteMCPConfig:
     def test_write_creates_new_file(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.json"
 
-        from synapse.onboarding.mcp_configurator import write_mcp_config
+        from synapps.onboarding.mcp_configurator import write_mcp_config
 
         write_mcp_config(config_path, servers_key="mcpServers")
 
         data = json.loads(config_path.read_text())
         assert "mcpServers" in data
-        assert "synapse" in data["mcpServers"]
-        assert data["mcpServers"]["synapse"]["command"] == "synapse-mcp"
-        assert data["mcpServers"]["synapse"]["args"] == []
+        assert "synapps" in data["mcpServers"]
+        assert data["mcpServers"]["synapps"]["command"] == "synapps-mcp"
+        assert data["mcpServers"]["synapps"]["args"] == []
 
     def test_write_preserves_existing_servers(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.json"
@@ -79,24 +79,24 @@ class TestWriteMCPConfig:
             encoding="utf-8",
         )
 
-        from synapse.onboarding.mcp_configurator import write_mcp_config
+        from synapps.onboarding.mcp_configurator import write_mcp_config
 
         write_mcp_config(config_path, servers_key="mcpServers")
 
         data = json.loads(config_path.read_text())
         assert "other-tool" in data["mcpServers"]
-        assert "synapse" in data["mcpServers"]
+        assert "synapps" in data["mcpServers"]
 
     def test_write_uses_servers_key_for_vscode(self, tmp_path: Path) -> None:
         config_path = tmp_path / "mcp.json"
 
-        from synapse.onboarding.mcp_configurator import write_mcp_config
+        from synapps.onboarding.mcp_configurator import write_mcp_config
 
         write_mcp_config(config_path, servers_key="servers")
 
         data = json.loads(config_path.read_text())
         assert "servers" in data
-        assert "synapse" in data["servers"]
+        assert "synapps" in data["servers"]
 
     def test_write_atomic_uses_os_replace(self, tmp_path: Path) -> None:
         config_path = tmp_path / "config.json"
@@ -108,9 +108,9 @@ class TestWriteMCPConfig:
             replace_calls.append((src, dst))
             original_replace(src, dst)
 
-        from synapse.onboarding.mcp_configurator import write_mcp_config
+        from synapps.onboarding.mcp_configurator import write_mcp_config
 
-        with patch("synapse.onboarding.mcp_configurator.os.replace", side_effect=tracking_replace):
+        with patch("synapps.onboarding.mcp_configurator.os.replace", side_effect=tracking_replace):
             write_mcp_config(config_path, servers_key="mcpServers")
 
         assert len(replace_calls) == 1
@@ -120,7 +120,7 @@ class TestWriteMCPConfig:
         config_path = tmp_path / "config.json"
         config_path.write_text("this is not valid json!!!", encoding="utf-8")
 
-        from synapse.onboarding.mcp_configurator import write_mcp_config
+        from synapps.onboarding.mcp_configurator import write_mcp_config
 
         write_mcp_config(config_path, servers_key="mcpServers")
 
@@ -129,16 +129,16 @@ class TestWriteMCPConfig:
         assert backup_path.read_text(encoding="utf-8") == "this is not valid json!!!"
 
         data = json.loads(config_path.read_text())
-        assert "synapse" in data["mcpServers"]
+        assert "synapps" in data["mcpServers"]
 
     def test_write_creates_parent_dirs(self, tmp_path: Path) -> None:
         config_path = tmp_path / "subdir" / "config.json"
         assert not config_path.parent.exists()
 
-        from synapse.onboarding.mcp_configurator import write_mcp_config
+        from synapps.onboarding.mcp_configurator import write_mcp_config
 
         write_mcp_config(config_path, servers_key="mcpServers")
 
         assert config_path.exists()
         data = json.loads(config_path.read_text())
-        assert "synapse" in data["mcpServers"]
+        assert "synapps" in data["mcpServers"]

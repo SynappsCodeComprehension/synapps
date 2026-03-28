@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from synapse.plugin import LanguageRegistry, default_registry
+from synapps.plugin import LanguageRegistry, default_registry
 
 
 def _make_plugin(name: str, extensions: frozenset[str]) -> MagicMock:

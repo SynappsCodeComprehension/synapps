@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, call, mock_open, patch
-from synapse.indexer.indexer import Indexer
-from synapse.lsp.interface import IndexSymbol, SymbolKind, LSPAdapter
+from synapps.indexer.indexer import Indexer
+from synapps.lsp.interface import IndexSymbol, SymbolKind, LSPAdapter
 
 
 @pytest.fixture
@@ -116,7 +116,7 @@ def test_index_project_runs_symbol_resolver_after_structural_pass() -> None:
     lsp.get_workspace_files.return_value = ["/proj/Foo.cs"]
     lsp.get_document_symbols.return_value = []
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         indexer = Indexer(conn, lsp)
         indexer.index_project("/proj", "csharp")
 
@@ -211,7 +211,7 @@ def test_index_project_runs_base_type_extractor() -> None:
     mock_extractor_cls.return_value = mock_extractor_instance
     mock_extractor_instance.extract.return_value = []
 
-    with patch("synapse.indexer.indexer.CSharpBaseTypeExtractor", mock_extractor_cls):
+    with patch("synapps.indexer.indexer.CSharpBaseTypeExtractor", mock_extractor_cls):
         indexer = Indexer(conn, lsp)
         with patch("builtins.open", mock_open(read_data="")):
             indexer.index_project("/proj", "csharp")
@@ -238,7 +238,7 @@ def test_index_project_uses_symbol_resolver(mock_conn):
     lsp = MagicMock()
     lsp.get_workspace_files.return_value = []
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as MockResolver:
+    with patch("synapps.indexer.indexer.SymbolResolver") as MockResolver:
         indexer = Indexer(mock_conn, lsp)
         indexer.index_project("/proj", "csharp")
         MockResolver.assert_called_once()
@@ -264,7 +264,7 @@ def test_index_project_calls_method_implements_indexer() -> None:
     lsp = MagicMock()
     lsp.get_workspace_files.return_value = []
 
-    with patch("synapse.indexer.indexer.MethodImplementsIndexer") as mock_cls:
+    with patch("synapps.indexer.indexer.MethodImplementsIndexer") as mock_cls:
         mock_instance = MagicMock()
         mock_cls.return_value = mock_instance
         Indexer(conn, lsp).index_project("/proj", "csharp")
@@ -278,12 +278,12 @@ def test_reindex_file_preserves_summaries_via_upsert(mock_conn) -> None:
     lsp = MagicMock()
     lsp.get_document_symbols.return_value = []
 
-    with patch("synapse.indexer.indexer.collect_summaries") as mock_collect, \
-         patch("synapse.indexer.indexer.restore_summaries") as mock_restore, \
-         patch("synapse.indexer.indexer.get_file_symbol_names", return_value=set()), \
-         patch("synapse.indexer.indexer.delete_orphaned_symbols"), \
-         patch("synapse.indexer.indexer.delete_outgoing_edges_for_file"), \
-         patch("synapse.indexer.indexer.SymbolResolver"):
+    with patch("synapps.indexer.indexer.collect_summaries") as mock_collect, \
+         patch("synapps.indexer.indexer.restore_summaries") as mock_restore, \
+         patch("synapps.indexer.indexer.get_file_symbol_names", return_value=set()), \
+         patch("synapps.indexer.indexer.delete_orphaned_symbols"), \
+         patch("synapps.indexer.indexer.delete_outgoing_edges_for_file"), \
+         patch("synapps.indexer.indexer.SymbolResolver"):
         indexer = Indexer(mock_conn, lsp)
         indexer.reindex_file("/proj/Foo.cs", "/proj")
 
@@ -511,9 +511,9 @@ def test_reindex_file_python(mock_conn):
     plugin.create_call_extractor = MagicMock(return_value=None)
     plugin.create_type_ref_extractor = MagicMock(return_value=None)
 
-    with patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
-         patch("synapse.indexer.indexer.SymbolResolver"), \
+    with patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
+         patch("synapps.indexer.indexer.SymbolResolver"), \
          patch("builtins.open", mock_open(read_data="class MyClass: pass")):
         indexer = Indexer(mock_conn, lsp, plugin)
         indexer.reindex_file("/src/mymod.py", "/src")
@@ -568,9 +568,9 @@ def test_reindex_file_python_call_wiring(mock_conn):
     lsp = MagicMock()
     lsp.get_document_symbols.return_value = _make_python_symbols()
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as mock_resolver_cls, \
-         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
+    with patch("synapps.indexer.indexer.SymbolResolver") as mock_resolver_cls, \
+         patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
          patch("builtins.open", mock_open(read_data="def foo(): pass")):
         indexer = Indexer(mock_conn, lsp, plugin)
         indexer.reindex_file("/src/mymod.py", "/src")
@@ -586,10 +586,10 @@ def test_reindex_file_python_overrides(mock_conn):
     lsp = MagicMock()
     lsp.get_document_symbols.return_value = _make_python_symbols()
 
-    with patch("synapse.indexer.indexer.SymbolResolver"), \
-         patch("synapse.indexer.indexer.OverridesIndexer") as mock_oi_cls, \
-         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
+    with patch("synapps.indexer.indexer.SymbolResolver"), \
+         patch("synapps.indexer.indexer.OverridesIndexer") as mock_oi_cls, \
+         patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
          patch("builtins.open", mock_open(read_data="def foo(): pass")):
         mock_oi_instance = MagicMock()
         mock_oi_cls.return_value = mock_oi_instance
@@ -606,10 +606,10 @@ def test_reindex_file_python_module_name_resolver(mock_conn):
     lsp = MagicMock()
     lsp.get_document_symbols.return_value = _make_python_symbols()
 
-    with patch("synapse.indexer.indexer.SymbolResolver"), \
-         patch("synapse.indexer.indexer.OverridesIndexer"), \
-         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
+    with patch("synapps.indexer.indexer.SymbolResolver"), \
+         patch("synapps.indexer.indexer.OverridesIndexer"), \
+         patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
          patch("builtins.open", mock_open(read_data="def foo(): pass")):
         indexer = Indexer(mock_conn, lsp, plugin)
         indexer.reindex_file("/src/mymod.py", "/src")
@@ -670,10 +670,10 @@ def test_reindex_file_typescript(mock_conn):
     plugin.create_call_extractor = MagicMock(return_value=None)
     plugin.create_type_ref_extractor = MagicMock(return_value=None)
 
-    with patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
-         patch("synapse.indexer.indexer.SymbolResolver"), \
-         patch("synapse.indexer.indexer.delete_file_nodes"), \
+    with patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
+         patch("synapps.indexer.indexer.SymbolResolver"), \
+         patch("synapps.indexer.indexer.delete_file_nodes"), \
          patch("builtins.open", mock_open(read_data="class MyClass {}")):
         indexer = Indexer(mock_conn, lsp, plugin)
         indexer.reindex_file("/src/mod.ts", "/src")
@@ -703,10 +703,10 @@ def test_reindex_file_typescript_call_wiring(mock_conn):
         ),
     ]
 
-    with patch("synapse.indexer.indexer.SymbolResolver") as mock_resolver_cls, \
-         patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
-         patch("synapse.indexer.indexer.delete_file_nodes"), \
+    with patch("synapps.indexer.indexer.SymbolResolver") as mock_resolver_cls, \
+         patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
+         patch("synapps.indexer.indexer.delete_file_nodes"), \
          patch("builtins.open", mock_open(read_data="class MyClass {}")):
         indexer = Indexer(mock_conn, lsp, plugin)
         indexer.reindex_file("/src/mod.ts", "/src")
@@ -745,7 +745,7 @@ def test_python_abc_class_creates_interface_node(mock_conn):
     lsp.get_document_symbols.return_value = [sym]
 
     with patch("builtins.open", mock_open(read_data="from abc import ABC\nclass IAnimal(ABC): ...")), \
-         patch("synapse.indexer.indexer.SymbolResolver"):
+         patch("synapps.indexer.indexer.SymbolResolver"):
         indexer.index_project("/proj", "python")
 
     calls = [str(c) for c in mock_conn.execute.call_args_list]
@@ -781,7 +781,7 @@ def test_python_protocol_class_creates_interface_node(mock_conn):
     lsp.get_document_symbols.return_value = [sym]
 
     with patch("builtins.open", mock_open(read_data="from typing import Protocol\nclass Drawable(Protocol): ...")), \
-         patch("synapse.indexer.indexer.SymbolResolver"):
+         patch("synapps.indexer.indexer.SymbolResolver"):
         indexer.index_project("/proj", "python")
 
     calls = [str(c) for c in mock_conn.execute.call_args_list]
@@ -810,10 +810,10 @@ def test_reindex_file_python_abc_creates_interface_node(mock_conn):
     )
     lsp.get_document_symbols.return_value = [sym]
 
-    with patch("synapse.indexer.indexer.collect_summaries", return_value=[]), \
-         patch("synapse.indexer.indexer.restore_summaries"), \
-         patch("synapse.indexer.indexer.delete_file_nodes"), \
-         patch("synapse.indexer.indexer.SymbolResolver"), \
+    with patch("synapps.indexer.indexer.collect_summaries", return_value=[]), \
+         patch("synapps.indexer.indexer.restore_summaries"), \
+         patch("synapps.indexer.indexer.delete_file_nodes"), \
+         patch("synapps.indexer.indexer.SymbolResolver"), \
          patch("builtins.open", mock_open(read_data="from abc import ABC\nclass IAnimal(ABC): ...")):
         indexer = Indexer(mock_conn, lsp, plugin)
         indexer.reindex_file("/proj/animals.py", "/proj")

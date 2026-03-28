@@ -4,7 +4,7 @@ import pytest
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
-from synapse.indexer.typescript.typescript_import_extractor import TypeScriptImportExtractor
+from synapps.indexer.typescript.typescript_import_extractor import TypeScriptImportExtractor
 
 _ts_lang = Language(tree_sitter_typescript.language_typescript())
 _tsx_lang = Language(tree_sitter_typescript.language_tsx())

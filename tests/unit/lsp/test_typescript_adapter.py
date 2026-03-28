@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.lsp.interface import SymbolKind
+from synapps.lsp.interface import SymbolKind
 
 
 # ---------------------------------------------------------------------------
@@ -18,7 +18,7 @@ from synapse.lsp.interface import SymbolKind
 class TestBuildTsFullName:
     def test_class_in_subdir(self, tmp_path: Path) -> None:
         """src/services/auth.ts with class AuthService -> 'src/services/auth.AuthService'."""
-        from synapse.lsp.typescript import _build_ts_full_name
+        from synapps.lsp.typescript import _build_ts_full_name
 
         root = str(tmp_path)
         file_path = str(tmp_path / "src" / "services" / "auth.ts")
@@ -29,7 +29,7 @@ class TestBuildTsFullName:
 
     def test_function_in_tsx_file(self, tmp_path: Path) -> None:
         """src/utils/helpers.tsx with function helper -> 'src/utils/helpers.helper'."""
-        from synapse.lsp.typescript import _build_ts_full_name
+        from synapps.lsp.typescript import _build_ts_full_name
 
         root = str(tmp_path)
         file_path = str(tmp_path / "src" / "utils" / "helpers.tsx")
@@ -40,7 +40,7 @@ class TestBuildTsFullName:
 
     def test_nested_method_inside_class(self, tmp_path: Path) -> None:
         """Nested method inside class -> 'src/mod.MyClass.myMethod'."""
-        from synapse.lsp.typescript import _build_ts_full_name
+        from synapps.lsp.typescript import _build_ts_full_name
 
         root = str(tmp_path)
         file_path = str(tmp_path / "src" / "mod.ts")
@@ -52,7 +52,7 @@ class TestBuildTsFullName:
 
     def test_forward_slashes_on_all_platforms(self, tmp_path: Path) -> None:
         """Full name uses forward slashes regardless of OS path separator."""
-        from synapse.lsp.typescript import _build_ts_full_name
+        from synapps.lsp.typescript import _build_ts_full_name
 
         root = str(tmp_path)
         file_path = str(tmp_path / "a" / "b" / "c.ts")
@@ -69,7 +69,7 @@ class TestBuildTsFullName:
 
 class TestConvert:
     def _make_adapter(self) -> object:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         mock_ls = MagicMock()
         return TypeScriptLSPAdapter(mock_ls, "/proj")
 
@@ -176,63 +176,63 @@ class TestConvert:
 
 class TestGetWorkspaceFiles:
     def test_returns_ts_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "app.ts").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "app.ts") in files
 
     def test_returns_tsx_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "comp.tsx").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "comp.tsx") in files
 
     def test_returns_js_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "util.js").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "util.js") in files
 
     def test_returns_jsx_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "comp.jsx").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "comp.jsx") in files
 
     def test_returns_mts_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "mod.mts").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "mod.mts") in files
 
     def test_returns_cts_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "mod.cts").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "mod.cts") in files
 
     def test_returns_mjs_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "mod.mjs").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "mod.mjs") in files
 
     def test_returns_cjs_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "mod.cjs").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(tmp_path / "mod.cjs") in files
 
     def test_excludes_non_ts_files(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "readme.md").touch()
         (tmp_path / "style.css").touch()
@@ -253,42 +253,42 @@ class TestExclusions:
         return f
 
     def test_excludes_node_modules(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, "node_modules")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_dist(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, "dist")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_build(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, "build")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_git(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, ".git")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_coverage(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, "coverage")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_included_file_alongside_excluded_dirs(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         self._make_file_in_dir(tmp_path, "node_modules")
         included = tmp_path / "src" / "main.ts"
@@ -298,49 +298,49 @@ class TestExclusions:
         assert str(included) in files
 
     def test_excludes_coveragereport(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, "coveragereport")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_dot_next(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, ".next")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_dot_nuxt(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, ".nuxt")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_out(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, "out")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_dot_cache(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         excluded = self._make_file_in_dir(tmp_path, ".cache")
         files = adapter.get_workspace_files(str(tmp_path))
         assert str(excluded) not in files
 
     def test_excludes_min_js_suffix(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "vendor.min.js").touch()
         files = adapter.get_workspace_files(str(tmp_path))
         assert not any(f.endswith(".min.js") for f in files)
 
     def test_excludes_bundle_js_suffix(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         adapter = TypeScriptLSPAdapter(MagicMock(), str(tmp_path))
         (tmp_path / "app.bundle.js").touch()
         files = adapter.get_workspace_files(str(tmp_path))
@@ -353,7 +353,7 @@ class TestExclusions:
 
 class TestGetDocumentSymbols:
     def test_passes_relpath_to_language_server(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
 
         mock_ls = MagicMock()
         mock_ls.request_document_symbols.return_value = None
@@ -366,7 +366,7 @@ class TestGetDocumentSymbols:
         mock_ls.request_document_symbols.assert_called_once_with(expected_relpath)
 
     def test_returns_empty_list_when_lsp_returns_none(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
 
         mock_ls = MagicMock()
         mock_ls.request_document_symbols.return_value = None
@@ -376,7 +376,7 @@ class TestGetDocumentSymbols:
         assert result == []
 
     def test_converts_root_symbols(self, tmp_path: Path) -> None:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
 
         mock_ls = MagicMock()
         raw_sym = {
@@ -404,7 +404,7 @@ class TestGetDocumentSymbols:
 class TestCreate:
     def test_create_calls_start_before_returning(self) -> None:
         """create() must call ls.start()."""
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
 
         call_order: list[str] = []
 
@@ -433,7 +433,7 @@ class TestCreate:
 
     def test_create_passes_root_path_to_language_server(self) -> None:
         """create() passes repository_root_path to TypeScriptLanguageServer constructor."""
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
 
         mock_ls = MagicMock()
 
@@ -463,8 +463,8 @@ class TestCreate:
 # ---------------------------------------------------------------------------
 
 def test_protocol_conformance() -> None:
-    from synapse.lsp.typescript import TypeScriptLSPAdapter
-    from synapse.lsp.interface import LSPAdapter
+    from synapps.lsp.typescript import TypeScriptLSPAdapter
+    from synapps.lsp.interface import LSPAdapter
 
     mock_ls = MagicMock()
     adapter = TypeScriptLSPAdapter(mock_ls, "/proj")
@@ -472,7 +472,7 @@ def test_protocol_conformance() -> None:
 
 
 def test_language_server_property() -> None:
-    from synapse.lsp.typescript import TypeScriptLSPAdapter
+    from synapps.lsp.typescript import TypeScriptLSPAdapter
 
     mock_ls = MagicMock()
     adapter = TypeScriptLSPAdapter(mock_ls, "/proj")
@@ -480,8 +480,8 @@ def test_language_server_property() -> None:
 
 
 def test_find_method_calls_returns_empty() -> None:
-    from synapse.lsp.typescript import TypeScriptLSPAdapter
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.typescript import TypeScriptLSPAdapter
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
 
     adapter = TypeScriptLSPAdapter(MagicMock(), "/proj")
     sym = IndexSymbol(name="fn", full_name="src/mod.fn", kind=SymbolKind.METHOD, file_path="/proj/src/mod.ts", line=1)
@@ -489,8 +489,8 @@ def test_find_method_calls_returns_empty() -> None:
 
 
 def test_find_overridden_method_returns_none() -> None:
-    from synapse.lsp.typescript import TypeScriptLSPAdapter
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.typescript import TypeScriptLSPAdapter
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
 
     adapter = TypeScriptLSPAdapter(MagicMock(), "/proj")
     sym = IndexSymbol(name="fn", full_name="src/mod.fn", kind=SymbolKind.METHOD, file_path="/proj/src/mod.ts", line=1)
@@ -505,7 +505,7 @@ class TestTraverseConstObjectPromotion:
     """Tests for promoting top-level Variable/Constant with children to CLASS."""
 
     def _make_adapter(self) -> object:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         mock_ls = MagicMock()
         return TypeScriptLSPAdapter(mock_ls, "/proj")
 
@@ -646,7 +646,7 @@ class TestConvertAsClass:
     """Tests for _convert_as_class method."""
 
     def _make_adapter(self) -> object:
-        from synapse.lsp.typescript import TypeScriptLSPAdapter
+        from synapps.lsp.typescript import TypeScriptLSPAdapter
         return TypeScriptLSPAdapter(MagicMock(), "/proj")
 
     def test_produces_class_kind_with_const_object_signature(self) -> None:
@@ -667,7 +667,7 @@ class TestConvertAsClass:
 
 
 def test_shutdown_calls_stop() -> None:
-    from synapse.lsp.typescript import TypeScriptLSPAdapter
+    from synapps.lsp.typescript import TypeScriptLSPAdapter
 
     mock_ls = MagicMock()
     adapter = TypeScriptLSPAdapter(mock_ls, "/proj")

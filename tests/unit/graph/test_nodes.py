@@ -1,13 +1,13 @@
 import json
 from unittest.mock import MagicMock
-from synapse.graph.nodes import (
+from synapps.graph.nodes import (
     upsert_repository, upsert_directory, upsert_file,
     upsert_package, upsert_interface, upsert_class, upsert_method,
     upsert_property, upsert_field, delete_file_nodes,
     set_summary, remove_summary, collect_summaries, restore_summaries,
     set_attributes, set_metadata_flags,
 )
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 
 def _conn() -> MagicMock:
@@ -159,7 +159,7 @@ def test_upsert_method_stores_file_path() -> None:
 
 def test_upsert_repository_strips_trailing_slash() -> None:
     """Paths with and without trailing slash must produce the same node."""
-    from synapse.graph.nodes import upsert_repository
+    from synapps.graph.nodes import upsert_repository
     conn = MagicMock()
     upsert_repository(conn, "/Users/alex/Dev/myrepo/", "csharp")
     _, params = conn.execute.call_args[0]

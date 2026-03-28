@@ -2,16 +2,16 @@ import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
-from synapse.cli.app import app, _get_service
+from synapps.cli.app import app, _get_service
 
 # Get the actual module (not the Typer `app` object)
-cli_module = sys.modules["synapse.cli.app"]
+cli_module = sys.modules["synapps.cli.app"]
 
 runner = CliRunner()
 
 
 def _svc(overrides: dict | None = None):
-    """Return a MagicMock SynapseService with sensible defaults."""
+    """Return a MagicMock SynappsService with sensible defaults."""
     svc = MagicMock()
     svc.find_callers.return_value = []
     svc.find_callees.return_value = []
@@ -30,7 +30,7 @@ def _svc(overrides: dict | None = None):
 
 def test_callers_prints_full_name_and_signature():
     svc = _svc({"find_callers": [{"full_name": "A.Caller", "signature": "Caller() : void"}]})
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["callers", "A.Method"])
     assert result.exit_code == 0
     assert "A.Caller" in result.output
@@ -39,14 +39,14 @@ def test_callers_prints_full_name_and_signature():
 
 def test_callers_prints_no_results_when_empty():
     svc = _svc()
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["callers", "A.Method"])
     assert "No results" in result.output
 
 
 def test_callees_prints_full_name_and_signature():
     svc = _svc({"find_callees": [{"full_name": "A.Dep", "signature": "Dep() : void"}]})
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["callees", "A.Method"])
     assert result.exit_code == 0
     assert "A.Dep" in result.output
@@ -55,7 +55,7 @@ def test_callees_prints_full_name_and_signature():
 
 def test_search_prints_full_name():
     svc = _svc({"search_symbols": [{"full_name": "A.MyClass", "name": "MyClass"}]})
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["search", "MyClass"])
     assert "A.MyClass" in result.output
 
@@ -67,7 +67,7 @@ def test_hierarchy_prints_labeled_sections():
         "children": [{"full_name": "A.Child"}],
         "implements": [],
     }
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["hierarchy", "A.Middle"])
     assert "Parents:" in result.output
     assert "A.Base" in result.output
@@ -77,7 +77,7 @@ def test_hierarchy_prints_labeled_sections():
 
 def test_hierarchy_prints_none_for_empty_sections():
     svc = _svc()
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["hierarchy", "A.Leaf"])
     assert "Parents:" in result.output
     assert "Children:" in result.output
@@ -86,7 +86,7 @@ def test_hierarchy_prints_none_for_empty_sections():
 
 def test_type_refs_prints_full_name_and_kind():
     svc = _svc({"find_type_references": [{"symbol": {"full_name": "A.Caller"}, "kind": "parameter"}]})
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["type-refs", "A.IFoo"])
     assert "A.Caller" in result.output
     assert "parameter" in result.output
@@ -94,7 +94,7 @@ def test_type_refs_prints_full_name_and_kind():
 
 def test_dependencies_prints_full_name_and_depth():
     svc = _svc({"find_dependencies": [{"type": {"full_name": "A.Dep"}, "depth": 1}]})
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["dependencies", "A.Method"])
     assert "A.Dep" in result.output
     assert "depth 1" in result.output
@@ -108,7 +108,7 @@ def test_index_calls_command_does_not_exist():
 def test_callers_errors_when_given_a_class():
     svc = MagicMock()
     svc.get_symbol.return_value = {"full_name": "A.MyClass", "_labels": ["Class"]}
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["callers", "A.MyClass"])
     assert result.exit_code != 0
     assert "Class" in result.output
@@ -118,7 +118,7 @@ def test_callers_errors_when_given_a_class():
 def test_callees_errors_when_given_a_class():
     svc = MagicMock()
     svc.get_symbol.return_value = {"full_name": "A.MyClass", "_labels": ["Class"]}
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["callees", "A.MyClass"])
     assert result.exit_code != 0
     assert "not a Method" in result.output
@@ -127,16 +127,16 @@ def test_callees_errors_when_given_a_class():
 def test_implementations_errors_when_given_a_class():
     svc = MagicMock()
     svc.get_symbol.return_value = {"full_name": "A.MyClass", "_labels": ["Class"]}
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["implementations", "A.MyClass"])
     assert result.exit_code != 0
-    assert "synapse hierarchy" in result.output
+    assert "synapps hierarchy" in result.output
 
 
 def test_callers_errors_when_symbol_not_found():
     svc = MagicMock()
     svc.get_symbol.return_value = None
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["callers", "A.Missing"])
     assert result.exit_code != 0
     assert "not found" in result.output.lower()
@@ -146,7 +146,7 @@ def test_implementations_accepts_abstract_class():
     svc = MagicMock()
     svc.get_symbol.return_value = {"full_name": "A.IAnimal", "_labels": ["Class"], "is_abstract": True}
     svc.find_implementations.return_value = [{"full_name": "A.Dog", "signature": None}]
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["implementations", "A.IAnimal"])
     assert result.exit_code == 0
     assert "Dog" in result.output
@@ -155,7 +155,7 @@ def test_implementations_accepts_abstract_class():
 def test_index_missing_dependency_shows_reinstall_hint():
     svc = MagicMock()
     svc.smart_index.side_effect = ModuleNotFoundError("No module named 'tree_sitter_typescript'")
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["index", "/some/path"])
     assert result.exit_code != 0
     assert "tree_sitter_typescript" in result.output
@@ -173,7 +173,7 @@ def test_get_service_uses_connection_manager():
         cli_module._svc = None
         with patch.object(cli_module, "ConnectionManager", mock_cm_cls), \
              patch.object(cli_module, "ensure_schema"), \
-             patch.object(cli_module, "SynapseService") as mock_svc_cls:
+             patch.object(cli_module, "SynappsService") as mock_svc_cls:
             result = _get_service("/some/project")
             mock_cm_cls.assert_called_once_with("/some/project")
             mock_cm_cls.return_value.get_connection.assert_called_once()
@@ -194,8 +194,8 @@ def test_get_service_defaults_to_cwd():
         cli_module._svc = None
         with patch.object(cli_module, "ConnectionManager", mock_cm_cls), \
              patch.object(cli_module, "ensure_schema"), \
-             patch.object(cli_module, "SynapseService"), \
-             patch("synapse.cli.app.Path") as mock_path:
+             patch.object(cli_module, "SynappsService"), \
+             patch("synapps.cli.app.Path") as mock_path:
             mock_path.cwd.return_value = Path("/mock/cwd")
             _get_service()
             mock_cm_cls.assert_called_once_with("/mock/cwd")
@@ -204,12 +204,12 @@ def test_get_service_defaults_to_cwd():
 
 
 def test_index_no_longer_shows_banner():
-    """Index command does not show banner (moved to synapse init)."""
+    """Index command does not show banner (moved to synapps init)."""
     svc = _svc()
     svc.get_index_status.return_value = None
     svc.smart_index.return_value = "indexed 42 symbols"
-    with patch("synapse.cli.app._get_service", return_value=svc), \
-         patch("synapse.cli.app.print_banner") as mock_banner:
+    with patch("synapps.cli.app._get_service", return_value=svc), \
+         patch("synapps.cli.app.print_banner") as mock_banner:
         result = runner.invoke(app, ["index", "/tmp/test"])
     assert result.exit_code == 0
     mock_banner.assert_not_called()
@@ -220,8 +220,8 @@ def test_index_still_works_end_to_end():
     svc = _svc()
     svc.get_index_status.return_value = None
     svc.smart_index.return_value = "indexed 10 files"
-    with patch("synapse.cli.app._get_service", return_value=svc), \
-         patch("synapse.cli.app.print_banner"):
+    with patch("synapps.cli.app._get_service", return_value=svc), \
+         patch("synapps.cli.app.print_banner"):
         result = runner.invoke(app, ["index", "/tmp/test"])
     assert result.exit_code == 0
     svc.smart_index.assert_called_once()
@@ -232,14 +232,14 @@ def test_index_still_works_end_to_end():
 
 
 def test_sync_suggests_index_when_project_not_indexed():
-    """ERR-05: sync on unindexed project suggests 'synapse index'."""
+    """ERR-05: sync on unindexed project suggests 'synapps index'."""
     svc = _svc()
     svc.sync_project.side_effect = ValueError("No language plugin found")
     svc.get_index_status.return_value = None  # project not indexed
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["sync", "/tmp/myproject"])
     assert result.exit_code != 0
-    assert "synapse index" in result.output
+    assert "synapps index" in result.output
 
 
 def test_sync_shows_original_error_when_project_indexed():
@@ -247,14 +247,14 @@ def test_sync_shows_original_error_when_project_indexed():
     svc = _svc()
     svc.sync_project.side_effect = ValueError("Something else went wrong")
     svc.get_index_status.return_value = {"path": "/tmp/myproject", "commit": "abc123"}
-    with patch("synapse.cli.app._get_service", return_value=svc):
+    with patch("synapps.cli.app._get_service", return_value=svc):
         result = runner.invoke(app, ["sync", "/tmp/myproject"])
     assert result.exit_code != 0
     assert "Something else went wrong" in result.output
-    assert "synapse index" not in result.output
+    assert "synapps index" not in result.output
 
 
 def test_init_command_calls_run_init():
-    with patch("synapse.onboarding.init_wizard.run_init") as mock_run:
+    with patch("synapps.onboarding.init_wizard.run_init") as mock_run:
         result = runner.invoke(app, ["init", "/tmp/test-project"])
     mock_run.assert_called_once()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from synapse.indexer.http.interface import (
+from synapps.indexer.http.interface import (
     HttpClientCall,
     HttpEndpointDef,
     HttpExtractionResult,

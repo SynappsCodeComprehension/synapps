@@ -1,7 +1,7 @@
 """Unit tests for PythonAttributeExtractor — PMET requirements."""
 import tree_sitter_python
 from tree_sitter import Language, Parser
-from synapse.indexer.python.python_attribute_extractor import PythonAttributeExtractor
+from synapps.indexer.python.python_attribute_extractor import PythonAttributeExtractor
 
 _lang = Language(tree_sitter_python.language())
 _parser = Parser(_lang)
@@ -138,7 +138,7 @@ class Outer:
 
 
 def test_python_plugin_create_attribute_extractor_returns_instance() -> None:
-    from synapse.plugin.python import PythonPlugin
+    from synapps.plugin.python import PythonPlugin
     plugin = PythonPlugin()
     extractor = plugin.create_attribute_extractor()
     assert isinstance(extractor, PythonAttributeExtractor)

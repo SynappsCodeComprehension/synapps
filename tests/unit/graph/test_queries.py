@@ -2,7 +2,7 @@ import re
 
 import pytest
 from unittest.mock import MagicMock
-from synapse.graph.lookups import (
+from synapps.graph.lookups import (
     get_symbol, find_implementations, find_callers, find_callees,
     get_hierarchy, search_symbols, get_summary, list_summarized,
     list_projects, get_index_status, execute_readonly_query,

@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in Synapse
+description: Report a bug in Synapps
 labels: ["bug"]
 body:
   - type: markdown
@@ -21,8 +21,8 @@ body:
       label: Steps to reproduce
       description: How can we reproduce this behavior?
       placeholder: |
-        1. Index a project with `synapse index .`
-        2. Run `synapse callers "MyClass.MyMethod"`
+        1. Index a project with `synapps index .`
+        2. Run `synapps callers "MyClass.MyMethod"`
         3. See error...
     validations:
       required: true
@@ -44,10 +44,10 @@ body:
       required: true
 
   - type: input
-    id: synapse-version
+    id: synapps-version
     attributes:
-      label: Synapse version
-      description: Output of `pip show synapse | grep Version`
+      label: Synapps version
+      description: Output of `pip show synapps | grep Version`
       placeholder: "0.1.0"
 
   - type: dropdown

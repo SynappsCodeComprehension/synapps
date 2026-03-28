@@ -3,7 +3,7 @@ from __future__ import annotations
 import tree_sitter_java
 from tree_sitter import Language, Parser
 
-from synapse.lsp.interface import IndexSymbol, SymbolKind
+from synapps.lsp.interface import IndexSymbol, SymbolKind
 
 _lang = Language(tree_sitter_java.language())
 _parser = Parser(_lang)
@@ -33,7 +33,7 @@ public class ItemController {
     public List<Item> getAll() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getAll", "ItemController.getAll", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -51,7 +51,7 @@ public class ItemController {
     public Item create(Item item) { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("create", "ItemController.create", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -67,7 +67,7 @@ public class ItemController {
     public Item update(Long id, Item item) { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("update", "ItemController.update", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -83,7 +83,7 @@ public class ItemController {
     public void delete(Long id) {}
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("delete", "ItemController.delete", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -99,7 +99,7 @@ public class ItemController {
     public Item patch(Long id, Item item) { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("patch", "ItemController.patch", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -117,7 +117,7 @@ public class ItemController {
     public Item getById(Long id) { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getById", "ItemController.getById", 5, 6)]))
     assert len(result.endpoint_defs) == 1
@@ -134,7 +134,7 @@ public class ItemController {
     public Item create(Item item) { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("create", "ItemController.create", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -151,7 +151,7 @@ public class ItemController {
     public List<Item> getAll() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getAll", "ItemController.getAll", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -169,7 +169,7 @@ public class ViewController {
     public String home() { return "home"; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("home", "ViewController.home", 5, 6)]))
     assert len(result.endpoint_defs) == 1
@@ -184,7 +184,7 @@ public class ItemService {
     public List<Item> getAll() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getAll", "ItemService.getAll", 3, 4)]))
     assert len(result.endpoint_defs) == 0
@@ -202,7 +202,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getUser", "UserClient.getUser", 3, 5)]))
     assert len(result.client_calls) == 1
@@ -220,7 +220,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("createUser", "UserClient.createUser", 3, 5)]))
     assert len(result.client_calls) == 1
@@ -236,7 +236,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("updateUser", "UserClient.updateUser", 3, 5)]))
     assert len(result.client_calls) == 1
@@ -252,7 +252,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("deleteUser", "UserClient.deleteUser", 3, 5)]))
     assert len(result.client_calls) == 1
@@ -272,7 +272,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getUser", "UserClient.getUser", 3, 5)]))
     assert len(result.client_calls) == 1
@@ -289,7 +289,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("createUser", "UserClient.createUser", 3, 5)]))
     assert len(result.client_calls) == 1
@@ -313,7 +313,7 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getUser", "UserClient.getUser", 3, 9)]))
     assert len(result.client_calls) == 1
@@ -335,14 +335,14 @@ public class UserClient {
     }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getUser", "UserClient.getUser", 3, 5)]))
     assert len(result.client_calls) == 0
 
 
 def test_empty_source() -> None:
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(""), [])
     assert result.endpoint_defs == []
@@ -362,7 +362,7 @@ public class RouteResource {
     public Response getRoute() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getRoute", "RouteResource.getRoute", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -381,7 +381,7 @@ public class RouteResource {
     public Response createRoute() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("createRoute", "RouteResource.createRoute", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -399,7 +399,7 @@ public class InfoResource {
     public Response getInfo() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getInfo", "InfoResource.getInfo", 4, 6)]))
     assert len(result.endpoint_defs) == 1
@@ -425,7 +425,7 @@ public class ItemResource {
     public Response patchItem() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([
         ("updateItem", "ItemResource.updateItem", 4, 6),
@@ -448,7 +448,7 @@ public class ItemResource {
     public SubResource getSubResource() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getSubResource", "ItemResource.getSubResource", 4, 5)]))
     assert len(result.endpoint_defs) == 0
@@ -462,7 +462,7 @@ public class ItemService {
     public Response getAll() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getAll", "ItemService.getAll", 3, 4)]))
     assert len(result.endpoint_defs) == 0
@@ -477,7 +477,7 @@ public class InfoResource {
     public Response getInfo() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     # Simulate JDT LS naming: "getInfo()" instead of "getInfo"
     result = extractor.extract("test.java", _parse(source), _symbols([("getInfo()", "InfoResource.getInfo()", 4, 5)]))
@@ -495,7 +495,7 @@ public class RouteResource {
     public Response getRoute() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     # Line 3 (0-based) instead of 4 (1-based) for the method at tree-sitter line 4
     result = extractor.extract("test.java", _parse(source), _symbols([("getRoute", "RouteResource.getRoute", 3, 5)]))
@@ -519,7 +519,7 @@ public class JaxrsResource {
     public Response getAll() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([
         ("hello", "SpringController.hello", 5, 6),
@@ -540,7 +540,7 @@ public class ItemResource {
     public Response getItem() { return null; }
 }
 """
-    from synapse.indexer.java.java_http_extractor import JavaHttpExtractor
+    from synapps.indexer.java.java_http_extractor import JavaHttpExtractor
     extractor = JavaHttpExtractor()
     result = extractor.extract("test.java", _parse(source), _symbols([("getItem", "ItemResource.getItem", 4, 5)]))
     assert len(result.endpoint_defs) == 1
@@ -553,7 +553,7 @@ public class ItemResource {
 # _find_enclosing_symbol narrowest-range tests -- PROD-04 regression
 # ---------------------------------------------------------------------------
 
-from synapse.indexer.java.java_http_extractor import _find_enclosing_symbol
+from synapps.indexer.java.java_http_extractor import _find_enclosing_symbol
 
 
 def test_find_enclosing_symbol_nested_class_narrowest_range() -> None:

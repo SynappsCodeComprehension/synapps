@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, call
 
-from synapse.graph.edges import delete_orphan_endpoints
+from synapps.graph.edges import delete_orphan_endpoints
 
 
 def test_cleanup_removes_repo_contains_edge_and_orphaned_endpoint():

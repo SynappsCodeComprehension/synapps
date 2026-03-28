@@ -1,7 +1,7 @@
 import pytest
 import tree_sitter_java
 from tree_sitter import Language, Parser
-from synapse.indexer.java.java_call_extractor import JavaCallExtractor
+from synapps.indexer.java.java_call_extractor import JavaCallExtractor
 
 _lang = Language(tree_sitter_java.language())
 _parser = Parser(_lang)

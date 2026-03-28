@@ -8,15 +8,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-_MODULE = "synapse.container.manager"
+_MODULE = "synapps.container.manager"
 
 
 def _make_manager(tmp_path, mock_docker=None, dedicated=False, global_config=None):
     """Helper to create a ConnectionManager with controlled config."""
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     gc = global_config or {
-        "shared_container_name": "synapse-shared",
+        "shared_container_name": "synapps-shared",
         "shared_port": 7687,
         "external_host": None,
         "external_port": None,
@@ -30,7 +30,7 @@ def _make_manager(tmp_path, mock_docker=None, dedicated=False, global_config=Non
 
 
 def test_shared_mode_creates_shared_container(tmp_path):
-    """No config -> creates synapse-shared container."""
+    """No config -> creates synapps-shared container."""
     import docker.errors
 
     mock_docker = MagicMock()
@@ -44,7 +44,7 @@ def test_shared_mode_creates_shared_container(tmp_path):
 
     mock_docker.containers.run.assert_called_once()
     call_kwargs = mock_docker.containers.run.call_args
-    assert call_kwargs[1]["name"] == "synapse-shared"
+    assert call_kwargs[1]["name"] == "synapps-shared"
     assert call_kwargs[1]["ports"] == {"7687/tcp": 7687}
 
 
@@ -73,7 +73,7 @@ def test_shared_mode_custom_port(tmp_path):
     mock_docker.containers.get.return_value = mock_container
 
     gc = {
-        "shared_container_name": "synapse-shared",
+        "shared_container_name": "synapps-shared",
         "shared_port": 9999,
         "external_host": None,
         "external_port": None,
@@ -92,7 +92,7 @@ def test_shared_mode_custom_port(tmp_path):
 
 
 def test_dedicated_mode_creates_project_container(tmp_path):
-    """dedicated_instance:true -> per-project container named synapse-{dirname}."""
+    """dedicated_instance:true -> per-project container named synapps-{dirname}."""
     import docker.errors
 
     mock_docker = MagicMock()
@@ -106,7 +106,7 @@ def test_dedicated_mode_creates_project_container(tmp_path):
 
     mock_docker.containers.run.assert_called_once()
     call_kwargs = mock_docker.containers.run.call_args
-    assert call_kwargs[1]["name"] == f"synapse-{tmp_path.name}"
+    assert call_kwargs[1]["name"] == f"synapps-{tmp_path.name}"
 
 
 def test_dedicated_mode_persists_config(tmp_path):
@@ -122,10 +122,10 @@ def test_dedicated_mode_persists_config(tmp_path):
         mock_gc.create.return_value = MagicMock()
         mgr.get_connection()
 
-    config_path = tmp_path / ".synapse" / "config.json"
+    config_path = tmp_path / ".synapps" / "config.json"
     assert config_path.exists()
     config = json.loads(config_path.read_text())
-    assert config["container_name"] == f"synapse-{tmp_path.name}"
+    assert config["container_name"] == f"synapps-{tmp_path.name}"
     assert "port" in config
     assert isinstance(config["port"], int)
 
@@ -136,7 +136,7 @@ def test_dedicated_mode_persists_config(tmp_path):
 def test_external_mode_connects_directly(tmp_path):
     """external_host set -> GraphConnection.create(host=..., port=...), no Docker."""
     gc = {
-        "shared_container_name": "synapse-shared",
+        "shared_container_name": "synapps-shared",
         "shared_port": 7687,
         "external_host": "db.example.com",
         "external_port": 7688,
@@ -158,7 +158,7 @@ def test_dedicated_overrides_external(tmp_path):
     mock_docker.containers.get.side_effect = docker.errors.NotFound("nope")
 
     gc = {
-        "shared_container_name": "synapse-shared",
+        "shared_container_name": "synapps-shared",
         "shared_port": 7687,
         "external_host": "db.example.com",
         "external_port": 7688,
@@ -173,7 +173,7 @@ def test_dedicated_overrides_external(tmp_path):
     # Should have used Docker (dedicated), not the external host
     mock_docker.containers.run.assert_called_once()
     call_kwargs = mock_docker.containers.run.call_args
-    assert call_kwargs[1]["name"] == f"synapse-{tmp_path.name}"
+    assert call_kwargs[1]["name"] == f"synapps-{tmp_path.name}"
 
 
 # --- Race condition ---
@@ -222,9 +222,9 @@ def test_stop_stops_dedicated_container(tmp_path):
     mock_docker.containers.get.return_value = mock_container
 
     # Create project config so stop() can find the container name
-    config_dir = tmp_path / ".synapse"
+    config_dir = tmp_path / ".synapps"
     config_dir.mkdir()
-    config = {"container_name": "synapse-test", "port": 55555, "last_indexed": None}
+    config = {"container_name": "synapps-test", "port": 55555, "last_indexed": None}
     (config_dir / "config.json").write_text(json.dumps(config))
 
     mgr = _make_manager(tmp_path, mock_docker=mock_docker, dedicated=True)
@@ -238,10 +238,10 @@ def test_remove_dedicated_removes_container_and_config(tmp_path):
     mock_container = MagicMock()
     mock_docker.containers.get.return_value = mock_container
 
-    config_dir = tmp_path / ".synapse"
+    config_dir = tmp_path / ".synapps"
     config_dir.mkdir()
     config_path = config_dir / "config.json"
-    config = {"container_name": "synapse-test", "port": 55555, "last_indexed": None}
+    config = {"container_name": "synapps-test", "port": 55555, "last_indexed": None}
     config_path.write_text(json.dumps(config))
 
     mgr = _make_manager(tmp_path, mock_docker=mock_docker, dedicated=True)
@@ -255,7 +255,7 @@ def test_remove_shared_only_deletes_config(tmp_path):
     """remove() shared -> config deleted, no Docker."""
     mock_docker = MagicMock()
 
-    config_dir = tmp_path / ".synapse"
+    config_dir = tmp_path / ".synapps"
     config_dir.mkdir()
     config_path = config_dir / "config.json"
     config_path.write_text(json.dumps({"some": "config"}))
@@ -274,11 +274,11 @@ def test_docker_not_running_raises_on_get_connection(tmp_path):
     """Docker error raised lazily on get_connection(), not __init__."""
     import docker.errors
 
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     with patch(f"{_MODULE}.is_dedicated_instance", return_value=False), \
          patch(f"{_MODULE}.load_global_config", return_value={
-             "shared_container_name": "synapse-shared",
+             "shared_container_name": "synapps-shared",
              "shared_port": 7687,
              "external_host": None,
              "external_port": None,
@@ -296,13 +296,13 @@ def test_external_mode_no_docker_needed(tmp_path):
     import docker.errors
 
     gc = {
-        "shared_container_name": "synapse-shared",
+        "shared_container_name": "synapps-shared",
         "shared_port": 7687,
         "external_host": "db.example.com",
         "external_port": 7688,
     }
 
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     with patch(f"{_MODULE}.is_dedicated_instance", return_value=False), \
          patch(f"{_MODULE}.load_global_config", return_value=gc), \
@@ -321,11 +321,11 @@ def test_external_mode_no_docker_needed(tmp_path):
 def test_docker_not_running_error_macos(tmp_path):
     """ERR-03: macOS Docker error shows 'open -a Docker'."""
     import docker.errors
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     with patch(f"{_MODULE}.is_dedicated_instance", return_value=False), \
          patch(f"{_MODULE}.load_global_config", return_value={
-             "shared_container_name": "synapse-shared",
+             "shared_container_name": "synapps-shared",
              "shared_port": 7687,
              "external_host": None,
              "external_port": None,
@@ -341,11 +341,11 @@ def test_docker_not_running_error_macos(tmp_path):
 def test_docker_not_running_error_linux(tmp_path):
     """ERR-03: Linux Docker error shows 'sudo systemctl start docker'."""
     import docker.errors
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     with patch(f"{_MODULE}.is_dedicated_instance", return_value=False), \
          patch(f"{_MODULE}.load_global_config", return_value={
-             "shared_container_name": "synapse-shared",
+             "shared_container_name": "synapps-shared",
              "shared_port": 7687,
              "external_host": None,
              "external_port": None,
@@ -363,7 +363,7 @@ def test_docker_not_running_error_linux(tmp_path):
 
 def test_wait_for_bolt_success():
     """Bolt readiness check succeeds on valid 4-byte response."""
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     mock_sock = MagicMock()
     mock_sock.recv.return_value = b"\x00\x00\x04\x04"
@@ -377,7 +377,7 @@ def test_wait_for_bolt_success():
 
 def test_wait_for_bolt_timeout():
     """Bolt readiness check times out on persistent connection failures."""
-    from synapse.container.manager import ConnectionManager
+    from synapps.container.manager import ConnectionManager
 
     with patch(f"{_MODULE}.socket.create_connection", side_effect=OSError("refused")):
         with pytest.raises(TimeoutError):

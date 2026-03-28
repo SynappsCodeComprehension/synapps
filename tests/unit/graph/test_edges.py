@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from synapse.graph.edges import (
+from synapps.graph.edges import (
     upsert_repo_contains_dir, upsert_dir_contains, upsert_file_contains_symbol,
     upsert_contains_symbol, upsert_calls, upsert_inherits, upsert_implements,
     upsert_overrides, upsert_interface_inherits, upsert_references,

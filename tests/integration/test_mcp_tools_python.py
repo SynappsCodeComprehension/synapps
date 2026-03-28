@@ -1,5 +1,5 @@
 """
-MCP tool integration tests against the Python fixture (SynapsePyTest).
+MCP tool integration tests against the Python fixture (SynappsPyTest).
 
 Requires Memgraph on localhost:7687 and Python indexer.
 Run with: pytest tests/integration/test_mcp_tools_python.py -v -m integration
@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from synapse.service import SynapseService
+from synapps.service import SynappsService
 from tests.integration.conftest import run, text, result_json, PYTHON_FIXTURE_PATH
 
 
@@ -58,7 +58,7 @@ def test_get_schema(python_mcp: FastMCP) -> None:
 def test_get_symbol(python_mcp: FastMCP) -> None:
     """get_symbol returns a node for a known Python class."""
     result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synapsepytest.animals.IAnimal"
+        "full_name": "synappspytest.animals.IAnimal"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -70,7 +70,7 @@ def test_get_symbol(python_mcp: FastMCP) -> None:
 def test_get_symbol_is_abstract(python_mcp: FastMCP) -> None:
     """get_symbol on an ABC class returns is_abstract=True."""
     result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synapsepytest.animals.IAnimal"
+        "full_name": "synappspytest.animals.IAnimal"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -84,7 +84,7 @@ def test_get_symbol_is_abstract(python_mcp: FastMCP) -> None:
 def test_get_symbol_metadata_static(python_mcp: FastMCP) -> None:
     """get_symbol on a @staticmethod returns is_static=True."""
     result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synapsepytest.services.AnimalService.version"
+        "full_name": "synappspytest.services.AnimalService.version"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -98,7 +98,7 @@ def test_get_symbol_metadata_static(python_mcp: FastMCP) -> None:
 def test_get_symbol_metadata_classmethod(python_mcp: FastMCP) -> None:
     """get_symbol on a @classmethod returns is_classmethod=True."""
     result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synapsepytest.services.AnimalService.from_name"
+        "full_name": "synappspytest.services.AnimalService.from_name"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -112,7 +112,7 @@ def test_get_symbol_metadata_classmethod(python_mcp: FastMCP) -> None:
 def test_get_symbol_metadata_async(python_mcp: FastMCP) -> None:
     """get_symbol on an async def returns is_async=True."""
     result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synapsepytest.services.AnimalService.get_greeting_async"
+        "full_name": "synappspytest.services.AnimalService.get_greeting_async"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -126,7 +126,7 @@ def test_get_symbol_metadata_async(python_mcp: FastMCP) -> None:
 def test_get_symbol_source(python_mcp: FastMCP) -> None:
     """get_symbol_source returns Python source code for a known method."""
     result = run(python_mcp.call_tool("get_symbol_source", {
-        "full_name": "synapsepytest.animals.Dog.speak"
+        "full_name": "synappspytest.animals.Dog.speak"
     }))
     source = text(result)
     assert source is not None
@@ -170,7 +170,7 @@ def test_search_symbols_language_filter(python_mcp: FastMCP) -> None:
 def test_find_implementations(python_mcp: FastMCP) -> None:
     """find_implementations for IAnimal returns its subclasses via INHERITS edges."""
     result = run(python_mcp.call_tool("find_implementations", {
-        "interface_name": "synapsepytest.animals.IAnimal"
+        "interface_name": "synappspytest.animals.IAnimal"
     }))
     impls = result_json(result)
     assert isinstance(impls, list)
@@ -185,7 +185,7 @@ def test_find_implementations(python_mcp: FastMCP) -> None:
 def test_get_hierarchy(python_mcp: FastMCP) -> None:
     """get_hierarchy for Dog returns Animal/IAnimal in parent chain."""
     result = run(python_mcp.call_tool("get_hierarchy", {
-        "class_name": "synapsepytest.animals.Dog"
+        "class_name": "synappspytest.animals.Dog"
     }))
     hierarchy = result_json(result)
     assert "parents" in hierarchy
@@ -200,7 +200,7 @@ def test_get_hierarchy(python_mcp: FastMCP) -> None:
 def test_find_callers(python_mcp: FastMCP) -> None:
     """find_callers returns callers (possibly empty for Python fixture) without error."""
     result = run(python_mcp.call_tool("find_callers", {
-        "method_full_name": "synapsepytest.animals.IAnimal.speak"
+        "method_full_name": "synappspytest.animals.IAnimal.speak"
     }))
     callers = result_json(result)
     assert isinstance(callers, list)
@@ -211,7 +211,7 @@ def test_find_callers(python_mcp: FastMCP) -> None:
 def test_find_callees(python_mcp: FastMCP) -> None:
     """find_callees returns callees (possibly empty for Python fixture) without error."""
     result = run(python_mcp.call_tool("find_callees", {
-        "method_full_name": "synapsepytest.services.AnimalService.get_greeting"
+        "method_full_name": "synappspytest.services.AnimalService.get_greeting"
     }))
     callees = result_json(result)
     assert isinstance(callees, list)
@@ -222,7 +222,7 @@ def test_find_callees(python_mcp: FastMCP) -> None:
 def test_find_type_references(python_mcp: FastMCP) -> None:
     """find_usages with kind='parameter' returns list (possibly empty for Python) without error."""
     result = run(python_mcp.call_tool("find_usages", {
-        "full_name": "synapsepytest.animals.IAnimal",
+        "full_name": "synappspytest.animals.IAnimal",
         "kind": "parameter",
     }))
     refs = result_json(result)
@@ -234,7 +234,7 @@ def test_find_type_references(python_mcp: FastMCP) -> None:
 def test_find_usages(python_mcp: FastMCP) -> None:
     """find_usages returns compact text summary for a Python class."""
     result = run(python_mcp.call_tool("find_usages", {
-        "full_name": "synapsepytest.animals.IAnimal"
+        "full_name": "synappspytest.animals.IAnimal"
     }))
     output = text(result)
     assert "Usages of" in output
@@ -246,7 +246,7 @@ def test_find_usages(python_mcp: FastMCP) -> None:
 def test_find_dependencies(python_mcp: FastMCP) -> None:
     """find_dependencies returns list without error for AnimalService."""
     result = run(python_mcp.call_tool("find_dependencies", {
-        "full_name": "synapsepytest.services.AnimalService"
+        "full_name": "synappspytest.services.AnimalService"
     }))
     deps = result_json(result)
     assert isinstance(deps, list)
@@ -257,7 +257,7 @@ def test_find_dependencies(python_mcp: FastMCP) -> None:
 def test_get_context_for(python_mcp: FastMCP) -> None:
     """get_context_for returns context string for a Python class."""
     result = run(python_mcp.call_tool("get_context_for", {
-        "full_name": "synapsepytest.animals.Dog"
+        "full_name": "synappspytest.animals.Dog"
     }))
     ctx = text(result)
     assert len(ctx) > 0
@@ -273,8 +273,8 @@ def test_get_context_for(python_mcp: FastMCP) -> None:
 def test_trace_call_chain(python_mcp: FastMCP) -> None:
     """trace_call_chain returns dict with paths key without error (may be empty for Python)."""
     result = run(python_mcp.call_tool("trace_call_chain", {
-        "start": "synapsepytest.services.AnimalService.get_greeting",
-        "end": "synapsepytest.animals.IAnimal.speak",
+        "start": "synappspytest.services.AnimalService.get_greeting",
+        "end": "synappspytest.animals.IAnimal.speak",
     }))
     trace = result_json(result)
     assert isinstance(trace, dict)
@@ -286,7 +286,7 @@ def test_trace_call_chain(python_mcp: FastMCP) -> None:
 def test_find_entry_points(python_mcp: FastMCP) -> None:
     """find_entry_points returns dict without error (may be empty for Python fixture)."""
     result = run(python_mcp.call_tool("find_entry_points", {
-        "method": "synapsepytest.services.AnimalService.get_greeting",
+        "method": "synappspytest.services.AnimalService.get_greeting",
     }))
     ep = result_json(result)
     assert isinstance(ep, dict)
@@ -298,7 +298,7 @@ def test_find_entry_points(python_mcp: FastMCP) -> None:
 def test_get_call_depth(python_mcp: FastMCP) -> None:
     """find_callees with depth param returns dict with callees key without error."""
     result = run(python_mcp.call_tool("find_callees", {
-        "method_full_name": "synapsepytest.services.AnimalService.get_greeting",
+        "method_full_name": "synappspytest.services.AnimalService.get_greeting",
         "depth": 3,
     }))
     depth_result = result_json(result)
@@ -311,7 +311,7 @@ def test_get_call_depth(python_mcp: FastMCP) -> None:
 def test_analyze_change_impact(python_mcp: FastMCP) -> None:
     """analyze_change_impact returns compact text summary for a Python method."""
     result = run(python_mcp.call_tool("analyze_change_impact", {
-        "method": "synapsepytest.services.AnimalService.get_greeting",
+        "method": "synappspytest.services.AnimalService.get_greeting",
     }))
     output = text(result)
     assert "Change Impact" in output
@@ -324,7 +324,7 @@ def test_analyze_change_impact(python_mcp: FastMCP) -> None:
 def test_find_type_impact(python_mcp: FastMCP) -> None:
     """find_usages with include_test_breakdown returns dict with expected keys for a Python type."""
     result = run(python_mcp.call_tool("find_usages", {
-        "full_name": "synapsepytest.animals.IAnimal",
+        "full_name": "synappspytest.animals.IAnimal",
         "include_test_breakdown": True,
     }))
     impact = result_json(result)
@@ -344,12 +344,12 @@ def test_set_and_get_summary(python_mcp: FastMCP) -> None:
     """summary action=set/get round-trip correctly for a Python symbol."""
     run(python_mcp.call_tool("summary", {
         "action": "set",
-        "full_name": "synapsepytest.animals.Dog",
+        "full_name": "synappspytest.animals.Dog",
         "content": "A dog that barks.",
     }))
     result = run(python_mcp.call_tool("summary", {
         "action": "get",
-        "full_name": "synapsepytest.animals.Dog",
+        "full_name": "synappspytest.animals.Dog",
     }))
     assert text(result) == "A dog that barks."
 
@@ -360,13 +360,13 @@ def test_list_summarized(python_mcp: FastMCP) -> None:
     """summary action=list includes the symbol annotated in test_set_and_get_summary."""
     run(python_mcp.call_tool("summary", {
         "action": "set",
-        "full_name": "synapsepytest.animals.Dog",
+        "full_name": "synappspytest.animals.Dog",
         "content": "A dog that barks.",
     }))
     result = run(python_mcp.call_tool("summary", {"action": "list"}))
     items = result_json(result)
     names = [i.get("full_name") for i in items]
-    assert "synapsepytest.animals.Dog" in names
+    assert "synappspytest.animals.Dog" in names
 
 
 # ---------------------------------------------------------------------------

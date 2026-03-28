@@ -1,11 +1,11 @@
 from unittest.mock import MagicMock
 
-from synapse.indexer.sync import SyncResult
+from synapps.indexer.sync import SyncResult
 
 
 def test_mcp_sync_project_tool():
     """sync_project MCP tool calls service and returns summary string."""
-    from synapse.mcp.tools import register_tools
+    from synapps.mcp.tools import register_tools
 
     mock_mcp = MagicMock()
     registered = {}
@@ -31,7 +31,7 @@ def test_mcp_sync_project_tool():
 
 def test_mcp_sync_project_returns_error_for_unindexed():
     """sync_project MCP tool returns error string when project not indexed."""
-    from synapse.mcp.tools import register_tools
+    from synapps.mcp.tools import register_tools
 
     mock_mcp = MagicMock()
     registered = {}

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from synapse.graph.lookups import find_callers, find_implementations, get_hierarchy, list_summarized, search_symbols, _VALID_KINDS, _TEST_PATH_PATTERN, find_dependencies as qs_find_deps, find_callers_with_sites, find_relevant_deps, find_test_coverage, find_all_deps
+from synapps.graph.lookups import find_callers, find_implementations, get_hierarchy, list_summarized, search_symbols, _VALID_KINDS, _TEST_PATH_PATTERN, find_dependencies as qs_find_deps, find_callers_with_sites, find_relevant_deps, find_test_coverage, find_all_deps
 from conftest import _MockNode
 
 qs_search = search_symbols

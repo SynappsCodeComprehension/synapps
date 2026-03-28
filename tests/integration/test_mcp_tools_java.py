@@ -1,5 +1,5 @@
 """
-MCP tool integration tests against the Java fixture (SynapseJavaTest).
+MCP tool integration tests against the Java fixture (SynappsJavaTest).
 
 Requires Memgraph on localhost:7687 and Eclipse JDT LS (Java JDK 11+).
 Run with: pytest tests/integration/test_mcp_tools_java.py -v -m integration
@@ -73,7 +73,7 @@ def test_index_project(java_mcp: FastMCP) -> None:
 def test_get_symbol(java_mcp: FastMCP) -> None:
     """get_symbol returns a node for a known Java interface."""
     result = run(java_mcp.call_tool("get_symbol", {
-        "full_name": "com.synapsetest.IAnimal"
+        "full_name": "com.synappstest.IAnimal"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -85,7 +85,7 @@ def test_get_symbol(java_mcp: FastMCP) -> None:
 def test_get_symbol_is_abstract(java_mcp: FastMCP) -> None:
     """get_symbol on an abstract class returns is_abstract=True."""
     result = run(java_mcp.call_tool("get_symbol", {
-        "full_name": "com.synapsetest.Animal"
+        "full_name": "com.synappstest.Animal"
     }))
     symbol = result_json(result)
     assert symbol is not None
@@ -99,7 +99,7 @@ def test_get_symbol_is_abstract(java_mcp: FastMCP) -> None:
 def test_get_symbol_source(java_mcp: FastMCP) -> None:
     """get_symbol_source returns Java source code for a known class."""
     result = run(java_mcp.call_tool("get_symbol_source", {
-        "full_name": "com.synapsetest.Dog"
+        "full_name": "com.synappstest.Dog"
     }))
     source = text(result)
     assert isinstance(source, str)
@@ -159,7 +159,7 @@ def test_search_symbols_language_filter(java_mcp: FastMCP) -> None:
 def test_find_implementations(java_mcp: FastMCP) -> None:
     """find_implementations for IAnimal returns its implementing classes."""
     result = run(java_mcp.call_tool("find_implementations", {
-        "interface_name": "com.synapsetest.IAnimal"
+        "interface_name": "com.synappstest.IAnimal"
     }))
     impls = result_json(result)
     assert isinstance(impls, list)
@@ -173,7 +173,7 @@ def test_find_implementations(java_mcp: FastMCP) -> None:
 def test_get_hierarchy(java_mcp: FastMCP) -> None:
     """get_hierarchy for Dog returns Animal in parent chain."""
     result = run(java_mcp.call_tool("get_hierarchy", {
-        "class_name": "com.synapsetest.Dog"
+        "class_name": "com.synappstest.Dog"
     }))
     hierarchy = result_json(result)
     assert "parents" in hierarchy
@@ -188,7 +188,7 @@ def test_get_hierarchy(java_mcp: FastMCP) -> None:
 def test_find_callers(java_mcp: FastMCP) -> None:
     """find_callers returns a list (possibly empty) without error for Java method."""
     result = run(java_mcp.call_tool("find_callers", {
-        "method_full_name": "com.synapsetest.IAnimal.speak"
+        "method_full_name": "com.synappstest.IAnimal.speak"
     }))
     callers = result_json(result)
     assert isinstance(callers, list)
@@ -199,7 +199,7 @@ def test_find_callers(java_mcp: FastMCP) -> None:
 def test_find_callees(java_mcp: FastMCP) -> None:
     """find_callees returns a list (possibly empty) without error for Java method."""
     result = run(java_mcp.call_tool("find_callees", {
-        "method_full_name": "com.synapsetest.AnimalService.greet"
+        "method_full_name": "com.synappstest.AnimalService.greet"
     }))
     callees = result_json(result)
     assert isinstance(callees, list)
@@ -210,7 +210,7 @@ def test_find_callees(java_mcp: FastMCP) -> None:
 def test_find_type_references(java_mcp: FastMCP) -> None:
     """find_usages with kind='parameter' returns list (possibly empty) without error for Java interface."""
     result = run(java_mcp.call_tool("find_usages", {
-        "full_name": "com.synapsetest.IAnimal",
+        "full_name": "com.synappstest.IAnimal",
         "kind": "parameter",
     }))
     refs = result_json(result)
@@ -222,7 +222,7 @@ def test_find_type_references(java_mcp: FastMCP) -> None:
 def test_find_usages(java_mcp: FastMCP) -> None:
     """find_usages returns compact text summary for a Java interface."""
     result = run(java_mcp.call_tool("find_usages", {
-        "full_name": "com.synapsetest.IAnimal"
+        "full_name": "com.synappstest.IAnimal"
     }))
     output = text(result)
     assert "Usages of" in output
@@ -234,7 +234,7 @@ def test_find_usages(java_mcp: FastMCP) -> None:
 def test_find_dependencies(java_mcp: FastMCP) -> None:
     """find_dependencies returns list without error for AnimalService."""
     result = run(java_mcp.call_tool("find_dependencies", {
-        "full_name": "com.synapsetest.AnimalService"
+        "full_name": "com.synappstest.AnimalService"
     }))
     deps = result_json(result)
     assert isinstance(deps, list)
@@ -245,7 +245,7 @@ def test_find_dependencies(java_mcp: FastMCP) -> None:
 def test_get_context_for(java_mcp: FastMCP) -> None:
     """get_context_for returns context string for a Java class."""
     result = run(java_mcp.call_tool("get_context_for", {
-        "full_name": "com.synapsetest.Dog"
+        "full_name": "com.synappstest.Dog"
     }))
     ctx = text(result)
     assert len(ctx) > 0
@@ -262,8 +262,8 @@ def test_get_context_for(java_mcp: FastMCP) -> None:
 def test_trace_call_chain(java_mcp: FastMCP) -> None:
     """trace_call_chain returns dict with paths key (may be empty for Java fixture)."""
     result = run(java_mcp.call_tool("trace_call_chain", {
-        "start": "com.synapsetest.AnimalService.greet",
-        "end": "com.synapsetest.IAnimal.speak",
+        "start": "com.synappstest.AnimalService.greet",
+        "end": "com.synappstest.IAnimal.speak",
     }))
     trace = result_json(result)
     assert isinstance(trace, dict)
@@ -275,7 +275,7 @@ def test_trace_call_chain(java_mcp: FastMCP) -> None:
 def test_find_entry_points(java_mcp: FastMCP) -> None:
     """find_entry_points returns dict with entry_points key without error."""
     result = run(java_mcp.call_tool("find_entry_points", {
-        "method": "com.synapsetest.AnimalService.greet",
+        "method": "com.synappstest.AnimalService.greet",
     }))
     ep = result_json(result)
     assert isinstance(ep, dict)
@@ -287,7 +287,7 @@ def test_find_entry_points(java_mcp: FastMCP) -> None:
 def test_get_call_depth(java_mcp: FastMCP) -> None:
     """find_callees with depth param returns dict with callees key without error."""
     result = run(java_mcp.call_tool("find_callees", {
-        "method_full_name": "com.synapsetest.AnimalService.greet",
+        "method_full_name": "com.synappstest.AnimalService.greet",
         "depth": 3,
     }))
     depth_result = result_json(result)
@@ -300,7 +300,7 @@ def test_get_call_depth(java_mcp: FastMCP) -> None:
 def test_analyze_change_impact(java_mcp: FastMCP) -> None:
     """analyze_change_impact returns compact text summary for a Java method."""
     result = run(java_mcp.call_tool("analyze_change_impact", {
-        "method": "com.synapsetest.AnimalService.greet"
+        "method": "com.synappstest.AnimalService.greet"
     }))
     output = text(result)
     assert "Change Impact" in output
@@ -313,7 +313,7 @@ def test_analyze_change_impact(java_mcp: FastMCP) -> None:
 def test_find_type_impact(java_mcp: FastMCP) -> None:
     """find_usages with include_test_breakdown returns dict with expected keys for a Java type."""
     result = run(java_mcp.call_tool("find_usages", {
-        "full_name": "com.synapsetest.IAnimal",
+        "full_name": "com.synappstest.IAnimal",
         "include_test_breakdown": True,
     }))
     impact = result_json(result)
@@ -333,12 +333,12 @@ def test_set_and_get_summary(java_mcp: FastMCP) -> None:
     """summary action=set/get round-trip correctly for a Java symbol."""
     run(java_mcp.call_tool("summary", {
         "action": "set",
-        "full_name": "com.synapsetest.Dog",
+        "full_name": "com.synappstest.Dog",
         "content": "A dog class that barks.",
     }))
     result = run(java_mcp.call_tool("summary", {
         "action": "get",
-        "full_name": "com.synapsetest.Dog",
+        "full_name": "com.synappstest.Dog",
     }))
     assert text(result) == "A dog class that barks."
 
@@ -349,13 +349,13 @@ def test_list_summarized(java_mcp: FastMCP) -> None:
     """summary action=list includes the symbol annotated in test_set_and_get_summary."""
     run(java_mcp.call_tool("summary", {
         "action": "set",
-        "full_name": "com.synapsetest.Dog",
+        "full_name": "com.synappstest.Dog",
         "content": "A dog class that barks.",
     }))
     result = run(java_mcp.call_tool("summary", {"action": "list"}))
     items = result_json(result)
     names = [i.get("full_name") for i in items]
-    assert "com.synapsetest.Dog" in names
+    assert "com.synappstest.Dog" in names
 
 
 # ---------------------------------------------------------------------------

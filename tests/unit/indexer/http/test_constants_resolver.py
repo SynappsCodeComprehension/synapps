@@ -5,8 +5,8 @@ import tree_sitter_python
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
-from synapse.indexer.http.constants_resolver import collect_cross_file_constants
-from synapse.indexer.tree_sitter_util import ParsedFile
+from synapps.indexer.http.constants_resolver import collect_cross_file_constants
+from synapps.indexer.tree_sitter_util import ParsedFile
 
 _py_lang = Language(tree_sitter_python.language())
 _py_parser = Parser(_py_lang)

@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, call
-from synapse.graph.edges import delete_outgoing_edges_for_file
+from synapps.graph.edges import delete_outgoing_edges_for_file
 
 
 def _conn() -> MagicMock:

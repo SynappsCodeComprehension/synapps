@@ -6,9 +6,9 @@
 - Make sure all unit and integration tests pass before considering a task complete.
 - Every bugfix must include a regression test that would have caught the bug.
 
-## Synapse MCP
+## Synapps MCP
 
-This project is indexed by the Synapse MCP server. Use it instead of grep/read for navigating code relationships:
+This project is indexed by the Synapps MCP server. Use it instead of grep/read for navigating code relationships:
 
 - Before modifying a method, use `get_context_for` (scope="edit") to understand its callers, callees, dependencies, and test coverage
 - Use `find_callers` / `find_usages` to trace how a symbol is used across the codebase — prefer this over grep
@@ -19,7 +19,7 @@ This project is indexed by the Synapse MCP server. Use it instead of grep/read f
 - Use `execute_query` for ad-hoc Cypher queries; call `get_schema` first to see available labels and relationships
 - Use `summary` with action='set'/'get'/'list' to manage symbol summaries
 - Use `find_usages` with `kind` param to filter type references, or `include_test_breakdown=True` for prod/test split
-- CLI-only tools (not available via MCP): `synapse doctor`, `synapse delete <path>`, `synapse status <path>`
+- CLI-only tools (not available via MCP): `synapps doctor`, `synapps delete <path>`, `synapps status <path>`
 - If any issues with the MCP or inconsistencies in the graph vs filesystem are found, report this to the user as a side note.
 
 ## Common Commands
@@ -45,9 +45,9 @@ pytest tests/integration/test_cli_commands_typescript.py -v -m integration   # t
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
-**Synapse**
+**Synapps**
 
-Synapse is a code intelligence MCP server that indexes multi-language codebases (C#, TypeScript, Python, Java) using tree-sitter and Language Server Protocol, stores symbols and relationships in a Memgraph graph database, and exposes semantic query tools (find callers, trace call chains, analyze change impact) for AI coding agents and developers via both MCP and CLI.
+Synapps is a code intelligence MCP server that indexes multi-language codebases (C#, TypeScript, Python, Java) using tree-sitter and Language Server Protocol, stores symbols and relationships in a Memgraph graph database, and exposes semantic query tools (find callers, trace call chains, analyze change impact) for AI coding agents and developers via both MCP and CLI.
 
 **Core Value:** AI coding agents can instantly understand code structure and relationships across an entire codebase without reading every file.
 
@@ -62,31 +62,31 @@ Synapse is a code intelligence MCP server that indexes multi-language codebases 
 ## Technology Stack
 
 ## Languages & Runtime
-- **Python 3.11** — entire application codebase (`src/synapse/`, `src/solidlsp/`)
-- **Cypher** — graph query language used in all `GraphConnection` calls (`src/synapse/graph/`)
+- **Python 3.11** — entire application codebase (`src/synapps/`, `src/solidlsp/`)
+- **Cypher** — graph query language used in all `GraphConnection` calls (`src/synapps/graph/`)
 - **C#, TypeScript, Python, Java** — target languages indexed by the tool (not part of the tool's own runtime)
 ## Frameworks & Libraries
 | Library | Version | Purpose | Location |
 |---------|---------|---------|----------|
-| `mcp` | >=1.0.0 (installed: 1.26.0) | Model Context Protocol SDK — exposes the MCP server | `src/synapse/mcp/server.py` |
-| `neo4j` | >=5.0.0 (installed: 6.1.0) | Bolt-protocol driver used against Memgraph | `src/synapse/graph/connection.py` |
-| `typer` | >=0.12.0 (installed: 0.24.1) | CLI framework for the `synapse` command | `src/synapse/cli/app.py` |
-| `watchdog` | >=4.0.0 (installed: 6.0.0) | Filesystem event watcher for live re-indexing | `src/synapse/watcher/watcher.py` |
+| `mcp` | >=1.0.0 (installed: 1.26.0) | Model Context Protocol SDK — exposes the MCP server | `src/synapps/mcp/server.py` |
+| `neo4j` | >=5.0.0 (installed: 6.1.0) | Bolt-protocol driver used against Memgraph | `src/synapps/graph/connection.py` |
+| `typer` | >=0.12.0 (installed: 0.24.1) | CLI framework for the `synapps` command | `src/synapps/cli/app.py` |
+| `watchdog` | >=4.0.0 (installed: 6.0.0) | Filesystem event watcher for live re-indexing | `src/synapps/watcher/watcher.py` |
 | `pydantic` | >=2.0.0 | Data validation (declared; minimal direct usage observed) | `pyproject.toml` |
-| `sensai-utils` | >=1.5.0 (installed: 1.6.0) | Pickle cache, string mixins, logging utilities | `src/solidlsp/ls.py`, `src/solidlsp/ls_process.py`, `src/synapse/util/file_system.py` |
+| `sensai-utils` | >=1.5.0 (installed: 1.6.0) | Pickle cache, string mixins, logging utilities | `src/solidlsp/ls.py`, `src/solidlsp/ls_process.py`, `src/synapps/util/file_system.py` |
 | `overrides` | >=7.7.0 | Runtime enforcement of `@override` decorator | `src/solidlsp/` |
-| `pathspec` | >=0.12.1 | `.gitignore`-style path matching for ignored paths | `src/synapse/util/file_system.py` |
+| `pathspec` | >=0.12.1 | `.gitignore`-style path matching for ignored paths | `src/synapps/util/file_system.py` |
 | `psutil` | >=7.0.0 | Process management for language server subprocesses | `pyproject.toml` |
-| `beautifulsoup4` | >=4.12.0 | HTML parsing in text utilities | `src/synapse/util/text_utils.py` |
-| `joblib` | >=1.3.0 | Parallel execution for batch indexing operations | `src/synapse/util/text_utils.py` |
+| `beautifulsoup4` | >=4.12.0 | HTML parsing in text utilities | `src/synapps/util/text_utils.py` |
+| `joblib` | >=1.3.0 | Parallel execution for batch indexing operations | `src/synapps/util/text_utils.py` |
 | `charset-normalizer` | >=3.0.0 | File encoding detection | `pyproject.toml` |
 | `requests` | >=2.31.0 | HTTP calls (e.g., language server binary downloads) | `pyproject.toml` |
-| `tree-sitter` | >=0.24.0 | Core parsing engine for AST extraction | `src/synapse/indexer/tree_sitter_util.py`, all language plugin indexers |
-| `tree-sitter-c-sharp` | >=0.23.0 | C# grammar for tree-sitter | `src/synapse/indexer/indexer.py`, `src/synapse/plugin/csharp.py` |
-| `tree-sitter-python` | >=0.25.0 | Python grammar for tree-sitter | `src/synapse/plugin/python.py`, `src/synapse/indexer/python/` |
-| `tree-sitter-typescript` | >=0.23.2 | TypeScript/JavaScript grammar for tree-sitter | `src/synapse/plugin/typescript.py`, `src/synapse/indexer/typescript/` |
-| `tree-sitter-java` | >=0.23.0 | Java grammar for tree-sitter | `src/synapse/plugin/java.py` |
-| `docker` | >=7.0.0 | Docker SDK — manages per-project Memgraph containers | `src/synapse/container/manager.py` |
+| `tree-sitter` | >=0.24.0 | Core parsing engine for AST extraction | `src/synapps/indexer/tree_sitter_util.py`, all language plugin indexers |
+| `tree-sitter-c-sharp` | >=0.23.0 | C# grammar for tree-sitter | `src/synapps/indexer/indexer.py`, `src/synapps/plugin/csharp.py` |
+| `tree-sitter-python` | >=0.25.0 | Python grammar for tree-sitter | `src/synapps/plugin/python.py`, `src/synapps/indexer/python/` |
+| `tree-sitter-typescript` | >=0.23.2 | TypeScript/JavaScript grammar for tree-sitter | `src/synapps/plugin/typescript.py`, `src/synapps/indexer/typescript/` |
+| `tree-sitter-java` | >=0.23.0 | Java grammar for tree-sitter | `src/synapps/plugin/java.py` |
+| `docker` | >=7.0.0 | Docker SDK — manages per-project Memgraph containers | `src/synapps/container/manager.py` |
 | `pyright` | >=1.1.0 | Python language server (bundled binary, used by solidlsp) | `src/solidlsp/language_servers/pyright_server.py` |
 | Library | Version | Purpose |
 |---------|---------|---------|
@@ -99,14 +99,14 @@ Synapse is a code intelligence MCP server that indexes multi-language codebases 
 | `pyproject.toml` | Package metadata, all runtime dependencies, dev dependencies, build targets, CLI entry points |
 | `pytest.ini` | Test runner config — 10s timeout, `tests/` path, `src tests/unit` on `pythonpath`, `integration` marker |
 | `docker-compose.yml` | Development convenience — starts a shared Memgraph instance on `localhost:7687` and Memgraph Lab UI on `localhost:3000` |
-| `.synapse/config.json` | Per-project runtime config (created on first run, not checked in) — stores container name and allocated Bolt port |
+| `.synapps/config.json` | Per-project runtime config (created on first run, not checked in) — stores container name and allocated Bolt port |
 | `uv.lock` | Full dependency lockfile |
 | Variable | Purpose |
 |----------|---------|
-| `SYNAPSE_BENCH_LOG` | Optional path to a JSONL file for tool call benchmarking (`src/synapse/mcp/tools.py`) |
+| `SYNAPPS_BENCH_LOG` | Optional path to a JSONL file for tool call benchmarking (`src/synapps/mcp/tools.py`) |
 ## Build & Dev Tools
-- `synapse` → `synapse.cli:app` (Typer app, `src/synapse/cli/app.py`)
-- `synapse-mcp` → `synapse.mcp.server:main` (MCP server, `src/synapse/mcp/server.py`)
+- `synapps` → `synapps.cli:app` (Typer app, `src/synapps/cli/app.py`)
+- `synapps-mcp` → `synapps.mcp.server:main` (MCP server, `src/synapps/mcp/server.py`)
 - `csharp-ls` (Microsoft) — C# indexing
 - `typescript-language-server` + `tsserver` — TypeScript/JavaScript
 - Eclipse JDT LS — Java
@@ -127,7 +127,7 @@ Synapse is a code intelligence MCP server that indexes multi-language codebases 
 ## Naming Conventions
 | Element | Convention | Example |
 |---------|-----------|---------|
-| Classes | PascalCase | `SynapseService`, `GraphConnection`, `PythonCallExtractor` |
+| Classes | PascalCase | `SynappsService`, `GraphConnection`, `PythonCallExtractor` |
 | Functions (module-level) | snake_case | `upsert_repository`, `compute_sync_diff` |
 | Methods | snake_case | `get_workspace_files`, `index_project` |
 | Private methods/functions | `_snake_case` prefix | `_get_project_roots`, `_rel_path`, `_resolve` |
@@ -156,69 +156,69 @@ Synapse is a code intelligence MCP server that indexes multi-language codebases 
 - `FileWatcher` provides live re-indexing via filesystem events
 - `LanguageRegistry` + `LanguagePlugin` protocol enables multi-language support
 ## Layers & Components
-- Purpose: Accept user commands or AI agent tool calls; delegate to `SynapseService`
-- Location: `src/synapse/cli/app.py`, `src/synapse/mcp/server.py`
-- Depends on: `SynapseService`, `ContainerManager`, `graph.schema`
+- Purpose: Accept user commands or AI agent tool calls; delegate to `SynappsService`
+- Location: `src/synapps/cli/app.py`, `src/synapps/mcp/server.py`
+- Depends on: `SynappsService`, `ContainerManager`, `graph.schema`
 - Purpose: Single orchestration point for all indexing, syncing, querying, and watching operations
-- Location: `src/synapse/service.py`
+- Location: `src/synapps/service.py`
 - Holds: `GraphConnection`, `LanguageRegistry`, active `FileWatcher` instances
 - Depends on: `graph.*`, `indexer.*`, `lsp.*`, `plugin.*`, `watcher.*`
-- Purpose: Provision and manage per-project Memgraph containers via Docker; persist port assignments in `.synapse/config.json`
-- Location: `src/synapse/container/manager.py`
+- Purpose: Provision and manage per-project Memgraph containers via Docker; persist port assignments in `.synapps/config.json`
+- Location: `src/synapps/container/manager.py`
 - Provides: `GraphConnection` to the rest of the system
 - Purpose: Walk project files, extract symbols via `LSPAdapter`, write nodes/edges to graph
-- Location: `src/synapse/indexer/`
+- Location: `src/synapps/indexer/`
 - Sub-components:
 - Purpose: Decouple language-specific extraction from the indexer core; each language provides factory methods for LSP adapter, call extractor, import extractor, type-ref extractor, and attribute extractor
-- Location: `src/synapse/plugin/` (one module per language: `csharp.py`, `python.py`, `typescript.py`, `java.py`)
-- Protocol: `LanguagePlugin` (structural protocol, runtime-checkable) at `src/synapse/plugin/__init__.py`
+- Location: `src/synapps/plugin/` (one module per language: `csharp.py`, `python.py`, `typescript.py`, `java.py`)
+- Protocol: `LanguagePlugin` (structural protocol, runtime-checkable) at `src/synapps/plugin/__init__.py`
 - Registry: `LanguageRegistry` in the same file; `default_registry()` registers all four built-in plugins
 - Purpose: Bridge between language server output and the `IndexSymbol` / `LSPAdapter` interface that the indexer consumes
-- Location: `src/synapse/lsp/` — one adapter per language (`csharp.py`, `python.py`, `typescript.py`, `java.py`)
-- Interface: `LSPAdapter` protocol and `IndexSymbol` dataclass at `src/synapse/lsp/interface.py`
+- Location: `src/synapps/lsp/` — one adapter per language (`csharp.py`, `python.py`, `typescript.py`, `java.py`)
+- Interface: `LSPAdapter` protocol and `IndexSymbol` dataclass at `src/synapps/lsp/interface.py`
 - Backend: Adapters delegate to `solidlsp` (the bundled LSP process manager)
 - Purpose: Launch, manage, and communicate with external language server processes over the LSP protocol (JSON-RPC stdio)
 - Location: `src/solidlsp/`
 - Key files: `ls.py` (base `LanguageServer` ABC), `ls_process.py` (process lifecycle), `lsp_protocol_handler/` (JSON-RPC transport)
 - Language servers: `language_servers/csharp_language_server.py`, `language_servers/pyright_server.py`, `language_servers/typescript_language_server.py`, `language_servers/eclipse_jdtls.py`
 - Purpose: All Cypher query logic; no business logic lives here — pure data access
-- Location: `src/synapse/graph/`
-- Purpose: Expose graph queries as MCP tools callable by AI agents; thin wrappers over `SynapseService`
-- Location: `src/synapse/mcp/tools.py`, `src/synapse/mcp/server.py`, `src/synapse/mcp/instructions.py`
+- Location: `src/synapps/graph/`
+- Purpose: Expose graph queries as MCP tools callable by AI agents; thin wrappers over `SynappsService`
+- Location: `src/synapps/mcp/tools.py`, `src/synapps/mcp/server.py`, `src/synapps/mcp/instructions.py`
 - Purpose: Watch a project directory for file changes and trigger re-indexing via callback
-- Location: `src/synapse/watcher/watcher.py`
+- Location: `src/synapps/watcher/watcher.py`
 - Uses: `watchdog` library; debounce logic for rapid file saves
 ## Data Flow
 - Persistent graph state lives in Memgraph (in-memory per container restart unless using persistent storage)
-- Per-project config (port, container name) is persisted in `.synapse/config.json`
+- Per-project config (port, container name) is persisted in `.synapps/config.json`
 - Indexed commit SHA is stored on the `Repository` node in the graph
 ## Entry Points
 | Entry Point | Type | Location |
 |-------------|------|----------|
-| `synapse` CLI | CLI (Typer) | `src/synapse/cli/app.py` |
-| `synapse-mcp` MCP server | MCP (stdio) | `src/synapse/mcp/server.py` |
+| `synapps` CLI | CLI (Typer) | `src/synapps/cli/app.py` |
+| `synapps-mcp` MCP server | MCP (stdio) | `src/synapps/mcp/server.py` |
 ## Key Abstractions
 - Structural protocol (`@runtime_checkable`) defining the contract for each language
 - Methods: `create_lsp_adapter()`, `create_call_extractor()`, `create_import_extractor()`, `create_base_type_extractor()`, `create_attribute_extractor()`, `create_type_ref_extractor()`, `create_assignment_extractor()`, `parse_file()`
-- Location: `src/synapse/plugin/__init__.py`
-- Implementations: `src/synapse/plugin/csharp.py`, `python.py`, `typescript.py`, `java.py`
+- Location: `src/synapps/plugin/__init__.py`
+- Implementations: `src/synapps/plugin/csharp.py`, `python.py`, `typescript.py`, `java.py`
 - Interface between language server output and the indexer
 - Methods: `get_workspace_files()`, `get_document_symbols()`, `find_method_calls()`, `find_overridden_method()`
-- Location: `src/synapse/lsp/interface.py`
-- Implementations: `src/synapse/lsp/csharp.py`, `python.py`, `typescript.py`, `java.py`
+- Location: `src/synapps/lsp/interface.py`
+- Implementations: `src/synapps/lsp/csharp.py`, `python.py`, `typescript.py`, `java.py`
 - Canonical in-memory representation of a symbol extracted from source
 - Fields: `name`, `full_name`, `kind`, `file_path`, `line`, `end_line`, `signature`, `base_types`, `parent_full_name`
-- Location: `src/synapse/lsp/interface.py`
+- Location: `src/synapps/lsp/interface.py`
 - Wraps a `neo4j.Driver` pointed at Memgraph via Bolt
 - Methods: `query()`, `execute()`, `execute_implicit()`, `query_with_timeout()`
-- Location: `src/synapse/graph/connection.py`
+- Location: `src/synapps/graph/connection.py`
 - Facade that owns the `GraphConnection` and `LanguageRegistry`; all public operations go through it
-- Location: `src/synapse/service.py`
+- Location: `src/synapps/service.py`
 - Nodes: `Repository`, `Directory`, `File`, `Package`, `Class`, `Interface`, `Method`, `Property`, `Field`
 - Edges: `CONTAINS`, `INHERITS`, `IMPLEMENTS`, `DISPATCHES_TO`, `CALLS`, `REFERENCES`, `OVERRIDES`, `IMPORTS`
 - `DISPATCHES_TO` is the traversal-friendly inverse of method-level `IMPLEMENTS`, written at index time to allow interface-crossing path queries without mixed-direction variable-length patterns
 ## Error Handling
-- `SynapseService._resolve()` raises `ValueError` for ambiguous short names with a list of candidates
+- `SynappsService._resolve()` raises `ValueError` for ambiguous short names with a list of candidates
 - `ContainerManager.get_connection()` raises `RuntimeError` if Docker is not available
 - `ContainerManager._wait_for_bolt()` raises `TimeoutError` if Memgraph does not become ready within 30s
 - `GraphConnection.query_with_timeout()` raises `TimeoutError` with a user-friendly message after configurable timeout

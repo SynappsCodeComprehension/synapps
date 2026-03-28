@@ -1,8 +1,8 @@
 import pytest
 import tree_sitter_python
 from tree_sitter import Language, Parser
-from synapse.indexer.assignment_ref import AssignmentRef
-from synapse.indexer.python.python_assignment_extractor import PythonAssignmentExtractor
+from synapps.indexer.assignment_ref import AssignmentRef
+from synapps.indexer.python.python_assignment_extractor import PythonAssignmentExtractor
 
 _lang = Language(tree_sitter_python.language())
 _parser = Parser(_lang)

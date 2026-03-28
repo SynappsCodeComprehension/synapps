@@ -3,8 +3,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from synapse.mcp.instructions import SERVER_INSTRUCTIONS
-from synapse.mcp.server import main
+from synapps.mcp.instructions import SERVER_INSTRUCTIONS
+from synapps.mcp.server import main
 
 
 @pytest.fixture
@@ -15,12 +15,12 @@ def _patched_main():
 
     mock_fastmcp = MagicMock()
 
-    with patch("synapse.mcp.server.ConnectionManager", mock_cm_cls), \
-         patch("synapse.mcp.server.ensure_schema") as mock_ensure, \
-         patch("synapse.mcp.server.SynapseService") as mock_svc_cls, \
-         patch("synapse.mcp.server.FastMCP", return_value=mock_fastmcp) as mock_fmcp_cls, \
-         patch("synapse.mcp.server.register_tools") as mock_register, \
-         patch("synapse.mcp.server.Path") as mock_path:
+    with patch("synapps.mcp.server.ConnectionManager", mock_cm_cls), \
+         patch("synapps.mcp.server.ensure_schema") as mock_ensure, \
+         patch("synapps.mcp.server.SynappsService") as mock_svc_cls, \
+         patch("synapps.mcp.server.FastMCP", return_value=mock_fastmcp) as mock_fmcp_cls, \
+         patch("synapps.mcp.server.register_tools") as mock_register, \
+         patch("synapps.mcp.server.Path") as mock_path:
         mock_path.cwd.return_value = Path("/mock/project")
         main()
         yield {

@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
-from synapse.cli.app import app
-from synapse.doctor.base import CheckResult
+from synapps.cli.app import app
+from synapps.doctor.base import CheckResult
 
 runner = CliRunner()
 
@@ -43,7 +43,7 @@ class _AllChecksPassingContext:
     def __enter__(self) -> None:
         self._stack = ExitStack()
         self._stack.__enter__()
-        patches = [patch(f"synapse.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
+        patches = [patch(f"synapps.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
         mocks = [self._stack.enter_context(p) for p in patches]
         for mock, (_, name, group) in zip(mocks, _ALL_CHECKS):
             mock.return_value.run.return_value = _pass_result(name, group)
@@ -63,7 +63,7 @@ def test_doctor_exits_0_when_all_pass() -> None:
 
 
 def test_doctor_exits_1_when_docker_fails() -> None:
-    patches = [patch(f"synapse.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
+    patches = [patch(f"synapps.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
         for mock, (_, name, group) in zip(mocks, _ALL_CHECKS):
@@ -76,7 +76,7 @@ def test_doctor_exits_1_when_docker_fails() -> None:
 
 def test_doctor_exits_0_when_warn_only() -> None:
     # warn is not failure — degraded-but-working semantics per Phase 1 decision
-    patches = [patch(f"synapse.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
+    patches = [patch(f"synapps.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
         for mock, (_, name, group) in zip(mocks, _ALL_CHECKS):
@@ -98,7 +98,7 @@ def test_doctor_output_contains_pass_status() -> None:
 
 
 def test_doctor_output_contains_fail_status() -> None:
-    patches = [patch(f"synapse.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
+    patches = [patch(f"synapps.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
         for mock, (_, name, group) in zip(mocks, _ALL_CHECKS):
@@ -109,7 +109,7 @@ def test_doctor_output_contains_fail_status() -> None:
 
 
 def test_doctor_output_contains_fix_for_failing_check() -> None:
-    patches = [patch(f"synapse.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
+    patches = [patch(f"synapps.cli.app.{cls}") for cls, _, _ in _ALL_CHECKS]
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
         for mock, (_, name, group) in zip(mocks, _ALL_CHECKS):

@@ -2,8 +2,8 @@ import pytest
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
-from synapse.indexer.typescript.typescript_type_ref_extractor import TypeScriptTypeRefExtractor
-from synapse.indexer.type_ref import TypeRef
+from synapps.indexer.typescript.typescript_type_ref_extractor import TypeScriptTypeRefExtractor
+from synapps.indexer.type_ref import TypeRef
 
 _ts_lang = Language(tree_sitter_typescript.language_typescript())
 _tsx_lang = Language(tree_sitter_typescript.language_tsx())

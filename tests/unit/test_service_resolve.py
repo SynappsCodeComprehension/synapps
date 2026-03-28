@@ -1,12 +1,12 @@
 from unittest.mock import MagicMock, patch
 
-from synapse.service import SynapseService
+from synapps.service import SynappsService
 from conftest import _MockNode
 
 
-def _make_service() -> tuple[SynapseService, MagicMock]:
+def _make_service() -> tuple[SynappsService, MagicMock]:
     conn = MagicMock()
-    service = SynapseService(conn)
+    service = SynappsService(conn)
     return service, conn
 
 

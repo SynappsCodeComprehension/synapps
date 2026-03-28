@@ -13,17 +13,17 @@ import pathlib
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from synapse.graph.connection import GraphConnection
-from synapse.graph.schema import ensure_schema
-from synapse.mcp.tools import register_tools
-from synapse.service import SynapseService
+from synapps.graph.connection import GraphConnection
+from synapps.graph.schema import ensure_schema
+from synapps.mcp.tools import register_tools
+from synapps.service import SynappsService
 
 FIXTURE_PATH = str(
-    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynapseTest").resolve()
+    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynappsTest").resolve()
 )
 
 PYTHON_FIXTURE_PATH = str(
-    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynapsePyTest").resolve()
+    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynappsPyTest").resolve()
 )
 
 
@@ -77,7 +77,7 @@ def service():
     ensure_schema(conn)
     _delete_project(conn, FIXTURE_PATH)
 
-    svc = SynapseService(conn=conn)
+    svc = SynappsService(conn=conn)
     svc.index_project(FIXTURE_PATH, "csharp")
 
     yield svc
@@ -87,18 +87,18 @@ def service():
 
 @pytest.fixture(scope="session")
 def mcp_server(service):
-    mcp = FastMCP("synapse-test")
+    mcp = FastMCP("synapps-test")
     register_tools(mcp, service)
     return mcp
 
 
 @pytest.fixture(scope="session")
 def python_service():
-    """Index the Python fixture project and yield SynapseService."""
+    """Index the Python fixture project and yield SynappsService."""
     conn = GraphConnection.create(database="memgraph")
     ensure_schema(conn)
     _delete_project(conn, PYTHON_FIXTURE_PATH)
-    svc = SynapseService(conn=conn)
+    svc = SynappsService(conn=conn)
     svc.index_project(PYTHON_FIXTURE_PATH, "python")
     yield svc
     _delete_project(conn, PYTHON_FIXTURE_PATH)
@@ -107,27 +107,27 @@ def python_service():
 @pytest.fixture(scope="session")
 def python_mcp(python_service):
     """Return MCP server instance wired to the Python-indexed graph."""
-    mcp = FastMCP("synapse-python-test")
+    mcp = FastMCP("synapps-python-test")
     register_tools(mcp, python_service)
     return mcp
 
 
 JAVA_FIXTURE_PATH = str(
-    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynapseJavaTest").resolve()
+    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynappsJavaTest").resolve()
 )
 
 TYPESCRIPT_FIXTURE_PATH = str(
-    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynapseJSTest").resolve()
+    (pathlib.Path(__file__).parent.parent / "fixtures" / "SynappsJSTest").resolve()
 )
 
 
 @pytest.fixture(scope="session")
 def typescript_service():
-    """Index the TypeScript fixture project and yield SynapseService."""
+    """Index the TypeScript fixture project and yield SynappsService."""
     conn = GraphConnection.create(database="memgraph")
     ensure_schema(conn)
     _delete_project(conn, TYPESCRIPT_FIXTURE_PATH)
-    svc = SynapseService(conn=conn)
+    svc = SynappsService(conn=conn)
     svc.index_project(TYPESCRIPT_FIXTURE_PATH, "typescript")
     yield svc
     _delete_project(conn, TYPESCRIPT_FIXTURE_PATH)
@@ -136,18 +136,18 @@ def typescript_service():
 @pytest.fixture(scope="session")
 def typescript_mcp(typescript_service):
     """Return MCP server instance wired to the TypeScript-indexed graph."""
-    mcp = FastMCP("synapse-typescript-test")
+    mcp = FastMCP("synapps-typescript-test")
     register_tools(mcp, typescript_service)
     return mcp
 
 
 @pytest.fixture(scope="session")
 def java_service():
-    """Index the Java fixture project and yield SynapseService."""
+    """Index the Java fixture project and yield SynappsService."""
     conn = GraphConnection.create(database="memgraph")
     ensure_schema(conn)
     _delete_project(conn, JAVA_FIXTURE_PATH)
-    svc = SynapseService(conn=conn)
+    svc = SynappsService(conn=conn)
     svc.index_project(JAVA_FIXTURE_PATH, "java")
     yield svc
     _delete_project(conn, JAVA_FIXTURE_PATH)
@@ -156,14 +156,14 @@ def java_service():
 @pytest.fixture(scope="session")
 def java_mcp(java_service):
     """Return MCP server instance wired to the Java-indexed graph."""
-    mcp = FastMCP("synapse-java-test")
+    mcp = FastMCP("synapps-java-test")
     register_tools(mcp, java_service)
     return mcp
 
 
 @pytest.fixture(scope="session")
 def http_service():
-    """Index SynapseTest with HTTP endpoint extraction enabled.
+    """Index SynappsTest with HTTP endpoint extraction enabled.
 
     Uses a separate graph connection so that Endpoint nodes created by the
     HTTP phase do not collide with the plain ``service`` fixture, which indexes
@@ -172,9 +172,9 @@ def http_service():
     import json
     import os
 
-    synapse_dir = os.path.join(FIXTURE_PATH, ".synapse")
-    os.makedirs(synapse_dir, exist_ok=True)
-    config_path = os.path.join(synapse_dir, "config.json")
+    synapps_dir = os.path.join(FIXTURE_PATH, ".synapps")
+    os.makedirs(synapps_dir, exist_ok=True)
+    config_path = os.path.join(synapps_dir, "config.json")
     with open(config_path, "w") as f:
         json.dump({"experimental": {"http_endpoints": True}}, f)
 
@@ -182,7 +182,7 @@ def http_service():
     ensure_schema(conn)
     _delete_project(conn, FIXTURE_PATH)
 
-    svc = SynapseService(conn=conn)
+    svc = SynappsService(conn=conn)
     svc.index_project(FIXTURE_PATH, "csharp")
 
     yield svc, conn
@@ -190,6 +190,6 @@ def http_service():
     _delete_project(conn, FIXTURE_PATH)
     try:
         os.remove(config_path)
-        os.rmdir(synapse_dir)
+        os.rmdir(synapps_dir)
     except OSError:
         pass

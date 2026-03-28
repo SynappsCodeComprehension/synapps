@@ -2,7 +2,7 @@
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
-from synapse.indexer.typescript.typescript_attribute_extractor import TypeScriptAttributeExtractor
+from synapps.indexer.typescript.typescript_attribute_extractor import TypeScriptAttributeExtractor
 
 _ts_lang = Language(tree_sitter_typescript.language_typescript())
 _tsx_lang = Language(tree_sitter_typescript.language_tsx())
@@ -351,8 +351,8 @@ class PlainClass {
 # _attrs_to_flags and TypeScriptPlugin factory method tests
 # ---------------------------------------------------------------------------
 
-from synapse.indexer.indexer import _attrs_to_flags, _ATTR_TO_FLAG  # noqa: E402
-from synapse.plugin.typescript import TypeScriptPlugin  # noqa: E402
+from synapps.indexer.indexer import _attrs_to_flags, _ATTR_TO_FLAG  # noqa: E402
+from synapps.plugin.typescript import TypeScriptPlugin  # noqa: E402
 
 
 def test_attrs_to_flags_abstract() -> None:

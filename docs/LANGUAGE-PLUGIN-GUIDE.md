@@ -1,6 +1,6 @@
-# Synapse Language Plugin Guide
+# Synapps Language Plugin Guide
 
-This guide enables an AI agent to add full language support to Synapse by following a phased checklist. Each phase has concrete acceptance criteria that are either grep-checkable or test-runnable. No human guidance is needed beyond what is documented here.
+This guide enables an AI agent to add full language support to Synapps by following a phased checklist. Each phase has concrete acceptance criteria that are either grep-checkable or test-runnable. No human guidance is needed beyond what is documented here.
 
 **Prerequisites:** Familiarity with tree-sitter, LSP (Language Server Protocol), and the target language's ecosystem.
 
@@ -54,7 +54,7 @@ Verify that the target language has the necessary infrastructure before writing 
 ### Tree-Sitter Grammar
 
 - [ ] Verify a tree-sitter grammar is available for the target language on PyPI. Search for `tree-sitter-{lang}` (e.g., `pip install tree-sitter-go`).
-- [ ] Reference existing tree-sitter usage in `src/synapse/indexer/tree_sitter_util.py` for shared helpers (`node_text`, `find_enclosing_scope`).
+- [ ] Reference existing tree-sitter usage in `src/synapps/indexer/tree_sitter_util.py` for shared helpers (`node_text`, `find_enclosing_scope`).
 - [ ] Do NOT prescribe query structures at this stage -- those are language-specific and will be defined in Phase 3.
 
 ### Acceptance Criteria
@@ -76,7 +76,7 @@ Create the plugin class that implements the `LanguagePlugin` protocol.
 
 ### LanguagePlugin Protocol
 
-The protocol is defined in `src/synapse/plugin/__init__.py` with structural typing via `@runtime_checkable`:
+The protocol is defined in `src/synapps/plugin/__init__.py` with structural typing via `@runtime_checkable`:
 
 ```python
 @runtime_checkable
@@ -106,7 +106,7 @@ Every language **must** implement all 7 factory methods. If a feature does not a
 
 ### Implementation Steps
 
-- [ ] Create `src/synapse/plugin/{lang}.py`
+- [ ] Create `src/synapps/plugin/{lang}.py`
 - [ ] Implement the class `{Lang}Plugin` with all 9 protocol members:
 
 | Member | Return Type | Description |
@@ -121,13 +121,13 @@ Every language **must** implement all 7 factory methods. If a feature does not a
 | `create_type_ref_extractor()` | `{Lang}TypeRefExtractor \| None` | Creates the type reference extractor, or `None` if not applicable |
 | `create_assignment_extractor()` | `{Lang}AssignmentExtractor \| None` | Creates the assignment extractor for DI-style field tracking, or `None` if not applicable |
 
-- [ ] Register the plugin in `default_registry()` in `src/synapse/plugin/__init__.py`:
+- [ ] Register the plugin in `default_registry()` in `src/synapps/plugin/__init__.py`:
   ```python
   def default_registry() -> LanguageRegistry:
-      from synapse.plugin.csharp import CSharpPlugin
-      from synapse.plugin.python import PythonPlugin
-      from synapse.plugin.typescript import TypeScriptPlugin
-      from synapse.plugin.{lang} import {Lang}Plugin  # Add this
+      from synapps.plugin.csharp import CSharpPlugin
+      from synapps.plugin.python import PythonPlugin
+      from synapps.plugin.typescript import TypeScriptPlugin
+      from synapps.plugin.{lang} import {Lang}Plugin  # Add this
 
       registry = LanguageRegistry()
       registry.register(CSharpPlugin())
@@ -139,16 +139,16 @@ Every language **must** implement all 7 factory methods. If a feature does not a
 
 ### Reference Implementations
 
-**PythonPlugin** (`src/synapse/plugin/python.py`):
+**PythonPlugin** (`src/synapps/plugin/python.py`):
 - Returns extractors for all 7 factory methods (including `create_assignment_extractor`)
 - `PythonImportExtractor` takes `source_root` parameter
 - All extractors are instantiated fresh on each `create_*` call
 
-**TypeScriptPlugin** (`src/synapse/plugin/typescript.py`):
+**TypeScriptPlugin** (`src/synapps/plugin/typescript.py`):
 - Returns `None` for `create_assignment_extractor()` (TypeScript does not use DI-style field tracking)
 - Has 8 file extensions: `.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`, `.mjs`, `.cjs`
 
-**CSharpPlugin** (`src/synapse/plugin/csharp.py`):
+**CSharpPlugin** (`src/synapps/plugin/csharp.py`):
 - Returns `None` for `create_assignment_extractor()`
 - `CSharpImportExtractor` ignores `source_root` (C# uses namespace-based imports)
 
@@ -156,8 +156,8 @@ Every language **must** implement all 7 factory methods. If a feature does not a
 
 ```bash
 python -c "
-from synapse.plugin.{lang} import {Lang}Plugin
-from synapse.plugin import LanguagePlugin
+from synapps.plugin.{lang} import {Lang}Plugin
+from synapps.plugin import LanguagePlugin
 p = {Lang}Plugin()
 assert isinstance(p, LanguagePlugin), 'Does not satisfy LanguagePlugin protocol'
 assert p.name == '{lang}'
@@ -174,7 +174,7 @@ Create the LSP adapter that wraps the solidlsp language server and provides stru
 
 ### LSPAdapter Interface
 
-Defined in `src/synapse/lsp/interface.py`:
+Defined in `src/synapps/lsp/interface.py`:
 
 ```python
 class LSPAdapter(Protocol):
@@ -200,7 +200,7 @@ The raw solidlsp instance satisfies `LSPResolverBackend` -- the adapter exposes 
 
 ### Implementation Steps
 
-- [ ] Create `src/synapse/lsp/{lang}.py`
+- [ ] Create `src/synapps/lsp/{lang}.py`
 
 - [ ] Implement `{Lang}LSPAdapter` with `__init__(self, root_path: str)`:
   - Initialize the solidlsp language server for your language
@@ -215,10 +215,10 @@ The raw solidlsp instance satisfies `LSPResolverBackend` -- the adapter exposes 
 
 - [ ] Implement `get_document_symbols(file_path: str) -> list[IndexSymbol]`:
   - Call LSP `textDocument/documentSymbol` on the file
-  - Map LSP `SymbolKind` integers to Synapse's `IndexSymbol` instances
+  - Map LSP `SymbolKind` integers to Synapps's `IndexSymbol` instances
   - Build qualified `full_name` for each symbol
 
-- [ ] Define `_LSP_KIND_MAP: dict[int, str]` mapping LSP SymbolKind integers to Synapse kinds:
+- [ ] Define `_LSP_KIND_MAP: dict[int, str]` mapping LSP SymbolKind integers to Synapps kinds:
   ```python
   _LSP_KIND_MAP = {
       5: "class",       # LSP Class
@@ -268,7 +268,7 @@ The raw solidlsp instance satisfies `LSPResolverBackend` -- the adapter exposes 
 Before proceeding to Phase 3, verify the adapter works in isolation:
 
 ```python
-from synapse.lsp.{lang} import {Lang}LSPAdapter
+from synapps.lsp.{lang} import {Lang}LSPAdapter
 
 adapter = {Lang}LSPAdapter.create("/path/to/test/project")
 files = adapter.get_workspace_files("/path/to/test/project")
@@ -285,7 +285,7 @@ adapter.shutdown()
 
 ```bash
 python -c "
-from synapse.lsp.{lang} import {Lang}LSPAdapter
+from synapps.lsp.{lang} import {Lang}LSPAdapter
 adapter = {Lang}LSPAdapter.create('/path/to/test/project')
 files = adapter.get_workspace_files('/path/to/test/project')
 assert len(files) > 0, 'No workspace files found'
@@ -304,12 +304,12 @@ Create the tree-sitter-based extractors that parse source code to find call site
 
 ### Directory Structure
 
-- [ ] Create `src/synapse/indexer/{lang}/` directory
-- [ ] Create `src/synapse/indexer/{lang}/__init__.py` (empty)
+- [ ] Create `src/synapps/indexer/{lang}/` directory
+- [ ] Create `src/synapps/indexer/{lang}/__init__.py` (empty)
 
 ### Shared Utilities
 
-All extractors can use helpers from `src/synapse/indexer/tree_sitter_util.py`:
+All extractors can use helpers from `src/synapps/indexer/tree_sitter_util.py`:
 
 - `node_text(node) -> str` -- decode a tree-sitter node's text
 - `find_enclosing_scope(line_0, sorted_lines) -> str | None` -- find the innermost scope containing a given line
@@ -329,7 +329,7 @@ class {Lang}CallExtractor:
 
 #### 1. Call Extractor
 
-- [ ] Create `src/synapse/indexer/{lang}/{lang}_call_extractor.py`
+- [ ] Create `src/synapps/indexer/{lang}/{lang}_call_extractor.py`
 - [ ] Class: `{Lang}CallExtractor`
 - [ ] Method signature: `extract(file_path, source, symbol_map, *, module_name_resolver=None, class_lines=None) -> list[tuple[str, str, int, int]]`
 - [ ] Returns: `list[tuple[caller_full_name, callee_simple_name, line, col]]`
@@ -339,7 +339,7 @@ class {Lang}CallExtractor:
 
 #### 2. Import Extractor
 
-- [ ] Create `src/synapse/indexer/{lang}/{lang}_import_extractor.py`
+- [ ] Create `src/synapps/indexer/{lang}/{lang}_import_extractor.py`
 - [ ] Class: `{Lang}ImportExtractor`
 - [ ] Constructor: `__init__(self, source_root: str = "")`
 - [ ] Method signature: `extract(file_path, source) -> list[...]`
@@ -351,7 +351,7 @@ class {Lang}CallExtractor:
 
 #### 3. Base Type Extractor
 
-- [ ] Create `src/synapse/indexer/{lang}/{lang}_base_type_extractor.py`
+- [ ] Create `src/synapps/indexer/{lang}/{lang}_base_type_extractor.py`
 - [ ] Class: `{Lang}BaseTypeExtractor`
 - [ ] Method signature: `extract(file_path, source) -> list[tuple[str, str, bool]]`
 - [ ] Returns: `list[tuple[class_name, base_name, is_first_base]]`
@@ -364,7 +364,7 @@ class {Lang}CallExtractor:
 
 #### 4. Attribute Extractor
 
-- [ ] Create `src/synapse/indexer/{lang}/{lang}_attribute_extractor.py`
+- [ ] Create `src/synapps/indexer/{lang}/{lang}_attribute_extractor.py`
 - [ ] Class: `{Lang}AttributeExtractor`
 - [ ] Method signature: `extract(file_path, source) -> list[tuple[str, list[str]]]`
 - [ ] Returns: `list[tuple[symbol_name, list[attribute_names]]]`
@@ -377,10 +377,10 @@ class {Lang}CallExtractor:
 
 #### 5. Type Reference Extractor
 
-- [ ] Create `src/synapse/indexer/{lang}/{lang}_type_ref_extractor.py`
+- [ ] Create `src/synapps/indexer/{lang}/{lang}_type_ref_extractor.py`
 - [ ] Class: `{Lang}TypeRefExtractor`
 - [ ] Method signature: `extract(file_path, source, symbol_map, class_symbol_map, *, module_name_resolver=None) -> list[TypeRef]`
-- [ ] Returns: `list[TypeRef]` where `TypeRef` is defined in `src/synapse/indexer/type_ref.py`
+- [ ] Returns: `list[TypeRef]` where `TypeRef` is defined in `src/synapps/indexer/type_ref.py`
 - [ ] Finds type annotations, type hints, parameter types, return types, and field types
 - [ ] Reference: `python_type_ref_extractor.py`
 
@@ -388,10 +388,10 @@ class {Lang}CallExtractor:
 
 #### 6. Assignment Extractor
 
-- [ ] Create `src/synapse/indexer/{lang}/{lang}_assignment_extractor.py` (only if the language uses constructor-injected fields / DI patterns)
+- [ ] Create `src/synapps/indexer/{lang}/{lang}_assignment_extractor.py` (only if the language uses constructor-injected fields / DI patterns)
 - [ ] Class: `{Lang}AssignmentExtractor`
 - [ ] Method signature: `extract(file_path, source, symbol_map, *, class_lines=None, module_name_resolver=None) -> list[AssignmentRef]`
-- [ ] Returns: `list[AssignmentRef]` where `AssignmentRef` is defined in `src/synapse/indexer/assignment_ref.py`
+- [ ] Returns: `list[AssignmentRef]` where `AssignmentRef` is defined in `src/synapps/indexer/assignment_ref.py`
 - [ ] Builds field-to-type maps for assignment-aware call resolution (e.g., `self._repo = repo` -> `self._repo.save()` resolves to `Repo.save`)
 - [ ] Currently only Python implements this. Return `None` from the plugin factory if not applicable.
 - [ ] Reference: `python_assignment_extractor.py`
@@ -405,7 +405,7 @@ Beyond the standard protocol extractors, languages may need custom extractors fo
 
 **Pattern for private extractors:**
 
-1. Create the extractor class in the `src/synapse/indexer/{lang}/` directory
+1. Create the extractor class in the `src/synapps/indexer/{lang}/` directory
 2. Wire it into the indexer via one of two paths:
    - **Option A:** Add a new factory method to the plugin class (not part of the protocol but callable via `getattr`)
    - **Option B:** Integrate directly in `indexer.py` behind a language guard (see Phase 4)
@@ -415,11 +415,11 @@ Beyond the standard protocol extractors, languages may need custom extractors fo
 
 ```bash
 python -c "
-from synapse.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor
-from synapse.indexer.{lang}.{lang}_import_extractor import {Lang}ImportExtractor
-from synapse.indexer.{lang}.{lang}_base_type_extractor import {Lang}BaseTypeExtractor
-from synapse.indexer.{lang}.{lang}_attribute_extractor import {Lang}AttributeExtractor
-from synapse.indexer.{lang}.{lang}_type_ref_extractor import {Lang}TypeRefExtractor
+from synapps.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor
+from synapps.indexer.{lang}.{lang}_import_extractor import {Lang}ImportExtractor
+from synapps.indexer.{lang}.{lang}_base_type_extractor import {Lang}BaseTypeExtractor
+from synapps.indexer.{lang}.{lang}_attribute_extractor import {Lang}AttributeExtractor
+from synapps.indexer.{lang}.{lang}_type_ref_extractor import {Lang}TypeRefExtractor
 assert hasattr({Lang}CallExtractor, 'extract')
 assert hasattr({Lang}ImportExtractor, 'extract')
 assert hasattr({Lang}BaseTypeExtractor, 'extract')
@@ -435,7 +435,7 @@ print('All extractors importable with extract() method')
 
 Wire the new language into the shared indexer infrastructure. This phase requires understanding each language guard's semantic purpose.
 
-### Language Guards in `src/synapse/indexer/indexer.py`
+### Language Guards in `src/synapps/indexer/indexer.py`
 
 Each guard below represents a **semantic decision** about whether the new language shares that behavior. Do NOT blindly add the language to every tuple.
 
@@ -493,7 +493,7 @@ if self._language in ("python", "typescript"):
 
 ```python
 if self._language == "python":
-    from synapse.lsp.python import detect_source_root
+    from synapps.lsp.python import detect_source_root
     self._import_extractor._source_root = detect_source_root(file_path, self._root_path or "")
 elif self._language == "typescript":
     self._import_extractor._source_root = self._root_path or ""
@@ -535,7 +535,7 @@ if self._language in ("python", "typescript"):
 
 ### Additional Files to Modify
 
-#### `src/synapse/plugin/__init__.py`
+#### `src/synapps/plugin/__init__.py`
 
 - [ ] Add lazy import and `registry.register()` call in `default_registry()` (covered in Phase 1)
 
@@ -549,11 +549,11 @@ if self._language in ("python", "typescript"):
   ]
   ```
 
-#### `src/synapse/service.py`
+#### `src/synapps/service.py`
 
 - [ ] Check for any language-specific behavior in the service layer. Currently no language guards exist in `service.py` beyond what the plugin system handles automatically. Review if the new language requires service-level special cases.
 
-#### `src/synapse/watcher/watcher.py`
+#### `src/synapps/watcher/watcher.py`
 
 - [ ] **No code change needed.** The file watcher receives `watched_extensions` from the plugin's `file_extensions` property automatically.
 
@@ -561,11 +561,11 @@ if self._language in ("python", "typescript"):
 
 ```bash
 # Index a test project
-synapse index /path/to/fixture
+synapps index /path/to/fixture
 
 # Verify nodes were created
 python -c "
-from synapse.graph.connection import GraphConnection
+from synapps.graph.connection import GraphConnection
 conn = GraphConnection.create('localhost')
 rows = conn.query(\"MATCH (n) WHERE n.language = '{lang}' RETURN count(n)\")
 print(f'Nodes: {rows[0][0]}')
@@ -581,7 +581,7 @@ Create a test fixture project that exercises all extractors and provides materia
 
 ### Directory Structure
 
-- [ ] Create `tests/fixtures/Synapse{Lang}Test/` directory
+- [ ] Create `tests/fixtures/Synapps{Lang}Test/` directory
 - [ ] Populate with source files covering all extractor scenarios
 
 ### Required Fixture Elements
@@ -604,9 +604,9 @@ The fixture must contain the following elements. Each maps to specific extractor
 
 ### Reference Fixtures
 
-- **C#:** `tests/fixtures/SynapseTest/` -- Controllers/, Models/, Services/ directories with `.csproj`
-- **Python:** `tests/fixtures/SynapsePyTest/synapsepytest/` -- `animals.py`, `services.py`, `models.py`, `utils.py`, `config.py`, `__init__.py`
-- **TypeScript:** `tests/fixtures/SynapseJSTest/src/` -- `animals.ts`, `services.ts`, `models.ts`, `utils.js`, `index.ts`
+- **C#:** `tests/fixtures/SynappsTest/` -- Controllers/, Models/, Services/ directories with `.csproj`
+- **Python:** `tests/fixtures/SynappsPyTest/synappspytest/` -- `animals.py`, `services.py`, `models.py`, `utils.py`, `config.py`, `__init__.py`
+- **TypeScript:** `tests/fixtures/SynappsJSTest/src/` -- `animals.ts`, `services.ts`, `models.ts`, `utils.js`, `index.ts`
 
 **Pattern:** Fixtures are structurally parallel -- each has classes, interfaces, inheritance chains, services with dependency injection, and utility functions.
 
@@ -614,8 +614,8 @@ The fixture must contain the following elements. Each maps to specific extractor
 
 ```bash
 # Verify fixture directory exists with source files
-test -d tests/fixtures/Synapse{Lang}Test/ && \
-  find tests/fixtures/Synapse{Lang}Test/ -name "*.{ext}" | head -5
+test -d tests/fixtures/Synapps{Lang}Test/ && \
+  find tests/fixtures/Synapps{Lang}Test/ -name "*.{ext}" | head -5
 ```
 
 ---
@@ -639,7 +639,7 @@ Each test file follows this pattern:
 
 ```python
 import pytest
-from synapse.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor
+from synapps.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor
 
 @pytest.fixture
 def extractor():
@@ -792,23 +792,23 @@ Every **Y** in existing languages should be **Y** or **N/A** (with justification
 
 Every shared file that needs modification when adding a new language, with exact patterns and verification commands.
 
-### File: `src/synapse/plugin/__init__.py`
+### File: `src/synapps/plugin/__init__.py`
 
 ```
 Action:   Add lazy import + registry.register() in default_registry()
 Pattern:  Follow existing CSharp/Python/TypeScript imports
-Example:  from synapse.plugin.{lang} import {Lang}Plugin
+Example:  from synapps.plugin.{lang} import {Lang}Plugin
           registry.register({Lang}Plugin())
-Verify:   grep "{Lang}Plugin" src/synapse/plugin/__init__.py
+Verify:   grep "{Lang}Plugin" src/synapps/plugin/__init__.py
 ```
 
-### File: `src/synapse/indexer/indexer.py`
+### File: `src/synapps/indexer/indexer.py`
 
 ```
 Action:   Add language to guard tuples where applicable (see Phase 4 for decision criteria)
 Pattern:  if self._language in ("python", "typescript", "{lang}")
 Guards:   8 guards at lines ~90, ~273, ~337, ~342, ~363, ~393, ~443-459, ~529
-Verify:   grep '"{lang}"' src/synapse/indexer/indexer.py
+Verify:   grep '"{lang}"' src/synapps/indexer/indexer.py
 ```
 
 ### File: `pyproject.toml`
@@ -820,15 +820,15 @@ Section:  [project.dependencies]
 Verify:   grep "tree-sitter-{lang}" pyproject.toml
 ```
 
-### File: `src/synapse/service.py`
+### File: `src/synapps/service.py`
 
 ```
 Action:   Review for language-specific behavior (currently none beyond plugin system)
 Pattern:  No current language guards in service.py
-Verify:   grep '"{lang}"' src/synapse/service.py  (should return 0 results unless you added one)
+Verify:   grep '"{lang}"' src/synapps/service.py  (should return 0 results unless you added one)
 ```
 
-### File: `src/synapse/watcher/watcher.py`
+### File: `src/synapps/watcher/watcher.py`
 
 ```
 Action:   No code change needed
@@ -840,16 +840,16 @@ Verify:   N/A -- automatic via LanguagePlugin.file_extensions
 
 | File | Purpose |
 |------|---------|
-| `src/synapse/plugin/{lang}.py` | Plugin class |
-| `src/synapse/lsp/{lang}.py` | LSP adapter |
-| `src/synapse/indexer/{lang}/__init__.py` | Extractor package |
-| `src/synapse/indexer/{lang}/{lang}_call_extractor.py` | Call site extractor |
-| `src/synapse/indexer/{lang}/{lang}_import_extractor.py` | Import extractor |
-| `src/synapse/indexer/{lang}/{lang}_base_type_extractor.py` | Inheritance extractor |
-| `src/synapse/indexer/{lang}/{lang}_attribute_extractor.py` | Attribute/decorator extractor |
-| `src/synapse/indexer/{lang}/{lang}_type_ref_extractor.py` | Type reference extractor |
-| `src/synapse/indexer/{lang}/{lang}_assignment_extractor.py` | Assignment extractor (optional) |
-| `tests/fixtures/Synapse{Lang}Test/` | Test fixture project |
+| `src/synapps/plugin/{lang}.py` | Plugin class |
+| `src/synapps/lsp/{lang}.py` | LSP adapter |
+| `src/synapps/indexer/{lang}/__init__.py` | Extractor package |
+| `src/synapps/indexer/{lang}/{lang}_call_extractor.py` | Call site extractor |
+| `src/synapps/indexer/{lang}/{lang}_import_extractor.py` | Import extractor |
+| `src/synapps/indexer/{lang}/{lang}_base_type_extractor.py` | Inheritance extractor |
+| `src/synapps/indexer/{lang}/{lang}_attribute_extractor.py` | Attribute/decorator extractor |
+| `src/synapps/indexer/{lang}/{lang}_type_ref_extractor.py` | Type reference extractor |
+| `src/synapps/indexer/{lang}/{lang}_assignment_extractor.py` | Assignment extractor (optional) |
+| `tests/fixtures/Synapps{Lang}Test/` | Test fixture project |
 | `tests/unit/indexer/test_{lang}_call_extractor.py` | Call extractor unit tests |
 | `tests/unit/indexer/test_{lang}_import_extractor.py` | Import extractor unit tests |
 | `tests/unit/indexer/test_{lang}_base_type_extractor.py` | Base type extractor unit tests |
@@ -870,10 +870,10 @@ Verify:   N/A -- automatic via LanguagePlugin.file_extensions
 | `textDocument/definition` | **Required** | `request_defining_symbol` | Phase 2 call resolution -- resolves callee identities |
 | `textDocument/didOpen` | **Required** | `open_file` | File tracking -- notifies LSP of open files |
 | `textDocument/didClose` | **Required** | `close_file` | File tracking -- notifies LSP of closed files |
-| `textDocument/didChange` | Optional | Not currently used | Incremental file updates (Synapse re-reads from disk) |
-| `callHierarchy/incomingCalls` | Optional | Not used | Stubs exist in LSPAdapter but are intentionally empty. Synapse uses tree-sitter + definition resolution instead. |
-| `textDocument/references` | Optional | Not used | Could be used for find_usages but Synapse uses graph queries |
-| `workspace/symbol` | Optional | Not used | Synapse enumerates per-file via documentSymbol |
+| `textDocument/didChange` | Optional | Not currently used | Incremental file updates (Synapps re-reads from disk) |
+| `callHierarchy/incomingCalls` | Optional | Not used | Stubs exist in LSPAdapter but are intentionally empty. Synapps uses tree-sitter + definition resolution instead. |
+| `textDocument/references` | Optional | Not used | Could be used for find_usages but Synapps uses graph queries |
+| `workspace/symbol` | Optional | Not used | Synapps enumerates per-file via documentSymbol |
 
 ### Testing an LSP Adapter Standalone
 
@@ -881,7 +881,7 @@ Follow this sequence to verify the adapter works before integrating:
 
 1. **Start the LSP server:**
    ```python
-   from synapse.lsp.{lang} import {Lang}LSPAdapter
+   from synapps.lsp.{lang} import {Lang}LSPAdapter
    adapter = {Lang}LSPAdapter.create("/path/to/test/project")
    ```
 
@@ -1016,11 +1016,11 @@ Add the appropriate logic as an `elif` branch in Guard 6 (line ~393 of `indexer.
 
 | Category | Files |
 |----------|-------|
-| Plugin | `src/synapse/plugin/{lang}.py` |
-| LSP Adapter | `src/synapse/lsp/{lang}.py` |
-| Extractors (5-6) | `src/synapse/indexer/{lang}/{lang}_call_extractor.py`, `{lang}_import_extractor.py`, `{lang}_base_type_extractor.py`, `{lang}_attribute_extractor.py`, `{lang}_type_ref_extractor.py`, optionally `{lang}_assignment_extractor.py` |
-| Package init | `src/synapse/indexer/{lang}/__init__.py` |
-| Test fixture | `tests/fixtures/Synapse{Lang}Test/` with source files |
+| Plugin | `src/synapps/plugin/{lang}.py` |
+| LSP Adapter | `src/synapps/lsp/{lang}.py` |
+| Extractors (5-6) | `src/synapps/indexer/{lang}/{lang}_call_extractor.py`, `{lang}_import_extractor.py`, `{lang}_base_type_extractor.py`, `{lang}_attribute_extractor.py`, `{lang}_type_ref_extractor.py`, optionally `{lang}_assignment_extractor.py` |
+| Package init | `src/synapps/indexer/{lang}/__init__.py` |
+| Test fixture | `tests/fixtures/Synapps{Lang}Test/` with source files |
 | Unit tests (5-6) | `tests/unit/indexer/test_{lang}_call_extractor.py`, etc. |
 | Integration tests (2) | `tests/integration/test_mcp_tools_{lang}.py`, `tests/integration/test_cli_commands_{lang}.py` |
 
@@ -1028,8 +1028,8 @@ Add the appropriate logic as an `elif` branch in Guard 6 (line ~393 of `indexer.
 
 | File | Change |
 |------|--------|
-| `src/synapse/plugin/__init__.py` | Add import + `registry.register()` in `default_registry()` |
-| `src/synapse/indexer/indexer.py` | Add language to applicable guard tuples (Phase 4) |
+| `src/synapps/plugin/__init__.py` | Add import + `registry.register()` in `default_registry()` |
+| `src/synapps/indexer/indexer.py` | Add language to applicable guard tuples (Phase 4) |
 | `pyproject.toml` | Add `tree-sitter-{lang}` to dependencies |
 
 ### Verification Commands (All Phases)
@@ -1040,21 +1040,21 @@ python -c "from solidlsp.ls_config import Language; print(Language.{LANG_UPPER})
 python -c "import tree_sitter_{lang}"
 
 # Phase 1: Plugin class
-python -c "from synapse.plugin.{lang} import {Lang}Plugin; from synapse.plugin import LanguagePlugin; assert isinstance({Lang}Plugin(), LanguagePlugin)"
+python -c "from synapps.plugin.{lang} import {Lang}Plugin; from synapps.plugin import LanguagePlugin; assert isinstance({Lang}Plugin(), LanguagePlugin)"
 
 # Phase 2: LSP adapter (requires language SDK + LSP server)
-python -c "from synapse.lsp.{lang} import {Lang}LSPAdapter; a = {Lang}LSPAdapter.create('/path/to/fixture'); print(len(a.get_workspace_files('/path/to/fixture'))); a.shutdown()"
+python -c "from synapps.lsp.{lang} import {Lang}LSPAdapter; a = {Lang}LSPAdapter.create('/path/to/fixture'); print(len(a.get_workspace_files('/path/to/fixture'))); a.shutdown()"
 
 # Phase 3: Extractors
-python -c "from synapse.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor; assert hasattr({Lang}CallExtractor, 'extract')"
+python -c "from synapps.indexer.{lang}.{lang}_call_extractor import {Lang}CallExtractor; assert hasattr({Lang}CallExtractor, 'extract')"
 
 # Phase 4: Integration wiring
-grep '"{lang}"' src/synapse/indexer/indexer.py
+grep '"{lang}"' src/synapps/indexer/indexer.py
 grep "tree-sitter-{lang}" pyproject.toml
-grep "{Lang}Plugin" src/synapse/plugin/__init__.py
+grep "{Lang}Plugin" src/synapps/plugin/__init__.py
 
 # Phase 5: Fixture
-test -d tests/fixtures/Synapse{Lang}Test/
+test -d tests/fixtures/Synapps{Lang}Test/
 
 # Phase 6: Unit tests
 pytest tests/unit/indexer/test_{lang}_*.py -v

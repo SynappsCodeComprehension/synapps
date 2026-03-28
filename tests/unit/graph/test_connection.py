@@ -1,12 +1,12 @@
 import concurrent.futures
 import pytest
 from unittest.mock import MagicMock, patch
-from synapse.graph.connection import GraphConnection
+from synapps.graph.connection import GraphConnection
 
 
 def test_create_returns_graph_connection():
     mock_driver = MagicMock()
-    with patch("synapse.graph.connection.GraphDatabase") as mock_gdb:
+    with patch("synapps.graph.connection.GraphDatabase") as mock_gdb:
         mock_gdb.driver.return_value = mock_driver
         conn = GraphConnection.create(host="localhost", port=7687)
     assert isinstance(conn, GraphConnection)
@@ -74,7 +74,7 @@ def test_query_with_timeout_raises_timeout_error():
     mock_executor = MagicMock()
     mock_executor.submit.return_value = mock_future
 
-    with patch("synapse.graph.connection.concurrent.futures.ThreadPoolExecutor") as mock_tpe:
+    with patch("synapps.graph.connection.concurrent.futures.ThreadPoolExecutor") as mock_tpe:
         mock_tpe.return_value = mock_executor
         with pytest.raises(TimeoutError, match="timeout"):
             conn.query_with_timeout("MATCH (n) RETURN n", timeout_s=0.001)
@@ -92,7 +92,7 @@ def test_query_with_timeout_shuts_down_executor_with_wait_on_success():
     mock_executor = MagicMock()
     mock_executor.submit.return_value = mock_future
 
-    with patch("synapse.graph.connection.concurrent.futures.ThreadPoolExecutor") as mock_tpe:
+    with patch("synapps.graph.connection.concurrent.futures.ThreadPoolExecutor") as mock_tpe:
         mock_tpe.return_value = mock_executor
         conn.query_with_timeout("MATCH (n) RETURN n", timeout_s=10.0)
 
@@ -109,7 +109,7 @@ def test_query_with_timeout_shuts_down_executor_with_no_wait_on_timeout():
     mock_executor = MagicMock()
     mock_executor.submit.return_value = mock_future
 
-    with patch("synapse.graph.connection.concurrent.futures.ThreadPoolExecutor") as mock_tpe:
+    with patch("synapps.graph.connection.concurrent.futures.ThreadPoolExecutor") as mock_tpe:
         mock_tpe.return_value = mock_executor
         with pytest.raises(TimeoutError):
             conn.query_with_timeout("MATCH (n) RETURN n", timeout_s=0.001)

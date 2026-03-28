@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch, call
 import pytest
 import typer
 
-from synapse.onboarding.mcp_configurator import MCPClient
+from synapps.onboarding.mcp_configurator import MCPClient
 
 
 # ---------------------------------------------------------------------------
@@ -15,12 +15,12 @@ from synapse.onboarding.mcp_configurator import MCPClient
 # ---------------------------------------------------------------------------
 
 def _make_check_result(name: str, status: str = "pass", fix: str | None = None, group: str = "core"):
-    from synapse.doctor.base import CheckResult
+    from synapps.doctor.base import CheckResult
     return CheckResult(name=name, status=status, detail="detail", fix=fix, group=group)
 
 
 def _make_report(results):
-    from synapse.doctor.service import DoctorReport
+    from synapps.doctor.service import DoctorReport
     return DoctorReport(checks=results)
 
 
@@ -29,14 +29,14 @@ def _make_report(results):
 # ---------------------------------------------------------------------------
 
 def test_checks_for_languages_python_only():
-    from synapse.onboarding.init_wizard import _checks_for_languages
-    from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
-    from synapse.doctor.checks.memgraph_bolt import MemgraphBoltCheck
-    from synapse.doctor.checks.python3 import PythonCheck
-    from synapse.doctor.checks.pylsp import PylspCheck
-    from synapse.doctor.checks.dotnet import DotNetCheck
-    from synapse.doctor.checks.node import NodeCheck
-    from synapse.doctor.checks.java import JavaCheck
+    from synapps.onboarding.init_wizard import _checks_for_languages
+    from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
+    from synapps.doctor.checks.memgraph_bolt import MemgraphBoltCheck
+    from synapps.doctor.checks.python3 import PythonCheck
+    from synapps.doctor.checks.pylsp import PylspCheck
+    from synapps.doctor.checks.dotnet import DotNetCheck
+    from synapps.doctor.checks.node import NodeCheck
+    from synapps.doctor.checks.java import JavaCheck
 
     checks = _checks_for_languages(["python"])
 
@@ -51,9 +51,9 @@ def test_checks_for_languages_python_only():
 
 
 def test_checks_for_languages_includes_core():
-    from synapse.onboarding.init_wizard import _checks_for_languages
-    from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
-    from synapse.doctor.checks.memgraph_bolt import MemgraphBoltCheck
+    from synapps.onboarding.init_wizard import _checks_for_languages
+    from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
+    from synapps.doctor.checks.memgraph_bolt import MemgraphBoltCheck
 
     checks = _checks_for_languages([])
 
@@ -63,15 +63,15 @@ def test_checks_for_languages_includes_core():
 
 
 def test_checks_for_languages_multi():
-    from synapse.onboarding.init_wizard import _checks_for_languages
-    from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
-    from synapse.doctor.checks.memgraph_bolt import MemgraphBoltCheck
-    from synapse.doctor.checks.python3 import PythonCheck
-    from synapse.doctor.checks.pylsp import PylspCheck
-    from synapse.doctor.checks.node import NodeCheck
-    from synapse.doctor.checks.typescript_ls import TypeScriptLSCheck
-    from synapse.doctor.checks.dotnet import DotNetCheck
-    from synapse.doctor.checks.java import JavaCheck
+    from synapps.onboarding.init_wizard import _checks_for_languages
+    from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
+    from synapps.doctor.checks.memgraph_bolt import MemgraphBoltCheck
+    from synapps.doctor.checks.python3 import PythonCheck
+    from synapps.doctor.checks.pylsp import PylspCheck
+    from synapps.doctor.checks.node import NodeCheck
+    from synapps.doctor.checks.typescript_ls import TypeScriptLSCheck
+    from synapps.doctor.checks.dotnet import DotNetCheck
+    from synapps.doctor.checks.java import JavaCheck
 
     checks = _checks_for_languages(["python", "typescript"])
 
@@ -132,19 +132,19 @@ def _run_with_patches(project_path: str, opts: dict):
     mock_svc.return_value.smart_index.return_value = opts["smart_index_result"]
 
     with (
-        patch("synapse.onboarding.init_wizard.detect_languages", return_value=opts["detect_languages"]),
-        patch("synapse.onboarding.init_wizard.detect_mcp_clients", return_value=opts["detect_mcp_clients"]),
-        patch("synapse.onboarding.init_wizard.write_mcp_config") as mock_write,
-        patch("synapse.onboarding.init_wizard.DoctorService", mock_doctor_service),
-        patch("synapse.onboarding.init_wizard.ConnectionManager", mock_cm),
-        patch("synapse.onboarding.init_wizard.ensure_schema"),
-        patch("synapse.onboarding.init_wizard.SynapseService", mock_svc),
+        patch("synapps.onboarding.init_wizard.detect_languages", return_value=opts["detect_languages"]),
+        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=opts["detect_mcp_clients"]),
+        patch("synapps.onboarding.init_wizard.write_mcp_config") as mock_write,
+        patch("synapps.onboarding.init_wizard.DoctorService", mock_doctor_service),
+        patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
+        patch("synapps.onboarding.init_wizard.ensure_schema"),
+        patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("typer.confirm", side_effect=opts["confirm_side_effect"]),
         patch("sys.stdin") as mock_stdin,
     ):
         mock_stdin.isatty.return_value = opts["isatty"]
 
-        from synapse.onboarding.init_wizard import run_init
+        from synapps.onboarding.init_wizard import run_init
         run_init(project_path)
 
     return mock_write, mock_svc, mock_cm
@@ -186,19 +186,19 @@ def test_wizard_shows_fix_on_failure(capsys):
         output_lines.append(str(args))
 
     with (
-        patch("synapse.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
-        patch("synapse.onboarding.init_wizard.detect_mcp_clients", return_value=[]),
-        patch("synapse.onboarding.init_wizard.write_mcp_config"),
-        patch("synapse.onboarding.init_wizard.DoctorService", mock_doctor_service),
-        patch("synapse.onboarding.init_wizard.ConnectionManager", mock_cm),
-        patch("synapse.onboarding.init_wizard.ensure_schema"),
-        patch("synapse.onboarding.init_wizard.SynapseService", mock_svc),
+        patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
+        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[]),
+        patch("synapps.onboarding.init_wizard.write_mcp_config"),
+        patch("synapps.onboarding.init_wizard.DoctorService", mock_doctor_service),
+        patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
+        patch("synapps.onboarding.init_wizard.ensure_schema"),
+        patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("typer.confirm", side_effect=[True, True]),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture_print) as mock_console_print,
     ):
         mock_stdin.isatty.return_value = True
-        from synapse.onboarding.init_wizard import run_init
+        from synapps.onboarding.init_wizard import run_init
         run_init("/tmp/myproject")
 
     all_output = " ".join(output_lines)
@@ -244,19 +244,19 @@ def test_summary_printed():
         printed_output.append(str(args))
 
     with (
-        patch("synapse.onboarding.init_wizard.detect_languages", return_value=[("python", 42)]),
-        patch("synapse.onboarding.init_wizard.detect_mcp_clients", return_value=[]),
-        patch("synapse.onboarding.init_wizard.write_mcp_config"),
-        patch("synapse.onboarding.init_wizard.DoctorService", mock_doctor_service),
-        patch("synapse.onboarding.init_wizard.ConnectionManager", mock_cm),
-        patch("synapse.onboarding.init_wizard.ensure_schema"),
-        patch("synapse.onboarding.init_wizard.SynapseService", mock_svc),
+        patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 42)]),
+        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[]),
+        patch("synapps.onboarding.init_wizard.write_mcp_config"),
+        patch("synapps.onboarding.init_wizard.DoctorService", mock_doctor_service),
+        patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
+        patch("synapps.onboarding.init_wizard.ensure_schema"),
+        patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("typer.confirm", return_value=True),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture),
     ):
         mock_stdin.isatty.return_value = True
-        from synapse.onboarding.init_wizard import run_init
+        from synapps.onboarding.init_wizard import run_init
         run_init("/tmp/myproject")
 
     all_output = " ".join(printed_output)
@@ -266,10 +266,10 @@ def test_summary_printed():
 def test_non_interactive_stdin():
     with (
         patch("sys.stdin") as mock_stdin,
-        patch("synapse.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
+        patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
     ):
         mock_stdin.isatty.return_value = False
-        from synapse.onboarding.init_wizard import run_init
+        from synapps.onboarding.init_wizard import run_init
         with pytest.raises((typer.Exit, SystemExit)) as exc_info:
             run_init("/tmp/myproject")
         # Should exit with code 1

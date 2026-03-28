@@ -1,24 +1,24 @@
 <p align="center">
-  <img src="synapse-logo.svg" alt="Synapse" width="300">
+  <img src="synapps-logo.svg" alt="Synapps" width="300">
 </p>
 
-# Synapse
+# Synapps
 
-[![CI](https://github.com/alexjsmith0115/synapse/actions/workflows/ci.yml/badge.svg)](https://github.com/alexjsmith0115/synapse/actions/workflows/ci.yml)
+[![CI](https://github.com/SynappsCodeComprehension/synapps/actions/workflows/ci.yml/badge.svg)](https://github.com/SynappsCodeComprehension/synapps/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Give your AI agent a deep understanding of your codebase — not just files and symbols, but the relationships between them.**
 
-Synapse is an MCP server and CLI that builds a queryable graph of your codebase using Language Server Protocol analysis. It indexes symbols, call chains, inheritance trees, interface implementations, and type dependencies across C#, Python, TypeScript/JavaScript, and Java projects — then lets AI agents (or humans) query that graph to make safer, faster, better-informed code changes.
+Synapps is an MCP server and CLI that builds a queryable graph of your codebase using Language Server Protocol analysis. It indexes symbols, call chains, inheritance trees, interface implementations, and type dependencies across C#, Python, TypeScript/JavaScript, and Java projects — then lets AI agents (or humans) query that graph to make safer, faster, better-informed code changes.
 
-## Why Synapse
+## Why Synapps
 
 AI agents working with code today rely on grep and file reads. That works for simple lookups, but falls apart when the question is *"what happens if I change this?"* — when the answer depends on call chains, interface dispatch, inheritance, and test coverage spanning dozens of files.
 
-Synapse gives your agent a compiler-grade understanding of how code connects, without reading every file.
+Synapps gives your agent a compiler-grade understanding of how code connects, without reading every file.
 
-| Without Synapse | With Synapse |
+| Without Synapps | With Synapps |
 |---|---|
 | Grep for `.DoWork(` across the codebase, filter false positives manually | `find_callers("DoWork")` — precise results, including calls through interfaces |
 | Read 5+ files to understand a method before editing | `get_context_for("X", scope="edit")` — source, callers, dependencies, and test coverage in one call |
@@ -29,44 +29,44 @@ Synapse gives your agent a compiler-grade understanding of how code connects, wi
 ## Quick Start
 
 ```bash
-pip install synapse-mcp
-synapse init
+pip install synapps-mcp
+synapps init
 ```
 
-`synapse init` walks you through setup:
+`synapps init` walks you through setup:
 1. **Detects languages** in your project (C#, Python, TypeScript, Java)
 2. **Checks prerequisites** — Docker, Memgraph, and language servers for detected languages only
 3. **Shows fix commands** for anything missing (platform-specific: `brew` on macOS, `apt` on Linux)
 4. **Indexes your project** — builds the code graph automatically
 5. **Configures your MCP client** — detects Claude Desktop, Claude Code, Cursor, or Copilot and offers to write the config
 
-After init completes, your AI agent can use Synapse tools immediately.
+After init completes, your AI agent can use Synapps tools immediately.
 
 For development from source: `pip install -e .`
 
 ### Prerequisites
 
 - **Python 3.11+**
-- **Docker** — Synapse auto-manages Memgraph containers. Not required when connecting to an external Memgraph instance.
+- **Docker** — Synapps auto-manages Memgraph containers. Not required when connecting to an external Memgraph instance.
 - **Language servers** (only for languages in your project):
   - C#: .NET SDK (Roslyn Language Server is auto-downloaded on first index)
   - Python: Pyright (`npm install -g pyright`)
   - TypeScript/JavaScript: `npm install -g typescript-language-server typescript`
   - Java: Eclipse JDTLS (auto-managed)
 
-Run `synapse doctor` to check your environment.
+Run `synapps doctor` to check your environment.
 
 ### Manual MCP Configuration
 
-`synapse init` handles this automatically. To configure manually:
+`synapps init` handles this automatically. To configure manually:
 
 **Claude Desktop** / **Claude Code** / **Cursor**:
 
 ```json
 {
   "mcpServers": {
-    "synapse": {
-      "command": "synapse-mcp"
+    "synapps": {
+      "command": "synapps-mcp"
     }
   }
 }
@@ -79,8 +79,8 @@ Config file locations: Claude Desktop (`claude_desktop_config.json`), Claude Cod
 ```json
 {
   "servers": {
-    "synapse": {
-      "command": "synapse-mcp"
+    "synapps": {
+      "command": "synapps-mcp"
     }
   }
 }
@@ -92,7 +92,7 @@ Config file locations: Claude Desktop (`claude_desktop_config.json`), Claude Cod
 
 ### Deep Call Graph
 
-Synapse uses a two-phase indexing approach: LSP extracts structural symbols (classes, methods, properties), then tree-sitter finds call sites and LSP resolves what each call points to. The result is a graph of CALLS edges between methods — not string matches, but semantically resolved references.
+Synapps uses a two-phase indexing approach: LSP extracts structural symbols (classes, methods, properties), then tree-sitter finds call sites and LSP resolves what each call points to. The result is a graph of CALLS edges between methods — not string matches, but semantically resolved references.
 
 This means your agent can follow a method call through 6 levels of indirection and know exactly what code is reachable, without reading a single file.
 
@@ -100,7 +100,7 @@ This means your agent can follow a method call through 6 levels of indirection a
 
 ### Interface Dispatch Resolution
 
-In dependency-injected codebases, `service.Process()` could mean any of 5 concrete implementations. Grep finds the interface method. Synapse finds the interface method *and* every concrete implementation, automatically.
+In dependency-injected codebases, `service.Process()` could mean any of 5 concrete implementations. Grep finds the interface method. Synapps finds the interface method *and* every concrete implementation, automatically.
 
 **Tools:** `find_callers` (with `include_interface_dispatch`), `find_implementations` | **CLI:** `contract`
 
@@ -128,7 +128,7 @@ The graph stays fresh without manual intervention. When `auto_sync` is enabled (
 
 ### HTTP Endpoint Tracing
 
-Synapse traces HTTP dependencies across language boundaries by detecting server-side endpoint definitions and client-side HTTP calls, matching them by route pattern.
+Synapps traces HTTP dependencies across language boundaries by detecting server-side endpoint definitions and client-side HTTP calls, matching them by route pattern.
 
 | Language | Server Frameworks | Client Libraries |
 |----------|------------------|-----------------|
@@ -161,49 +161,49 @@ C#, Python, TypeScript/JavaScript, and Java projects all use the same tools, gra
 ## CLI Reference
 
 ```
-synapse <command> [args]
+synapps <command> [args]
 ```
 
 ### Setup
 
 | Command | Description |
 |---|---|
-| `synapse init [path]` | Interactive setup wizard — detects languages, checks prerequisites, indexes project, configures MCP clients |
-| `synapse doctor` | Check environment: Docker, Memgraph, and all language server dependencies |
+| `synapps init [path]` | Interactive setup wizard — detects languages, checks prerequisites, indexes project, configures MCP clients |
+| `synapps doctor` | Check environment: Docker, Memgraph, and all language server dependencies |
 
 ### Project Management
 
 | Command | Description |
 |---|---|
-| `synapse index <path> [--language <lang>]` | Index a project (auto-detects language if omitted) |
-| `synapse sync <path>` | Re-index only changed files |
-| `synapse watch <path>` | Watch for file changes and keep the graph updated (runs until Ctrl+C) |
-| `synapse delete <path>` | Remove a project and all its graph data |
-| `synapse status [path]` | Show index status for one project, or list all indexed projects |
+| `synapps index <path> [--language <lang>]` | Index a project (auto-detects language if omitted) |
+| `synapps sync <path>` | Re-index only changed files |
+| `synapps watch <path>` | Watch for file changes and keep the graph updated (runs until Ctrl+C) |
+| `synapps delete <path>` | Remove a project and all its graph data |
+| `synapps status [path]` | Show index status for one project, or list all indexed projects |
 
 ### Graph Queries
 
 | Command | Description |
 |---|---|
-| `synapse symbol <full_name>` | Get a symbol's node and relationships |
-| `synapse source <full_name> [--include-class]` | Print source code of a symbol |
-| `synapse search <query> [--kind <kind>] [-l <lang>]` | Search symbols by name |
-| `synapse callers <method> [--include-tests] [--tree]` | Find all callers of a method |
-| `synapse callees <method> [--tree]` | Find all methods called by a method |
-| `synapse call-depth <method> [-d <n>] [--tree]` | Show reachable methods up to N levels |
-| `synapse implementations <interface>` | Find concrete implementations |
-| `synapse hierarchy <class> [--tree]` | Show inheritance chain |
-| `synapse contract <method>` | Find interface contract and sibling implementations |
-| `synapse usages <full_name> [--include-tests]` | Find all code that uses a symbol |
-| `synapse type-refs <full_name> [-k <kind>]` | Find type references (`parameter`, `return_type`, `property_type`) |
-| `synapse dependencies <full_name> [--tree]` | Find all types referenced by a symbol |
-| `synapse context <full_name> [--scope <scope>] [--max-lines <n>]` | Get context for understanding/modifying a symbol |
-| `synapse trace <start> <end> [-d <n>] [--tree]` | Trace call paths between two methods |
-| `synapse entry-points <method> [-d <n>] [--include-tests] [--tree]` | Find API/controller entry points reaching a method |
-| `synapse impact <method>` | Analyze blast radius of a change |
-| `synapse type-impact <type_name>` | Find all code affected by a type change |
-| `synapse audit <rule>` | Run architectural audit (`layering_violations`, `untested_services`) |
-| `synapse query <cypher>` | Execute a read-only Cypher query |
+| `synapps symbol <full_name>` | Get a symbol's node and relationships |
+| `synapps source <full_name> [--include-class]` | Print source code of a symbol |
+| `synapps search <query> [--kind <kind>] [-l <lang>]` | Search symbols by name |
+| `synapps callers <method> [--include-tests] [--tree]` | Find all callers of a method |
+| `synapps callees <method> [--tree]` | Find all methods called by a method |
+| `synapps call-depth <method> [-d <n>] [--tree]` | Show reachable methods up to N levels |
+| `synapps implementations <interface>` | Find concrete implementations |
+| `synapps hierarchy <class> [--tree]` | Show inheritance chain |
+| `synapps contract <method>` | Find interface contract and sibling implementations |
+| `synapps usages <full_name> [--include-tests]` | Find all code that uses a symbol |
+| `synapps type-refs <full_name> [-k <kind>]` | Find type references (`parameter`, `return_type`, `property_type`) |
+| `synapps dependencies <full_name> [--tree]` | Find all types referenced by a symbol |
+| `synapps context <full_name> [--scope <scope>] [--max-lines <n>]` | Get context for understanding/modifying a symbol |
+| `synapps trace <start> <end> [-d <n>] [--tree]` | Trace call paths between two methods |
+| `synapps entry-points <method> [-d <n>] [--include-tests] [--tree]` | Find API/controller entry points reaching a method |
+| `synapps impact <method>` | Analyze blast radius of a change |
+| `synapps type-impact <type_name>` | Find all code affected by a type change |
+| `synapps audit <rule>` | Run architectural audit (`layering_violations`, `untested_services`) |
+| `synapps query <cypher>` | Execute a read-only Cypher query |
 
 ### Summaries
 
@@ -211,15 +211,15 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 
 | Command | Description |
 |---|---|
-| `synapse summary get <full_name>` | Get the summary for a symbol |
-| `synapse summary set <full_name> <content>` | Set the summary for a symbol |
-| `synapse summary list [--project <path>]` | List all symbols with summaries |
+| `synapps summary get <full_name>` | Get the summary for a symbol |
+| `synapps summary set <full_name> <content>` | Set the summary for a symbol |
+| `synapps summary list [--project <path>]` | List all symbols with summaries |
 
 ---
 
 ## MCP Tools
 
-21 tools available to any MCP client connected to `synapse-mcp`, organized into 7 categories.
+21 tools available to any MCP client connected to `synapps-mcp`, organized into 7 categories.
 
 ### Project Management
 
@@ -281,19 +281,19 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 
 ## Container Management
 
-Synapse uses Memgraph as its graph database, managed via Docker. By default, all projects share a single container for simplicity.
+Synapps uses Memgraph as its graph database, managed via Docker. By default, all projects share a single container for simplicity.
 
 | Mode | When to Use | Container | Config |
 |---|---|---|---|
-| **Shared** (default) | Most users | One `synapse-shared` container on port 7687 | `~/.synapse/config.json` |
-| **Dedicated** | Per-project isolation needed | One container per project, dynamic port | `.synapse/config.json` in project root |
-| **External** | BYO Memgraph | No container — connects directly | `~/.synapse/config.json` |
+| **Shared** (default) | Most users | One `synapps-shared` container on port 7687 | `~/.synapps/config.json` |
+| **Dedicated** | Per-project isolation needed | One container per project, dynamic port | `.synapps/config.json` in project root |
+| **External** | BYO Memgraph | No container — connects directly | `~/.synapps/config.json` |
 
 In shared mode, each project's data is scoped by its `Repository` node in the graph — indexing project A has no effect on project B.
 
 ### Dedicated containers
 
-Add `"dedicated_instance": true` to the project's `.synapse/config.json`:
+Add `"dedicated_instance": true` to the project's `.synapps/config.json`:
 
 ```json
 {
@@ -301,11 +301,11 @@ Add `"dedicated_instance": true` to the project's `.synapse/config.json`:
 }
 ```
 
-Synapse provisions a per-project container (`synapse-<project-name>`) on a dynamically allocated port.
+Synapps provisions a per-project container (`synapps-<project-name>`) on a dynamically allocated port.
 
 ### External Memgraph
 
-Set the connection in `~/.synapse/config.json`:
+Set the connection in `~/.synapps/config.json`:
 
 ```json
 {
@@ -319,13 +319,13 @@ Docker is not required in external mode.
 ### Managing containers
 
 ```bash
-docker ps --filter "name=synapse-"     # List Synapse containers
-docker stop synapse-shared              # Stop the shared container
+docker ps --filter "name=synapps-"     # List Synapps containers
+docker stop synapps-shared              # Stop the shared container
 ```
 
 Containers persist across sessions and are automatically restarted on the next command if stopped.
 
-Global config lives at `~/.synapse/config.json`. Per-project config (`.synapse/config.json`) is only created when using dedicated containers. Add `.synapse/` to your `.gitignore`.
+Global config lives at `~/.synapps/config.json`. Per-project config (`.synapps/config.json`) is only created when using dedicated containers. Add `.synapps/` to your `.gitignore`.
 
 ---
 
@@ -372,13 +372,13 @@ vendor/
 **/test_data/**
 ```
 
-Without `.synignore`, Synapse uses built-in exclusions (`.git`, `node_modules`, `__pycache__`, `dist`, `build`, etc.).
+Without `.synignore`, Synapps uses built-in exclusions (`.git`, `node_modules`, `__pycache__`, `dist`, `build`, etc.).
 
 ---
 
 ## AI Agent Configuration
 
-Synapse automatically provides usage instructions to MCP-compliant clients via the protocol — most agents make good tool choices out of the box.
+Synapps automatically provides usage instructions to MCP-compliant clients via the protocol — most agents make good tool choices out of the box.
 
 The snippet below is an **optional** addition for your AI platform's rules file. It reinforces tool selection patterns and adds guidance beyond what the MCP protocol delivers.
 
@@ -386,9 +386,9 @@ The snippet below is an **optional** addition for your AI platform's rules file.
 <summary><strong>Recommended rules content</strong></summary>
 
 ```markdown
-## Synapse MCP
+## Synapps MCP
 
-Use Synapse MCP tools for code navigation instead of grep or file reads.
+Use Synapps MCP tools for code navigation instead of grep or file reads.
 
 ### Workflow
 - Projects must be indexed before querying. Use `list_projects` to check, `index_project` to index, `sync_project` to refresh.
@@ -425,7 +425,7 @@ Use Synapse MCP tools for code navigation instead of grep or file reads.
 | Platform | File |
 |---|---|
 | Claude Code | `CLAUDE.md` in project root |
-| Cursor | `.cursor/rules/synapse.mdc` (set `alwaysApply: true` in frontmatter) |
+| Cursor | `.cursor/rules/synapps.mdc` (set `alwaysApply: true` in frontmatter) |
 | Windsurf | `.windsurfrules` |
 | GitHub Copilot | `.github/copilot-instructions.md` |
 

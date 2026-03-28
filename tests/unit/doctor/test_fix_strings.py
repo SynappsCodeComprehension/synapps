@@ -6,16 +6,16 @@ from unittest.mock import MagicMock, patch
 import docker.errors
 import pytest
 
-from synapse.doctor.checks.docker_daemon import DockerDaemonCheck
-from synapse.doctor.checks.memgraph_bolt import MemgraphBoltCheck
-from synapse.doctor.checks.dotnet import DotNetCheck
-from synapse.doctor.checks.node import NodeCheck
-from synapse.doctor.checks.typescript_ls import TypeScriptLSCheck
-from synapse.doctor.checks.python3 import PythonCheck
-from synapse.doctor.checks.java import JavaCheck
-from synapse.doctor.checks.jdtls import JdtlsCheck
-from synapse.doctor.checks.csharp_ls import CSharpLSCheck
-from synapse.doctor.checks.pylsp import PylspCheck
+from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
+from synapps.doctor.checks.memgraph_bolt import MemgraphBoltCheck
+from synapps.doctor.checks.dotnet import DotNetCheck
+from synapps.doctor.checks.node import NodeCheck
+from synapps.doctor.checks.typescript_ls import TypeScriptLSCheck
+from synapps.doctor.checks.python3 import PythonCheck
+from synapps.doctor.checks.java import JavaCheck
+from synapps.doctor.checks.jdtls import JdtlsCheck
+from synapps.doctor.checks.csharp_ls import CSharpLSCheck
+from synapps.doctor.checks.pylsp import PylspCheck
 
 
 # --- DockerDaemonCheck ---
@@ -26,10 +26,10 @@ from synapse.doctor.checks.pylsp import PylspCheck
     ("Linux", "sudo systemctl start docker"),
 ])
 def test_docker_daemon_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.docker_daemon.docker") as mock_docker:
+    with patch("synapps.doctor.checks.docker_daemon.docker") as mock_docker:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.side_effect = docker.errors.DockerException("no daemon")
-        with patch("synapse.doctor.checks.docker_daemon.platform") as mock_plat:
+        with patch("synapps.doctor.checks.docker_daemon.platform") as mock_plat:
             mock_plat.system.return_value = system
             result = DockerDaemonCheck().run()
     assert result.fix is not None
@@ -40,8 +40,8 @@ def test_docker_daemon_fix_platform_aware(system: str, expected_substr: str) -> 
 
 
 def test_memgraph_fix_contains_docker_ps() -> None:
-    with patch("synapse.doctor.checks.memgraph_bolt.docker") as mock_docker, \
-         patch("synapse.doctor.checks.memgraph_bolt.socket") as mock_socket:
+    with patch("synapps.doctor.checks.memgraph_bolt.docker") as mock_docker, \
+         patch("synapps.doctor.checks.memgraph_bolt.socket") as mock_socket:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.return_value = None
         mock_socket.create_connection.side_effect = OSError("refused")
@@ -51,8 +51,8 @@ def test_memgraph_fix_contains_docker_ps() -> None:
 
 
 def test_memgraph_fix_contains_docker_compose_up() -> None:
-    with patch("synapse.doctor.checks.memgraph_bolt.docker") as mock_docker, \
-         patch("synapse.doctor.checks.memgraph_bolt.socket") as mock_socket:
+    with patch("synapps.doctor.checks.memgraph_bolt.docker") as mock_docker, \
+         patch("synapps.doctor.checks.memgraph_bolt.socket") as mock_socket:
         mock_docker.errors.DockerException = docker.errors.DockerException
         mock_docker.from_env.return_value.ping.return_value = None
         mock_socket.create_connection.side_effect = OSError("refused")
@@ -69,8 +69,8 @@ def test_memgraph_fix_contains_docker_compose_up() -> None:
     ("Linux", "sudo apt-get install dotnet-sdk"),
 ])
 def test_dotnet_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.dotnet.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.dotnet.platform") as mock_plat:
+    with patch("synapps.doctor.checks.dotnet.shutil") as mock_shutil, \
+         patch("synapps.doctor.checks.dotnet.platform") as mock_plat:
         mock_shutil.which.return_value = None
         mock_plat.system.return_value = system
         result = DotNetCheck().run()
@@ -86,8 +86,8 @@ def test_dotnet_fix_platform_aware(system: str, expected_substr: str) -> None:
     ("Linux", "sudo apt-get install nodejs"),
 ])
 def test_node_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.node.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.node.platform") as mock_plat:
+    with patch("synapps.doctor.checks.node.shutil") as mock_shutil, \
+         patch("synapps.doctor.checks.node.platform") as mock_plat:
         mock_shutil.which.return_value = None
         mock_plat.system.return_value = system
         result = NodeCheck().run()
@@ -103,8 +103,8 @@ def test_node_fix_platform_aware(system: str, expected_substr: str) -> None:
     ("Linux", "sudo apt-get install npm"),
 ])
 def test_typescript_ls_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.typescript_ls.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.typescript_ls.platform") as mock_plat:
+    with patch("synapps.doctor.checks.typescript_ls.shutil") as mock_shutil, \
+         patch("synapps.doctor.checks.typescript_ls.platform") as mock_plat:
         mock_shutil.which.side_effect = lambda name: "/usr/local/bin/node" if name == "node" else None
         mock_plat.system.return_value = system
         result = TypeScriptLSCheck().run()
@@ -120,8 +120,8 @@ def test_typescript_ls_fix_platform_aware(system: str, expected_substr: str) -> 
     ("Linux", "sudo apt-get install python3"),
 ])
 def test_python_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.python3.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.python3.platform") as mock_plat:
+    with patch("synapps.doctor.checks.python3.shutil") as mock_shutil, \
+         patch("synapps.doctor.checks.python3.platform") as mock_plat:
         mock_shutil.which.return_value = None
         mock_plat.system.return_value = system
         result = PythonCheck().run()
@@ -137,8 +137,8 @@ def test_python_fix_platform_aware(system: str, expected_substr: str) -> None:
     ("Linux", "sudo apt-get install default-jdk"),
 ])
 def test_java_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.java.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.java.platform") as mock_plat:
+    with patch("synapps.doctor.checks.java.shutil") as mock_shutil, \
+         patch("synapps.doctor.checks.java.platform") as mock_plat:
         mock_shutil.which.return_value = None
         mock_plat.system.return_value = system
         result = JavaCheck().run()
@@ -154,9 +154,9 @@ def test_java_fix_platform_aware(system: str, expected_substr: str) -> None:
     ("Linux", "https://github.com/eclipse-jdtls/eclipse.jdt.ls"),
 ])
 def test_jdtls_fix_platform_aware(system: str, expected_substr: str) -> None:
-    with patch("synapse.doctor.checks.jdtls.shutil") as mock_shutil, \
-         patch("synapse.doctor.checks.jdtls.glob") as mock_glob, \
-         patch("synapse.doctor.checks.jdtls.platform") as mock_plat:
+    with patch("synapps.doctor.checks.jdtls.shutil") as mock_shutil, \
+         patch("synapps.doctor.checks.jdtls.glob") as mock_glob, \
+         patch("synapps.doctor.checks.jdtls.platform") as mock_plat:
         mock_shutil.which.return_value = "/usr/bin/java"
         mock_glob.glob.return_value = []
         mock_plat.system.return_value = system
@@ -169,21 +169,21 @@ def test_jdtls_fix_platform_aware(system: str, expected_substr: str) -> None:
 
 
 def test_csharp_ls_fix_unchanged() -> None:
-    with patch("synapse.doctor.checks.csharp_ls.subprocess") as mock_sub, \
-         patch("synapse.doctor.checks.csharp_ls.glob") as mock_glob:
+    with patch("synapps.doctor.checks.csharp_ls.subprocess") as mock_sub, \
+         patch("synapps.doctor.checks.csharp_ls.glob") as mock_glob:
         mock_sub.run.return_value.returncode = 0
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         mock_glob.glob.return_value = []
         result = CSharpLSCheck().run()
     assert result.fix is not None
-    assert "synapse index" in result.fix
+    assert "synapps index" in result.fix
 
 
 # --- PylspCheck (unchanged — verify fix still works) ---
 
 
 def test_pylsp_fix_unchanged() -> None:
-    with patch("synapse.doctor.checks.pylsp.subprocess") as mock_sub:
+    with patch("synapps.doctor.checks.pylsp.subprocess") as mock_sub:
         mock_sub.run.return_value = MagicMock(returncode=1, stdout="", stderr="ModuleNotFoundError")
         mock_sub.TimeoutExpired = subprocess.TimeoutExpired
         result = PylspCheck().run()

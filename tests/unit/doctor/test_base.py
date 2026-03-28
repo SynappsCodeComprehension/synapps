@@ -5,7 +5,7 @@ from typing import get_args
 
 import pytest
 
-from synapse.doctor.base import CheckResult, CheckStatus, DoctorCheck
+from synapps.doctor.base import CheckResult, CheckStatus, DoctorCheck
 
 
 def test_checkresult_has_required_fields() -> None:

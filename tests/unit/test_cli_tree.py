@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from synapse.cli.app import _unwrap_truncated
-from synapse.cli.tree import TreeNode, render_tree, callers_tree, callees_tree, call_depth_tree, hierarchy_tree, trace_tree, entry_points_tree, dependencies_tree
+from synapps.cli.app import _unwrap_truncated
+from synapps.cli.tree import TreeNode, render_tree, callers_tree, callees_tree, call_depth_tree, hierarchy_tree, trace_tree, entry_points_tree, dependencies_tree
 
 
 class TestRenderTree:

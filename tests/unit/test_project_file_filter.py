@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from synapse.util.file_system import ProjectFileFilter
+from synapps.util.file_system import ProjectFileFilter
 
 
 class TestProjectFileFilter:

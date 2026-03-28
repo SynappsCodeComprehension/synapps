@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from synapse.mcp.tools import _GRAPH_SCHEMA
+from synapps.mcp.tools import _GRAPH_SCHEMA
 
 
 def test_get_schema_has_expected_top_level_keys():
@@ -14,7 +14,7 @@ def test_get_schema_tool_returns_schema():
     registered = {}
     real_mcp = MagicMock()
     real_mcp.tool.return_value = lambda f: registered.__setitem__(f.__name__, f) or f
-    from synapse.mcp.tools import register_tools
+    from synapps.mcp.tools import register_tools
     register_tools(real_mcp, MagicMock())
 
     result = registered["get_schema"]()
@@ -26,7 +26,7 @@ def _register(service):
     registered = {}
     mcp = MagicMock()
     mcp.tool.return_value = lambda f: registered.__setitem__(f.__name__, f) or f
-    from synapse.mcp.tools import register_tools
+    from synapps.mcp.tools import register_tools
     register_tools(mcp, service)
     return registered
 
@@ -145,7 +145,7 @@ def test_graph_schema_notes_include_python_kinds() -> None:
 
 def test_get_hierarchy_ambiguous_returns_error_dict() -> None:
     """When name is ambiguous, get_hierarchy should return an error dict, not raise."""
-    from synapse.mcp.tools import register_tools
+    from synapps.mcp.tools import register_tools
 
     mock_mcp = MagicMock()
     mock_service = MagicMock()

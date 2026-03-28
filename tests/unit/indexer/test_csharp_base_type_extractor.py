@@ -1,7 +1,7 @@
 import pytest
 import tree_sitter_c_sharp
 from tree_sitter import Language, Parser
-from synapse.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
+from synapps.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
 
 _lang = Language(tree_sitter_c_sharp.language())
 _parser = Parser(_lang)

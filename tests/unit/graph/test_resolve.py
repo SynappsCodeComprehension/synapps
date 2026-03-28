@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from synapse.graph.lookups import resolve_full_name
+from synapps.graph.lookups import resolve_full_name
 
 
 def _conn(return_value: list) -> MagicMock:

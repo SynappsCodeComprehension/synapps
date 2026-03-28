@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
-from synapse.graph.lookups import _TEST_PATH_PATTERN
-from synapse.graph.traversal import find_entry_points, get_call_depth, trace_call_chain
+from synapps.graph.lookups import _TEST_PATH_PATTERN
+from synapps.graph.traversal import find_entry_points, get_call_depth, trace_call_chain
 
 
 def _conn(return_value: list) -> MagicMock:

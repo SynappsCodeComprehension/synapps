@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from synapse.plugin import LanguagePlugin
+from synapps.plugin import LanguagePlugin
 
 
 def _make_complete_mock() -> MagicMock:

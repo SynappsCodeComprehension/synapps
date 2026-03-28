@@ -20,8 +20,8 @@ import pathspec
 from sensai.util.pickle import getstate, load_pickle
 from sensai.util.string import ToStringMixin
 
-from synapse.util.file_system import match_path
-from synapse.util.text_utils import MatchedConsecutiveLines
+from synapps.util.file_system import match_path
+from synapps.util.text_utils import MatchedConsecutiveLines
 from solidlsp import ls_types
 from solidlsp.ls_config import Language, LanguageServerConfig
 from solidlsp.ls_exceptions import SolidLSPException

@@ -1,6 +1,6 @@
 ## MCP Tools Consolidation
 
-Reviewed 2026-03-24. Synapse has 30 MCP tools — goal is to reduce to ~20 by removing overlap and demoting admin/diagnostic tools to CLI-only.
+Reviewed 2026-03-24. Synapps has 30 MCP tools — goal is to reduce to ~20 by removing overlap and demoting admin/diagnostic tools to CLI-only.
 
 ### Merge: Type analysis tools (save 2 tools)
 - `find_type_references` and `find_type_impact` overlap with `find_usages`
@@ -23,6 +23,6 @@ Reviewed 2026-03-24. Synapse has 30 MCP tools — goal is to reduce to ~20 by re
 - Too narrow for a tool slot — use `execute_query` instead
 
 ### Demote to CLI-only (save 3 tools)
-- `check_environment` — agents don't need this; users run `synapse doctor`
+- `check_environment` — agents don't need this; users run `synapps doctor`
 - `delete_project` — destructive admin action, better as CLI-only
 - `get_index_status` — merge into `list_projects` with optional path filter

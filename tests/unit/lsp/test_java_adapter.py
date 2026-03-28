@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from synapse.lsp.interface import IndexSymbol, SymbolKind
-from synapse.lsp.java import JavaLSPAdapter, _LSP_KIND_MAP, _detect_java_source_root, _build_java_full_name, _clean_java_full_name
+from synapps.lsp.interface import IndexSymbol, SymbolKind
+from synapps.lsp.java import JavaLSPAdapter, _LSP_KIND_MAP, _detect_java_source_root, _build_java_full_name, _clean_java_full_name
 
 
 # ---------------------------------------------------------------------------
@@ -91,13 +91,13 @@ class TestCleanJavaFullName:
 class TestDetectJavaSourceRoot:
     def test_maven_src_main_java(self) -> None:
         root = _detect_java_source_root(
-            "/proj/src/main/java/com/synapsetest/Animal.java", "/proj"
+            "/proj/src/main/java/com/synappstest/Animal.java", "/proj"
         )
         assert root == "/proj/src/main/java"
 
     def test_maven_src_test_java(self) -> None:
         root = _detect_java_source_root(
-            "/proj/src/test/java/com/synapsetest/AnimalTest.java", "/proj"
+            "/proj/src/test/java/com/synappstest/AnimalTest.java", "/proj"
         )
         assert root == "/proj/src/test/java"
 
@@ -144,52 +144,52 @@ class TestDetectJavaSourceRoot:
 class TestBuildJavaFullName:
     def test_class_with_package(self) -> None:
         """Top-level class derives package from file path."""
-        ns_parent = {"name": "com.synapsetest", "kind": 3}
+        ns_parent = {"name": "com.synappstest", "kind": 3}
         raw = {"name": "Animal", "kind": 5, "parent": ns_parent}
-        result = _build_java_full_name(raw, "com/synapsetest/Animal.java", "/src")
-        # source_root is /src, file is at /src/com/synapsetest/Animal.java
+        result = _build_java_full_name(raw, "com/synappstest/Animal.java", "/src")
+        # source_root is /src, file is at /src/com/synappstest/Animal.java
         result = _build_java_full_name(
             raw,
-            "/src/com/synapsetest/Animal.java",
+            "/src/com/synappstest/Animal.java",
             "/src",
         )
-        assert result == "com.synapsetest.Animal"
+        assert result == "com.synappstest.Animal"
 
     def test_method_with_package(self) -> None:
         """Nested method: package from path + class.method from symbol chain."""
-        ns = {"name": "com.synapsetest", "kind": 3}
+        ns = {"name": "com.synappstest", "kind": 3}
         cls_parent = {"name": "Animal", "kind": 5, "parent": ns}
         raw = {"name": "speak", "kind": 6, "parent": cls_parent}
         result = _build_java_full_name(
             raw,
-            "/src/com/synapsetest/Animal.java",
+            "/src/com/synappstest/Animal.java",
             "/src",
         )
-        assert result == "com.synapsetest.Animal.speak"
+        assert result == "com.synappstest.Animal.speak"
 
     def test_namespace_parent_is_skipped(self) -> None:
         """NAMESPACE (kind=3) parents are excluded from symbol_suffix since package comes from path."""
-        ns = {"name": "com.synapsetest", "kind": 3}
+        ns = {"name": "com.synappstest", "kind": 3}
         raw = {"name": "Animal", "kind": 5, "parent": ns}
         result = _build_java_full_name(
             raw,
-            "/src/com/synapsetest/Animal.java",
+            "/src/com/synappstest/Animal.java",
             "/src",
         )
-        # Should NOT be com.synapsetest.com.synapsetest.Animal (no double package)
-        assert result == "com.synapsetest.Animal"
+        # Should NOT be com.synappstest.com.synappstest.Animal (no double package)
+        assert result == "com.synappstest.Animal"
 
     def test_nested_class_method(self) -> None:
-        """Inner method: com.synapsetest.Router.route."""
-        ns = {"name": "com.synapsetest", "kind": 3}
+        """Inner method: com.synappstest.Router.route."""
+        ns = {"name": "com.synappstest", "kind": 3}
         cls_parent = {"name": "Router", "kind": 5, "parent": ns}
         raw = {"name": "route", "kind": 6, "parent": cls_parent}
         result = _build_java_full_name(
             raw,
-            "/src/com/synapsetest/Router.java",
+            "/src/com/synappstest/Router.java",
             "/src",
         )
-        assert result == "com.synapsetest.Router.route"
+        assert result == "com.synappstest.Router.route"
 
     def test_no_package_prefix(self) -> None:
         """File at source root directly (no package subdirs)."""

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-import synapse
+import synapps
 
 _ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,7 +17,7 @@ def _load_pyproject() -> dict:
 
 def test_pyproject_name() -> None:
     data = _load_pyproject()
-    assert data["project"]["name"] == "synapse-mcp"
+    assert data["project"]["name"] == "synapps-mcp"
 
 
 def test_pyproject_version() -> None:
@@ -38,13 +38,13 @@ def test_pyproject_urls() -> None:
 
 
 def test_version_attribute() -> None:
-    assert hasattr(synapse, "__version__")
-    assert isinstance(synapse.__version__, str)
-    assert len(synapse.__version__) > 0
+    assert hasattr(synapps, "__version__")
+    assert isinstance(synapps.__version__, str)
+    assert len(synapps.__version__) > 0
 
 
 def test_version_not_dev() -> None:
-    assert synapse.__version__ != "dev", (
+    assert synapps.__version__ != "dev", (
         "__version__ resolved to 'dev' — run 'uv sync' after pyproject.toml rename"
     )
 
@@ -64,4 +64,4 @@ def test_pypi_readme_exists() -> None:
     readme = _ROOT / "PYPI_README.md"
     assert readme.exists(), f"Expected {readme} to exist"
     content = readme.read_text()
-    assert "pip install synapse-mcp" in content
+    assert "pip install synapps-mcp" in content

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from synapse.indexer.http.route_utils import normalize_route
+from synapps.indexer.http.route_utils import normalize_route
 
 
 def test_strips_type_constraints() -> None:
@@ -58,39 +58,39 @@ def test_multiple_params() -> None:
 # ---------------------------------------------------------------------------
 
 def test_strip_base_url_variable_basic() -> None:
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("{apiBaseUrl}/api/users/me") == "/api/users/me"
 
 
 def test_strip_base_url_variable_preserves_normal_routes() -> None:
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("/api/users/me") == "/api/users/me"
 
 
 def test_strip_base_url_variable_preserves_param_routes() -> None:
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("/api/users/{id}") == "/api/users/{id}"
 
 
 def test_strip_base_url_variable_multiple_prefixes() -> None:
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("{baseUrl}/items") == "/items"
 
 
 def test_strip_base_url_variable_only_variable() -> None:
     """A route that is only a variable should be returned as-is (no path after it)."""
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("{apiBaseUrl}") == "{apiBaseUrl}"
 
 
 def test_strip_base_url_variable_empty() -> None:
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("") == ""
 
 
 def test_strip_base_url_variable_with_backtick_style() -> None:
     """Variables with dots or special chars in the name should also be stripped."""
-    from synapse.indexer.http.route_utils import strip_base_url_variable
+    from synapps.indexer.http.route_utils import strip_base_url_variable
     assert strip_base_url_variable("{config.apiUrl}/api/health") == "/api/health"
 
 

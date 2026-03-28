@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, call
 
-from synapse.indexer.overrides_indexer import OverridesIndexer
+from synapps.indexer.overrides_indexer import OverridesIndexer
 
 
 def test_index_executes_inherits_traversal_query() -> None:

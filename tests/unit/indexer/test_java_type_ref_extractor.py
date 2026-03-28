@@ -1,8 +1,8 @@
 import pytest
 import tree_sitter_java
 from tree_sitter import Language, Parser
-from synapse.indexer.java.java_type_ref_extractor import JavaTypeRefExtractor
-from synapse.indexer.type_ref import TypeRef
+from synapps.indexer.java.java_type_ref_extractor import JavaTypeRefExtractor
+from synapps.indexer.type_ref import TypeRef
 
 _lang = Language(tree_sitter_java.language())
 _parser = Parser(_lang)

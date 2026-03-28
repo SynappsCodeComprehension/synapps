@@ -1,4 +1,4 @@
-# Synapse
+# Synapps
 
 Code intelligence MCP server — gives AI coding agents a queryable graph of your codebase.
 
@@ -12,7 +12,7 @@ Code intelligence MCP server — gives AI coding agents a queryable graph of you
 ## Install
 
 ```
-pip install synapse-mcp
+pip install synapps-mcp
 docker compose up -d
 ```
 
@@ -20,13 +20,13 @@ The `docker compose up -d` command starts a local Memgraph instance (required fo
 
 ## Configure your MCP client
 
-Add Synapse to your MCP client configuration (e.g., Claude Code `~/.claude.json`):
+Add Synapps to your MCP client configuration (e.g., Claude Code `~/.claude.json`):
 
 ```json
 {
   "mcpServers": {
-    "synapse": {
-      "command": "synapse-mcp"
+    "synapps": {
+      "command": "synapps-mcp"
     }
   }
 }
@@ -35,7 +35,7 @@ Add Synapse to your MCP client configuration (e.g., Claude Code `~/.claude.json`
 Then index your project:
 
 ```
-synapse index /path/to/your/project
+synapps index /path/to/your/project
 ```
 
 ## Supported Languages
@@ -56,5 +56,5 @@ synapse index /path/to/your/project
 
 ## Links
 
-- [GitHub](https://github.com/alexjsmith0115/synapse)
-- [Changelog](https://github.com/alexjsmith0115/synapse/blob/main/CHANGELOG.md)
+- [GitHub](https://github.com/SynappsCodeComprehension/synapps)
+- [Changelog](https://github.com/SynappsCodeComprehension/synapps/blob/main/CHANGELOG.md)

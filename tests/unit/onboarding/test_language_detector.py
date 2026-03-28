@@ -22,10 +22,10 @@ class TestDetectLanguages:
         ]
 
         with patch(
-            "synapse.onboarding.language_detector.default_registry",
+            "synapps.onboarding.language_detector.default_registry",
             return_value=mock_registry,
         ):
-            from synapse.onboarding.language_detector import detect_languages
+            from synapps.onboarding.language_detector import detect_languages
 
             result = detect_languages("/fake/path")
 
@@ -39,10 +39,10 @@ class TestDetectLanguages:
         ]
 
         with patch(
-            "synapse.onboarding.language_detector.default_registry",
+            "synapps.onboarding.language_detector.default_registry",
             return_value=mock_registry,
         ):
-            from synapse.onboarding.language_detector import detect_languages
+            from synapps.onboarding.language_detector import detect_languages
 
             result = detect_languages("/fake/path")
 
@@ -53,10 +53,10 @@ class TestDetectLanguages:
         mock_registry.detect_with_files.return_value = []
 
         with patch(
-            "synapse.onboarding.language_detector.default_registry",
+            "synapps.onboarding.language_detector.default_registry",
             return_value=mock_registry,
         ):
-            from synapse.onboarding.language_detector import detect_languages
+            from synapps.onboarding.language_detector import detect_languages
 
             result = detect_languages("/fake/path")
 
@@ -72,10 +72,10 @@ class TestDetectLanguages:
         ]
 
         with patch(
-            "synapse.onboarding.language_detector.default_registry",
+            "synapps.onboarding.language_detector.default_registry",
             return_value=mock_registry,
         ):
-            from synapse.onboarding.language_detector import detect_languages
+            from synapps.onboarding.language_detector import detect_languages
 
             result = detect_languages("/fake/path")
 

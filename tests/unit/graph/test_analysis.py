@@ -1,12 +1,12 @@
 from unittest.mock import MagicMock
 
-from synapse.graph.analysis import (
+from synapps.graph.analysis import (
     analyze_change_impact,
     audit_architecture,
     find_interface_contract,
     find_type_impact,
 )
-from synapse.graph.lookups import _TEST_PATH_PATTERN
+from synapps.graph.lookups import _TEST_PATH_PATTERN
 from conftest import _MockNode
 
 

@@ -1,7 +1,7 @@
 import pytest
 import tree_sitter_python
 from tree_sitter import Language, Parser
-from synapse.indexer.python.python_base_type_extractor import PythonBaseTypeExtractor
+from synapps.indexer.python.python_base_type_extractor import PythonBaseTypeExtractor
 
 _lang = Language(tree_sitter_python.language())
 _parser = Parser(_lang)

@@ -455,6 +455,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mcp-config-path"
+version = "0.1.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/a6/cd0f046ed7f9c761ff1cf82eada5845738c6513601e29a658cbfb7e39345/mcp_config_path-0.1.3.tar.gz", hash = "sha256:180132ca8e16abace0d2e6337ce07f41a38fc998577a9e21899c4caca641fb7c", size = 4891, upload-time = "2025-06-25T08:41:59.506Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4f/c2/9b0bc9ab8ea5dac7423772c594fc92511aa6b51acb17599d879371b2840f/mcp_config_path-0.1.3-py3-none-any.whl", hash = "sha256:aa4827c3cb0d1ea270a53c4f76a14070a58ad6527d059703226dd2836e6ff384", size = 3445, upload-time = "2025-06-25T08:41:58.677Z" },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1000,7 +1009,7 @@ wheels = [
 ]
 
 [[package]]
-name = "synapse-mcp"
+name = "synapps-mcp"
 version = "1.2.0"
 source = { editable = "." }
 dependencies = [
@@ -1009,6 +1018,7 @@ dependencies = [
     { name = "docker" },
     { name = "joblib" },
     { name = "mcp" },
+    { name = "mcp-config-path" },
     { name = "neo4j" },
     { name = "overrides" },
     { name = "pathspec" },
@@ -1039,6 +1049,7 @@ requires-dist = [
     { name = "docker", specifier = ">=7.0.0" },
     { name = "joblib", specifier = ">=1.3.0" },
     { name = "mcp", specifier = ">=1.0.0" },
+    { name = "mcp-config-path", specifier = ">=0.1.3" },
     { name = "neo4j", specifier = ">=5.0.0" },
     { name = "overrides", specifier = ">=7.7.0" },
     { name = "pathspec", specifier = ">=0.12.1" },

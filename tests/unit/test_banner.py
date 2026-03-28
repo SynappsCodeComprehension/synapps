@@ -4,7 +4,7 @@ from io import StringIO
 
 from rich.console import Console
 
-from synapse.cli.banner import print_banner, _BANNER_LINES, _ACCENT
+from synapps.cli.banner import print_banner, _BANNER_LINES, _ACCENT
 
 
 def _capture_banner() -> str:
@@ -20,7 +20,7 @@ def test_banner_contains_block_characters():
     assert "\u2588" in output  # █ full block character present
 
 
-def test_banner_lines_spell_synapse():
+def test_banner_lines_spell_synapps():
     joined = " ".join(text for text, _ in _BANNER_LINES)
     assert "\u2588" in joined
 

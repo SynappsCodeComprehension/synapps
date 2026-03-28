@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from synapse.graph.nodes import (
+from synapps.graph.nodes import (
     set_last_indexed_commit,
     get_last_indexed_commit,
     rename_file_node,

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.lsp.interface import SymbolKind
+from synapps.lsp.interface import SymbolKind
 
 
 # ---------------------------------------------------------------------------
@@ -17,10 +17,10 @@ from synapse.lsp.interface import SymbolKind
 
 class TestDetectSourceRoot:
     def test_package_layout_returns_project_root(self, tmp_path: Path) -> None:
-        """Standard package layout: proj/synapsepytest/__init__.py -> source root = proj."""
-        from synapse.lsp.python import detect_source_root
+        """Standard package layout: proj/synappspytest/__init__.py -> source root = proj."""
+        from synapps.lsp.python import detect_source_root
 
-        pkg = tmp_path / "synapsepytest"
+        pkg = tmp_path / "synappspytest"
         pkg.mkdir()
         (pkg / "__init__.py").touch()
         (pkg / "animals.py").touch()
@@ -30,7 +30,7 @@ class TestDetectSourceRoot:
 
     def test_src_layout_returns_src_dir(self, tmp_path: Path) -> None:
         """src/ layout: proj/src/pkg/mod.py, __init__.py at pkg/ but not src/ -> source root = proj/src."""
-        from synapse.lsp.python import detect_source_root
+        from synapps.lsp.python import detect_source_root
 
         src = tmp_path / "src"
         pkg = src / "pkg"
@@ -43,7 +43,7 @@ class TestDetectSourceRoot:
 
     def test_flat_layout_returns_project_root(self, tmp_path: Path) -> None:
         """Flat layout: proj/script.py with no __init__.py -> source root = proj."""
-        from synapse.lsp.python import detect_source_root
+        from synapps.lsp.python import detect_source_root
 
         (tmp_path / "script.py").touch()
 
@@ -57,19 +57,19 @@ class TestDetectSourceRoot:
 
 class TestBuildPythonFullName:
     def test_simple_class_in_submodule(self, tmp_path: Path) -> None:
-        """Module prefix synapsepytest.animals, symbol Dog -> synapsepytest.animals.Dog."""
-        from synapse.lsp.python import _build_python_full_name
+        """Module prefix synappspytest.animals, symbol Dog -> synappspytest.animals.Dog."""
+        from synapps.lsp.python import _build_python_full_name
 
         source_root = str(tmp_path)
-        file_path = str(tmp_path / "synapsepytest" / "animals.py")
+        file_path = str(tmp_path / "synappspytest" / "animals.py")
         raw = {"name": "Dog", "kind": 5}
 
         result = _build_python_full_name(raw, file_path, source_root)
-        assert result == "synapsepytest.animals.Dog"
+        assert result == "synappspytest.animals.Dog"
 
     def test_nested_class_includes_parent_chain(self, tmp_path: Path) -> None:
         """Nested class Inner inside Outer -> pkg.mod.Outer.Inner."""
-        from synapse.lsp.python import _build_python_full_name
+        from synapps.lsp.python import _build_python_full_name
 
         source_root = str(tmp_path)
         file_path = str(tmp_path / "pkg" / "mod.py")
@@ -80,30 +80,30 @@ class TestBuildPythonFullName:
         assert result == "pkg.mod.Outer.Inner"
 
     def test_module_level_function(self, tmp_path: Path) -> None:
-        """Module-level function -> synapsepytest.services.version."""
-        from synapse.lsp.python import _build_python_full_name
+        """Module-level function -> synappspytest.services.version."""
+        from synapps.lsp.python import _build_python_full_name
 
         source_root = str(tmp_path)
-        file_path = str(tmp_path / "synapsepytest" / "services.py")
+        file_path = str(tmp_path / "synappspytest" / "services.py")
         raw = {"name": "version", "kind": 12}
 
         result = _build_python_full_name(raw, file_path, source_root)
-        assert result == "synapsepytest.services.version"
+        assert result == "synappspytest.services.version"
 
     def test_init_py_strips_dunder_init(self, tmp_path: Path) -> None:
-        """__init__.py module path strips __init__ suffix -> synapsepytest not synapsepytest.__init__."""
-        from synapse.lsp.python import _build_python_full_name
+        """__init__.py module path strips __init__ suffix -> synappspytest not synappspytest.__init__."""
+        from synapps.lsp.python import _build_python_full_name
 
         source_root = str(tmp_path)
-        file_path = str(tmp_path / "synapsepytest" / "__init__.py")
+        file_path = str(tmp_path / "synappspytest" / "__init__.py")
         raw = {"name": "MyClass", "kind": 5}
 
         result = _build_python_full_name(raw, file_path, source_root)
-        assert result == "synapsepytest.MyClass"
+        assert result == "synappspytest.MyClass"
 
     def test_deeply_nested_method(self, tmp_path: Path) -> None:
         """Method inside nested class: pkg.mod.Outer.Inner.method."""
-        from synapse.lsp.python import _build_python_full_name
+        from synapps.lsp.python import _build_python_full_name
 
         source_root = str(tmp_path)
         file_path = str(tmp_path / "pkg" / "mod.py")
@@ -121,7 +121,7 @@ class TestBuildPythonFullName:
 
 class TestConvert:
     def _make_adapter(self) -> object:
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
         mock_ls = MagicMock()
         return PythonLSPAdapter(mock_ls, "/proj")
 
@@ -200,7 +200,7 @@ class TestGetDocumentSymbols:
 
     def test_passes_relpath_to_language_server(self, tmp_path: Path) -> None:
         """get_document_symbols passes os.path.relpath(file_path, root_path) to language server."""
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
 
         mock_ls = MagicMock()
         mock_ls.request_document_symbols.return_value = None
@@ -214,9 +214,9 @@ class TestGetDocumentSymbols:
 
     def test_skips_reexported_symbols_in_init_py(self, tmp_path: Path) -> None:
         """Symbols re-exported in __init__.py (from .submod import Cls) must be skipped."""
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
 
-        pkg = tmp_path / "synapsepytest"
+        pkg = tmp_path / "synappspytest"
         pkg.mkdir()
         init_file = pkg / "__init__.py"
         init_file.write_text("from .animals import Dog\n")
@@ -234,9 +234,9 @@ class TestGetDocumentSymbols:
 
     def test_keeps_symbols_defined_in_init_py(self, tmp_path: Path) -> None:
         """Symbols actually defined in __init__.py (not re-exports) must be kept."""
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
 
-        pkg = tmp_path / "synapsepytest"
+        pkg = tmp_path / "synappspytest"
         pkg.mkdir()
         init_file = pkg / "__init__.py"
         # No import of ActualClass -> it's defined here
@@ -261,7 +261,7 @@ class TestGetDocumentSymbols:
 class TestCreate:
     def test_create_calls_start_before_returning(self) -> None:
         """create() must call ls.start() which internally waits on analysis_complete (PLSP-02)."""
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
 
         call_order: list[str] = []
 
@@ -290,7 +290,7 @@ class TestCreate:
 
     def test_create_passes_root_path_to_pyright_server(self) -> None:
         """create() passes repository_root_path to PyrightServer constructor."""
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
 
         mock_ls = MagicMock()
 
@@ -320,8 +320,8 @@ class TestCreate:
 # ---------------------------------------------------------------------------
 
 def test_python_adapter_implements_protocol() -> None:
-    from synapse.lsp.python import PythonLSPAdapter
-    from synapse.lsp.interface import LSPAdapter
+    from synapps.lsp.python import PythonLSPAdapter
+    from synapps.lsp.interface import LSPAdapter
 
     mock_ls = MagicMock()
     adapter = PythonLSPAdapter(mock_ls, "/proj")
@@ -329,8 +329,8 @@ def test_python_adapter_implements_protocol() -> None:
 
 
 def test_find_method_calls_returns_empty() -> None:
-    from synapse.lsp.python import PythonLSPAdapter
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.python import PythonLSPAdapter
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
 
     adapter = PythonLSPAdapter(MagicMock(), "/proj")
     sym = IndexSymbol(name="fn", full_name="pkg.fn", kind=SymbolKind.METHOD, file_path="/proj/pkg/mod.py", line=1)
@@ -338,8 +338,8 @@ def test_find_method_calls_returns_empty() -> None:
 
 
 def test_find_overridden_method_returns_none() -> None:
-    from synapse.lsp.python import PythonLSPAdapter
-    from synapse.lsp.interface import IndexSymbol, SymbolKind
+    from synapps.lsp.python import PythonLSPAdapter
+    from synapps.lsp.interface import IndexSymbol, SymbolKind
 
     adapter = PythonLSPAdapter(MagicMock(), "/proj")
     sym = IndexSymbol(name="fn", full_name="pkg.fn", kind=SymbolKind.METHOD, file_path="/proj/pkg/mod.py", line=1)
@@ -352,7 +352,7 @@ def test_find_overridden_method_returns_none() -> None:
 
 class TestConvertSignature:
     def _make_adapter(self) -> object:
-        from synapse.lsp.python import PythonLSPAdapter
+        from synapps.lsp.python import PythonLSPAdapter
         mock_ls = MagicMock()
         return PythonLSPAdapter(mock_ls, "/proj")
 
@@ -417,7 +417,7 @@ class TestConvertSignature:
 
 
 def test_shutdown_calls_stop() -> None:
-    from synapse.lsp.python import PythonLSPAdapter
+    from synapps.lsp.python import PythonLSPAdapter
 
     mock_ls = MagicMock()
     adapter = PythonLSPAdapter(mock_ls, "/proj")

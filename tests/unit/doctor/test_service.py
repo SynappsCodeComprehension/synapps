@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from synapse.doctor.base import CheckResult, DoctorCheck
-from synapse.doctor.service import DoctorReport, DoctorService
+from synapps.doctor.base import CheckResult, DoctorCheck
+from synapps.doctor.service import DoctorReport, DoctorService
 
 
 class _PassCheck:

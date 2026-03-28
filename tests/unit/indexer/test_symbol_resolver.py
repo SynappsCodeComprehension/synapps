@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch, call
 from pathlib import Path
 
-from synapse.indexer.symbol_resolver import SymbolResolver, _ResolveStats
-from synapse.indexer.assignment_ref import AssignmentRef
+from synapps.indexer.symbol_resolver import SymbolResolver, _ResolveStats
+from synapps.indexer.assignment_ref import AssignmentRef
 
 
 def _make_ls(root: str = "/proj") -> MagicMock:
@@ -76,7 +76,7 @@ def test_resolver_writes_references_edge():
     conn = MagicMock()
     ls = _make_ls()
 
-    from synapse.indexer.type_ref import TypeRef
+    from synapps.indexer.type_ref import TypeRef
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = [
         TypeRef(owner_full_name="Ns.C.M", type_name="UserDto", line=5, col=15, ref_kind="parameter")
@@ -156,7 +156,7 @@ def test_resolver_writes_references_edge_via_name_map_fallback():
     ls = _make_ls()
     ls.request_defining_symbol.return_value = None
 
-    from synapse.indexer.type_ref import TypeRef
+    from synapps.indexer.type_ref import TypeRef
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = [
         TypeRef(owner_full_name="Ns.TaskService", type_name="ITaskService", line=4, col=21, ref_kind="field_type")
@@ -181,7 +181,7 @@ def test_resolver_skips_references_when_name_map_ambiguous():
     ls = _make_ls()
     ls.request_defining_symbol.return_value = None
 
-    from synapse.indexer.type_ref import TypeRef
+    from synapps.indexer.type_ref import TypeRef
     type_ref_extractor = MagicMock()
     type_ref_extractor.extract.return_value = [
         TypeRef(owner_full_name="Ns.C", type_name="Item", line=3, col=10, ref_kind="field_type")
@@ -226,7 +226,7 @@ def test_resolve_call_passes_line_col_to_upsert_calls(tmp_path):
 
     resolver = SymbolResolver(conn, ls, call_extractor=extractor, type_ref_extractor=type_ref_extractor)
 
-    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
+    with patch("synapps.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver.resolve_single_file(str(cs_file), symbol_map)
 
     mock_batch.assert_called_once()
@@ -312,8 +312,8 @@ def test_resolver_uses_upsert_module_calls_for_module_callers(tmp_path) -> None:
         module_full_names={"myproject.config"},
     )
 
-    with patch("synapse.indexer.symbol_resolver.batch_upsert_module_calls") as mock_module_batch, \
-         patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_calls_batch:
+    with patch("synapps.indexer.symbol_resolver.batch_upsert_module_calls") as mock_module_batch, \
+         patch("synapps.indexer.symbol_resolver.batch_upsert_calls") as mock_calls_batch:
         resolver.resolve(str(tmp_path), symbol_map)
 
     mock_module_batch.assert_called_once()
@@ -385,7 +385,7 @@ def test_resolve_call_fallback_via_assignment_map():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
+    with patch("synapps.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", _mock_tree(), symbol_map)
 
     mock_batch.assert_called_once()
@@ -431,7 +431,7 @@ def test_resolve_call_assignment_fallback_second_lsp_fails():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
+    with patch("synapps.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", _mock_tree(), symbol_map)
 
     # batch_upsert_calls may be called with an empty batch or not at all
@@ -480,7 +480,7 @@ def test_resolve_call_no_assignment_map_entry_falls_through():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
+    with patch("synapps.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", _mock_tree(), symbol_map)
 
     # Should have fallen through to containing_symbol path and resolved
@@ -518,7 +518,7 @@ def test_resolve_call_direct_hit_skips_assignment_fallback():
 
     resolver._stats = _ResolveStats()
 
-    with patch("synapse.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
+    with patch("synapps.indexer.symbol_resolver.batch_upsert_calls") as mock_batch:
         resolver._resolve_file("/proj/Foo.py", "class X: pass", _mock_tree(), symbol_map)
 
     mock_batch.assert_called_once()

@@ -1,5 +1,5 @@
 """
-MCP tool integration tests against the TypeScript fixture (SynapseJSTest).
+MCP tool integration tests against the TypeScript fixture (SynappsJSTest).
 
 Requires Memgraph on localhost:7687 and tsserver (TypeScript Language Server).
 Run with: pytest tests/integration/test_mcp_tools_typescript.py -v -m integration

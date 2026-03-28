@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, call
 
-from synapse.indexer.method_implements_indexer import MethodImplementsIndexer
+from synapps.indexer.method_implements_indexer import MethodImplementsIndexer
 
 
 def test_index_writes_edge_for_shared_method_name() -> None:

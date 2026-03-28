@@ -4,13 +4,13 @@ from unittest.mock import patch
 
 import pytest
 
-from synapse.plugin import LanguagePlugin
-from synapse.plugin.csharp import CSharpPlugin
-from synapse.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
-from synapse.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
-from synapse.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
-from synapse.indexer.csharp.csharp_import_extractor import CSharpImportExtractor
-from synapse.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
+from synapps.plugin import LanguagePlugin
+from synapps.plugin.csharp import CSharpPlugin
+from synapps.indexer.csharp.csharp_attribute_extractor import CSharpAttributeExtractor
+from synapps.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
+from synapps.indexer.csharp.csharp_call_extractor import CSharpCallExtractor
+from synapps.indexer.csharp.csharp_import_extractor import CSharpImportExtractor
+from synapps.indexer.csharp.csharp_type_ref_extractor import CSharpTypeRefExtractor
 
 
 def test_name_returns_csharp():
@@ -51,7 +51,7 @@ def test_create_type_ref_extractor_returns_tree_sitter_type():
 
 
 def test_create_lsp_adapter_delegates_to_csharp_adapter():
-    with patch("synapse.lsp.csharp.CSharpLSPAdapter.create") as mock_create:
+    with patch("synapps.lsp.csharp.CSharpLSPAdapter.create") as mock_create:
         mock_adapter = mock_create.return_value
         result = CSharpPlugin().create_lsp_adapter("/path/to/project")
         mock_create.assert_called_once_with("/path/to/project")

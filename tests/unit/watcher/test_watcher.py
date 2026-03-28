@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
-from synapse.watcher.watcher import FileWatcher
+from synapps.watcher.watcher import FileWatcher
 
 
 def wait_for_call(mock: MagicMock, *, timeout: float = 2.0, interval: float = 0.05) -> None:

@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock, patch
-from synapse.indexer.call_indexer import CallIndexer
+from synapps.indexer.call_indexer import CallIndexer
 
 
 def _make_ls(root: str = "/proj") -> MagicMock:

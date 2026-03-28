@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from synapse.service import SynapseService
+from synapps.service import SynappsService
 from tests.integration.conftest import run, text, result_json, FIXTURE_PATH
 
 
@@ -42,12 +42,12 @@ def test_all_tools_registered(mcp_server: FastMCP) -> None:
 # ---------------------------------------------------------------------------
 
 CONTROLLER_CALLS = [
-    ("SynapseTest.Controllers.TaskController.Create", "CreateTaskAsync"),
-    ("SynapseTest.Controllers.TaskController.Get", "GetTaskAsync"),
-    ("SynapseTest.Controllers.TaskController.List", "ListTasksAsync"),
-    ("SynapseTest.Controllers.TaskController.Update", "UpdateTaskAsync"),
-    ("SynapseTest.Controllers.TaskController.Delete", "DeleteTaskAsync"),
-    ("SynapseTest.Controllers.TaskController.Complete", "CompleteTaskAsync"),
+    ("SynappsTest.Controllers.TaskController.Create", "CreateTaskAsync"),
+    ("SynappsTest.Controllers.TaskController.Get", "GetTaskAsync"),
+    ("SynappsTest.Controllers.TaskController.List", "ListTasksAsync"),
+    ("SynappsTest.Controllers.TaskController.Update", "UpdateTaskAsync"),
+    ("SynappsTest.Controllers.TaskController.Delete", "DeleteTaskAsync"),
+    ("SynappsTest.Controllers.TaskController.Complete", "CompleteTaskAsync"),
 ]
 
 
@@ -79,7 +79,7 @@ def test_controller_calls_service_method(
 def test_find_type_impact_counts_test_refs(mcp_server: FastMCP) -> None:
     """Bug 2 regression: find_usages with include_test_breakdown must count test project references."""
     result = run(mcp_server.call_tool("find_usages", {
-        "full_name": "SynapseTest.Services.ITaskService",
+        "full_name": "SynappsTest.Services.ITaskService",
         "include_test_breakdown": True,
     }))
     impact = result_json(result)
@@ -127,11 +127,11 @@ def test_get_schema(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_symbol(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_symbol", {
-        "full_name": "SynapseTest.Services.TaskService"
+        "full_name": "SynappsTest.Services.TaskService"
     }))
     symbol = result_json(result)
     assert symbol is not None
-    assert symbol["full_name"] == "SynapseTest.Services.TaskService"
+    assert symbol["full_name"] == "SynappsTest.Services.TaskService"
 
 
 @pytest.mark.integration
@@ -147,7 +147,7 @@ def test_get_symbol_not_found(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_symbol_source(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_symbol_source", {
-        "full_name": "SynapseTest.Controllers.TaskController"
+        "full_name": "SynappsTest.Controllers.TaskController"
     }))
     source = text(result)
     assert "TaskController" in source
@@ -174,29 +174,29 @@ def test_search_symbols(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_find_implementations_task_service(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_implementations", {
-        "interface_name": "SynapseTest.Services.ITaskService"
+        "interface_name": "SynappsTest.Services.ITaskService"
     }))
     impls = result_json(result)
     names = [i["full_name"] for i in impls]
-    assert "SynapseTest.Services.TaskService" in names
+    assert "SynappsTest.Services.TaskService" in names
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_find_implementations_project_service(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_implementations", {
-        "interface_name": "SynapseTest.Services.IProjectService"
+        "interface_name": "SynappsTest.Services.IProjectService"
     }))
     impls = result_json(result)
     names = [i["full_name"] for i in impls]
-    assert "SynapseTest.Services.ProjectService" in names
+    assert "SynappsTest.Services.ProjectService" in names
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_find_callers(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_callers", {
-        "method_full_name": "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "method_full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
         "exclude_test_callers": False,
     }))
     callers = result_json(result)
@@ -210,7 +210,7 @@ def test_find_callers(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_find_callees(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_callees", {
-        "method_full_name": "SynapseTest.Controllers.TaskController.Create"
+        "method_full_name": "SynappsTest.Controllers.TaskController.Create"
     }))
     callees = result_json(result)
     names = [c.get("name", "") for c in callees]
@@ -221,7 +221,7 @@ def test_find_callees(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_hierarchy_controller(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_hierarchy", {
-        "class_name": "SynapseTest.Controllers.TaskController"
+        "class_name": "SynappsTest.Controllers.TaskController"
     }))
     hierarchy = result_json(result)
     parent_names = [p.get("full_name", "") for p in hierarchy["parents"]]
@@ -232,7 +232,7 @@ def test_get_hierarchy_controller(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_hierarchy_model(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_hierarchy", {
-        "class_name": "SynapseTest.Models.TaskItem"
+        "class_name": "SynappsTest.Models.TaskItem"
     }))
     hierarchy = result_json(result)
     parent_names = [p.get("full_name", "") for p in hierarchy["parents"]]
@@ -243,7 +243,7 @@ def test_get_hierarchy_model(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_find_type_references(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_usages", {
-        "full_name": "SynapseTest.Services.ITaskService",
+        "full_name": "SynappsTest.Services.ITaskService",
         "kind": "parameter",
     }))
     refs = result_json(result)
@@ -257,7 +257,7 @@ def test_find_type_references(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_find_dependencies(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_dependencies", {
-        "full_name": "SynapseTest.Controllers.TaskController"
+        "full_name": "SynappsTest.Controllers.TaskController"
     }))
     deps = result_json(result)
     dep_names = [d["type"].get("full_name", "") for d in deps]
@@ -270,7 +270,7 @@ def test_find_dependencies(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_context_for(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynapseTest.Controllers.TaskController"
+        "full_name": "SynappsTest.Controllers.TaskController"
     }))
     ctx = text(result)
     assert len(ctx) > 0
@@ -281,7 +281,7 @@ def test_get_context_for(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_context_for_structure_scope(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynapseTest.Services.TaskService",
+        "full_name": "SynappsTest.Services.TaskService",
         "scope": "structure",
     }))
     ctx = text(result)
@@ -295,7 +295,7 @@ def test_get_context_for_structure_scope(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_context_for_method_scope(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
         "scope": "method",
     }))
     ctx = text(result)
@@ -310,7 +310,7 @@ def test_get_context_for_method_scope(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_context_for_edit_scope_method(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
         "scope": "edit",
     }))
     ctx = text(result)
@@ -325,7 +325,7 @@ def test_get_context_for_edit_scope_method(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_context_for_edit_scope_class(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynapseTest.Services.TaskService",
+        "full_name": "SynappsTest.Services.TaskService",
         "scope": "edit",
     }))
     ctx = text(result)
@@ -337,7 +337,7 @@ def test_get_context_for_edit_scope_class(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynapseTest.Models.BaseEntity._createdBy",
+        "full_name": "SynappsTest.Models.BaseEntity._createdBy",
         "scope": "edit",
     }))
     ctx = text(result)
@@ -352,8 +352,8 @@ def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_trace_call_chain(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("trace_call_chain", {
-        "start": "SynapseTest.Controllers.TaskController.Create",
-        "end": "SynapseTest.Services.ProjectService.ValidateProjectAsync",
+        "start": "SynappsTest.Controllers.TaskController.Create",
+        "end": "SynappsTest.Services.ProjectService.ValidateProjectAsync",
     }))
     trace = result_json(result)
     assert len(trace["paths"]) > 0, (
@@ -366,7 +366,7 @@ def test_trace_call_chain(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_find_entry_points(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_entry_points", {
-        "method": "SynapseTest.Services.ProjectService.ValidateProjectAsync",
+        "method": "SynappsTest.Services.ProjectService.ValidateProjectAsync",
         "exclude_test_callers": False,
     }))
     ep = result_json(result)
@@ -380,7 +380,7 @@ def test_find_entry_points(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_analyze_change_impact(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("analyze_change_impact", {
-        "method": "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "method": "SynappsTest.Services.TaskService.CreateTaskAsync",
     }))
     output = text(result)
     # analyze_change_impact returns compact markdown. Verify the tool
@@ -394,7 +394,7 @@ def test_analyze_change_impact(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_get_call_depth(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_callees", {
-        "method_full_name": "SynapseTest.Controllers.TaskController.Create",
+        "method_full_name": "SynappsTest.Controllers.TaskController.Create",
         "depth": 3,
     }))
     depth_result = result_json(result)
@@ -410,12 +410,12 @@ def test_get_call_depth(mcp_server: FastMCP) -> None:
 def test_set_and_get_summary(mcp_server: FastMCP) -> None:
     run(mcp_server.call_tool("summary", {
         "action": "set",
-        "full_name": "SynapseTest.Services.TaskService",
+        "full_name": "SynappsTest.Services.TaskService",
         "content": "Manages task CRUD operations.",
     }))
     result = run(mcp_server.call_tool("summary", {
         "action": "get",
-        "full_name": "SynapseTest.Services.TaskService",
+        "full_name": "SynappsTest.Services.TaskService",
     }))
     assert text(result) == "Manages task CRUD operations."
 
@@ -425,13 +425,13 @@ def test_set_and_get_summary(mcp_server: FastMCP) -> None:
 def test_list_summarized(mcp_server: FastMCP) -> None:
     run(mcp_server.call_tool("summary", {
         "action": "set",
-        "full_name": "SynapseTest.Services.TaskService",
+        "full_name": "SynappsTest.Services.TaskService",
         "content": "Manages task CRUD operations.",
     }))
     result = run(mcp_server.call_tool("summary", {"action": "list"}))
     items = result_json(result)
     names = [i.get("full_name") for i in items]
-    assert "SynapseTest.Services.TaskService" in names
+    assert "SynappsTest.Services.TaskService" in names
 
 
 # ---------------------------------------------------------------------------
@@ -464,19 +464,19 @@ def test_execute_mutating_query_blocked(mcp_server: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_find_callers_excludes_test_callers(service: SynapseService) -> None:
+def test_find_callers_excludes_test_callers(service: SynappsService) -> None:
     """Bug 1 regression: exclude_test_callers=True must filter callers
-    whose file_path lives inside a SynapseTest.Tests directory."""
-    all_callers = service.find_callers("SynapseTest.Services.TaskService.CreateTaskAsync", exclude_test_callers=False)
+    whose file_path lives inside a SynappsTest.Tests directory."""
+    all_callers = service.find_callers("SynappsTest.Services.TaskService.CreateTaskAsync", exclude_test_callers=False)
     filtered_callers = service.find_callers(
-        "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "SynappsTest.Services.TaskService.CreateTaskAsync",
         exclude_test_callers=True,
     )
 
     # Core: no test-project callers survive the filter
     test_callers_in_filtered = [
         c for c in filtered_callers
-        if "SynapseTest.Tests" in c.get("file_path", "")
+        if "SynappsTest.Tests" in c.get("file_path", "")
     ]
     assert test_callers_in_filtered == [], (
         f"Expected no test-project callers with exclude_test_callers=True, "
@@ -489,9 +489,9 @@ def test_find_callers_excludes_test_callers(service: SynapseService) -> None:
     # Non-vacuous: test caller must appear without the flag
     test_callers_in_all = [
         c for c in all_callers
-        if "SynapseTest.Tests" in c.get("file_path", "")
+        if "SynappsTest.Tests" in c.get("file_path", "")
     ]
     assert len(test_callers_in_all) > 0, (
-        "Expected at least one caller from SynapseTest.Tests in all_callers. "
+        "Expected at least one caller from SynappsTest.Tests in all_callers. "
         "The direct call in TaskServiceTests.TestCreateTask may not have been indexed."
     )

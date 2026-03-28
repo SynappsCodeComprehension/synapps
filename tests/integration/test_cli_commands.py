@@ -11,19 +11,19 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
-from synapse.cli.app import app
-from synapse.service import SynapseService
+from synapps.cli.app import app
+from synapps.service import SynappsService
 
 runner = CliRunner()
 
 
-def _invoke(service: SynapseService, args: list[str]):
+def _invoke(service: SynappsService, args: list[str]):
     """Patch _get_service so CLI commands use the test-scoped fixture service.
 
     Without this, _get_service() constructs a live GraphConnection from env
     vars, bypassing the session fixture and hitting a different (empty) graph.
     """
-    with patch("synapse.cli.app._get_service", return_value=service):
+    with patch("synapps.cli.app._get_service", return_value=service):
         return runner.invoke(app, args)
 
 
@@ -33,16 +33,16 @@ def _invoke(service: SynapseService, args: list[str]):
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_callees_controller_create(service: SynapseService) -> None:
-    result = _invoke(service, ["callees", "SynapseTest.Controllers.TaskController.Create"])
+def test_callees_controller_create(service: SynappsService) -> None:
+    result = _invoke(service, ["callees", "SynappsTest.Controllers.TaskController.Create"])
     assert result.exit_code == 0
     assert "CreateTaskAsync" in result.output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_callers_service_method(service: SynapseService) -> None:
-    result = _invoke(service, ["callers", "--include-tests", "SynapseTest.Services.TaskService.CreateTaskAsync"])
+def test_callers_service_method(service: SynappsService) -> None:
+    result = _invoke(service, ["callers", "--include-tests", "SynappsTest.Services.TaskService.CreateTaskAsync"])
     assert result.exit_code == 0
     assert "Create" in result.output
 
@@ -53,7 +53,7 @@ def test_callers_service_method(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_delete(service: SynapseService) -> None:
+def test_delete(service: SynappsService) -> None:
     result = _invoke(service, ["delete", "/tmp/nonexistent-project"])
     assert result.exit_code == 0
     assert "Deleted" in result.output
@@ -65,27 +65,27 @@ def test_delete(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_implementations(service: SynapseService) -> None:
-    result = _invoke(service, ["implementations", "SynapseTest.Services.ITaskService"])
+def test_implementations(service: SynappsService) -> None:
+    result = _invoke(service, ["implementations", "SynappsTest.Services.ITaskService"])
     assert result.exit_code == 0
     assert "TaskService" in result.output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_hierarchy(service: SynapseService) -> None:
-    result = _invoke(service, ["hierarchy", "SynapseTest.Models.TaskItem"])
+def test_hierarchy(service: SynappsService) -> None:
+    result = _invoke(service, ["hierarchy", "SynappsTest.Models.TaskItem"])
     assert result.exit_code == 0
     assert "BaseEntity" in result.output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_trace(service: SynapseService) -> None:
+def test_trace(service: SynappsService) -> None:
     result = _invoke(service, [
         "trace",
-        "SynapseTest.Controllers.TaskController.Create",
-        "SynapseTest.Services.ProjectService.ValidateProjectAsync",
+        "SynappsTest.Controllers.TaskController.Create",
+        "SynappsTest.Services.ProjectService.ValidateProjectAsync",
     ])
     assert result.exit_code == 0
     assert "Path" in result.output
@@ -93,11 +93,11 @@ def test_trace(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_entry_points(service: SynapseService) -> None:
+def test_entry_points(service: SynappsService) -> None:
     result = _invoke(service, [
         "entry-points",
         "--include-tests",
-        "SynapseTest.Services.ProjectService.ValidateProjectAsync",
+        "SynappsTest.Services.ProjectService.ValidateProjectAsync",
     ])
     assert result.exit_code == 0
     assert "TaskController" in result.output
@@ -105,10 +105,10 @@ def test_entry_points(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_call_depth(service: SynapseService) -> None:
+def test_call_depth(service: SynappsService) -> None:
     result = _invoke(service, [
         "call-depth",
-        "SynapseTest.Controllers.TaskController.Create",
+        "SynappsTest.Controllers.TaskController.Create",
     ])
     assert result.exit_code == 0
     assert "depth" in result.output.lower()
@@ -116,10 +116,10 @@ def test_call_depth(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_impact(service: SynapseService) -> None:
+def test_impact(service: SynappsService) -> None:
     result = _invoke(service, [
         "impact",
-        "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "SynappsTest.Services.TaskService.CreateTaskAsync",
     ])
     assert result.exit_code == 0
     assert "TaskController" in result.output or "direct" in result.output.lower()
@@ -127,10 +127,10 @@ def test_impact(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_contract(service: SynapseService) -> None:
+def test_contract(service: SynappsService) -> None:
     result = _invoke(service, [
         "contract",
-        "SynapseTest.Services.TaskService.CreateTaskAsync",
+        "SynappsTest.Services.TaskService.CreateTaskAsync",
     ])
     assert result.exit_code == 0
     assert "ITaskService" in result.output
@@ -138,10 +138,10 @@ def test_contract(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_type_impact(service: SynapseService) -> None:
+def test_type_impact(service: SynappsService) -> None:
     result = _invoke(service, [
         "type-impact",
-        "SynapseTest.Services.ITaskService",
+        "SynappsTest.Services.ITaskService",
     ])
     assert result.exit_code == 0
     assert "ITaskService" in result.output
@@ -153,23 +153,23 @@ def test_type_impact(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_symbol(service: SynapseService) -> None:
-    result = _invoke(service, ["symbol", "SynapseTest.Services.TaskService"])
+def test_symbol(service: SynappsService) -> None:
+    result = _invoke(service, ["symbol", "SynappsTest.Services.TaskService"])
     assert result.exit_code == 0
     assert "TaskService" in result.output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_source(service: SynapseService) -> None:
-    result = _invoke(service, ["source", "SynapseTest.Controllers.TaskController"])
+def test_source(service: SynappsService) -> None:
+    result = _invoke(service, ["source", "SynappsTest.Controllers.TaskController"])
     assert result.exit_code == 0
     assert "TaskController" in result.output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_search(service: SynapseService) -> None:
+def test_search(service: SynappsService) -> None:
     result = _invoke(service, ["search", "Task"])
     assert result.exit_code == 0
     assert "Task" in result.output
@@ -177,16 +177,16 @@ def test_search(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_type_refs(service: SynapseService) -> None:
-    result = _invoke(service, ["type-refs", "SynapseTest.Services.ITaskService"])
+def test_type_refs(service: SynappsService) -> None:
+    result = _invoke(service, ["type-refs", "SynappsTest.Services.ITaskService"])
     assert result.exit_code == 0
     assert "TaskController" in result.output or "ITaskService" in result.output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_dependencies(service: SynapseService) -> None:
-    result = _invoke(service, ["dependencies", "SynapseTest.Controllers.TaskController"])
+def test_dependencies(service: SynappsService) -> None:
+    result = _invoke(service, ["dependencies", "SynappsTest.Controllers.TaskController"])
     assert result.exit_code == 0
 
 
@@ -196,22 +196,22 @@ def test_dependencies(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_status(service: SynapseService) -> None:
+def test_status(service: SynappsService) -> None:
     result = _invoke(service, ["status"])
     assert result.exit_code == 0
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_query(service: SynapseService) -> None:
+def test_query(service: SynappsService) -> None:
     result = _invoke(service, ["query", "MATCH (n:Class) RETURN n.name LIMIT 5"])
     assert result.exit_code == 0
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_context(service: SynapseService) -> None:
-    result = _invoke(service, ["context", "SynapseTest.Controllers.TaskController"])
+def test_context(service: SynappsService) -> None:
+    result = _invoke(service, ["context", "SynappsTest.Controllers.TaskController"])
     assert result.exit_code == 0
     assert "TaskController" in result.output
 
@@ -222,7 +222,7 @@ def test_context(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_audit(service: SynapseService) -> None:
+def test_audit(service: SynappsService) -> None:
     result = _invoke(service, ["audit", "untested_services"])
     assert result.exit_code == 0
     assert "untested_services" in result.output
@@ -234,13 +234,13 @@ def test_audit(service: SynapseService) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_summary_set_get_list(service: SynapseService) -> None:
+def test_summary_set_get_list(service: SynappsService) -> None:
     set_result = _invoke(service, [
-        "summary", "set", "SynapseTest.Models.TaskItem", "A task entity."
+        "summary", "set", "SynappsTest.Models.TaskItem", "A task entity."
     ])
     assert set_result.exit_code == 0
 
-    get_result = _invoke(service, ["summary", "get", "SynapseTest.Models.TaskItem"])
+    get_result = _invoke(service, ["summary", "get", "SynappsTest.Models.TaskItem"])
     assert get_result.exit_code == 0
     assert "A task entity." in get_result.output
 

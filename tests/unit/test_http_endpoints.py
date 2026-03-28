@@ -32,7 +32,7 @@ def _method(full_name, file_path="/src/Api.cs", line=10, language="csharp"):
 # ---------------------------------------------------------------------------
 
 def test_find_http_endpoints_query_returns_rows_with_has_server():
-    from synapse.graph.lookups import find_http_endpoints as q_find_http_endpoints
+    from synapps.graph.lookups import find_http_endpoints as q_find_http_endpoints
 
     ep = _ep("/api/items", "GET")
     handler = _method("ItemsController.GetAll")
@@ -47,7 +47,7 @@ def test_find_http_endpoints_query_returns_rows_with_has_server():
 
 
 def test_find_http_endpoints_query_with_route_param():
-    from synapse.graph.lookups import find_http_endpoints as q_find_http_endpoints
+    from synapps.graph.lookups import find_http_endpoints as q_find_http_endpoints
 
     ep = _ep("/api/items", "GET")
     conn = MagicMock()
@@ -62,7 +62,7 @@ def test_find_http_endpoints_query_with_route_param():
 
 
 def test_find_http_endpoints_query_with_no_filters_returns_all():
-    from synapse.graph.lookups import find_http_endpoints as q_find_http_endpoints
+    from synapps.graph.lookups import find_http_endpoints as q_find_http_endpoints
 
     ep1 = _ep("/api/items", "GET")
     ep2 = _ep("/api/orders", "POST")
@@ -74,7 +74,7 @@ def test_find_http_endpoints_query_with_no_filters_returns_all():
 
 
 def test_find_http_endpoints_query_with_language_filter():
-    from synapse.graph.lookups import find_http_endpoints as q_find_http_endpoints
+    from synapps.graph.lookups import find_http_endpoints as q_find_http_endpoints
 
     ep = _ep("/api/items", "GET")
     handler = _method("ItemsController.GetAll", language="csharp")
@@ -94,7 +94,7 @@ def test_find_http_endpoints_query_with_language_filter():
 # ---------------------------------------------------------------------------
 
 def test_find_http_dependency_query_returns_handler_and_callers():
-    from synapse.graph.lookups import find_http_dependency
+    from synapps.graph.lookups import find_http_dependency
 
     ep = _ep("/api/items", "GET")
     handler = _method("ItemsController.GetAll")
@@ -114,7 +114,7 @@ def test_find_http_dependency_query_returns_handler_and_callers():
 
 
 def test_find_http_dependency_no_handler_returns_none_handler():
-    from synapse.graph.lookups import find_http_dependency
+    from synapps.graph.lookups import find_http_dependency
 
     ep = _ep("/api/external", "GET")
     conn = MagicMock()
@@ -130,7 +130,7 @@ def test_find_http_dependency_no_handler_returns_none_handler():
 
 
 def test_find_http_dependency_no_ep_returns_none():
-    from synapse.graph.lookups import find_http_dependency
+    from synapps.graph.lookups import find_http_dependency
 
     conn = MagicMock()
     conn.query.side_effect = [[], []]
@@ -146,9 +146,9 @@ def test_find_http_dependency_no_ep_returns_none():
 # ---------------------------------------------------------------------------
 
 def _make_service(conn):
-    """Create a SynapseService backed by a mock connection with an empty project list."""
-    from synapse.service import SynapseService
-    service = SynapseService(conn)
+    """Create a SynappsService backed by a mock connection with an empty project list."""
+    from synapps.service import SynappsService
+    service = SynappsService(conn)
     # Stub out project roots so _rel_path doesn't need DB
     service._project_roots = []
     return service
@@ -161,7 +161,7 @@ def test_service_find_http_endpoints_returns_d02_shape():
     conn = MagicMock()
     service = _make_service(conn)
 
-    with patch("synapse.service.query_find_http_endpoints", return_value=[[ep, True, handler]]):
+    with patch("synapps.service.query_find_http_endpoints", return_value=[[ep, True, handler]]):
         result = service.find_http_endpoints()
 
     assert isinstance(result, list)
@@ -181,7 +181,7 @@ def test_service_find_http_endpoints_no_handler_fields_are_none():
     conn = MagicMock()
     service = _make_service(conn)
 
-    with patch("synapse.service.query_find_http_endpoints", return_value=[[ep, False, None]]):
+    with patch("synapps.service.query_find_http_endpoints", return_value=[[ep, False, None]]):
         result = service.find_http_endpoints()
 
     item = result[0]
@@ -196,7 +196,7 @@ def test_service_find_http_endpoints_passes_language_filter():
     conn = MagicMock()
     service = _make_service(conn)
 
-    with patch("synapse.service.query_find_http_endpoints", return_value=[]) as mock_lookup:
+    with patch("synapps.service.query_find_http_endpoints", return_value=[]) as mock_lookup:
         service.find_http_endpoints(language="python")
         _, call_kwargs = mock_lookup.call_args
         assert call_kwargs.get("language") == "python"
@@ -215,7 +215,7 @@ def test_service_trace_http_dependency_returns_d03_shape():
     service = _make_service(conn)
 
     mock_dep_data = {"ep": ep, "handler": handler, "callers": [caller]}
-    with patch("synapse.service.query_find_http_dependency", return_value=mock_dep_data):
+    with patch("synapps.service.query_find_http_dependency", return_value=mock_dep_data):
         result = service.trace_http_dependency("/api/items", "GET")
 
     assert result["route"] == "/api/items"
@@ -237,7 +237,7 @@ def test_service_trace_http_dependency_no_server_handler():
     service = _make_service(conn)
 
     mock_dep_data = {"ep": ep, "handler": None, "callers": [caller]}
-    with patch("synapse.service.query_find_http_dependency", return_value=mock_dep_data):
+    with patch("synapps.service.query_find_http_dependency", return_value=mock_dep_data):
         result = service.trace_http_dependency("/api/external", "GET")
 
     assert result["has_server_handler"] is False
@@ -250,7 +250,7 @@ def test_service_trace_http_dependency_no_ep_returns_false():
     service = _make_service(conn)
 
     mock_dep_data = {"ep": None, "handler": None, "callers": []}
-    with patch("synapse.service.query_find_http_dependency", return_value=mock_dep_data):
+    with patch("synapps.service.query_find_http_dependency", return_value=mock_dep_data):
         result = service.trace_http_dependency("/api/missing", "DELETE")
 
     assert result["has_server_handler"] is False

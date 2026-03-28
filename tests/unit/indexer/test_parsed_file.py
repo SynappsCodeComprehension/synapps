@@ -1,9 +1,9 @@
 """Tests for ParsedFile dataclass and plugin parse_file methods."""
-from synapse.indexer.tree_sitter_util import ParsedFile
-from synapse.plugin.python import PythonPlugin
-from synapse.plugin.typescript import TypeScriptPlugin
-from synapse.plugin.java import JavaPlugin
-from synapse.plugin.csharp import CSharpPlugin
+from synapps.indexer.tree_sitter_util import ParsedFile
+from synapps.plugin.python import PythonPlugin
+from synapps.plugin.typescript import TypeScriptPlugin
+from synapps.plugin.java import JavaPlugin
+from synapps.plugin.csharp import CSharpPlugin
 
 
 def test_parsed_file_holds_source_and_tree():

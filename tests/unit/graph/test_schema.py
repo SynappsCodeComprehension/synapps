@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from synapse.graph.schema import ensure_schema
+from synapps.graph.schema import ensure_schema
 
 
 def test_ensure_schema_memgraph_creates_indices() -> None:
