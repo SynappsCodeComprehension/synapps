@@ -130,13 +130,6 @@ def test_hierarchy(python_service: SynappsService) -> None:
     assert "Animal" in result.output
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_type_refs(python_service: SynappsService) -> None:
-    """type-refs command returns exit code 0 (may be empty for Python fixture)."""
-    result = _invoke(python_service, ["type-refs", "synappspytest.animals.IAnimal"])
-    assert result.exit_code == 0
-
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
@@ -192,64 +185,6 @@ def test_entry_points(python_service: SynappsService) -> None:
     ])
     assert result.exit_code == 0
 
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_call_depth(python_service: SynappsService) -> None:
-    """call-depth command returns exit code 0 for a Python method."""
-    result = _invoke(python_service, [
-        "call-depth",
-        "synappspytest.services.AnimalService.get_greeting",
-    ])
-    assert result.exit_code == 0
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_impact(python_service: SynappsService) -> None:
-    """impact command returns exit code 0 and prints analysis output."""
-    result = _invoke(python_service, [
-        "impact",
-        "synappspytest.services.AnimalService.get_greeting",
-    ])
-    assert result.exit_code == 0
-    assert "direct" in result.output.lower() or "impact" in result.output.lower()
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_contract(python_service: SynappsService) -> None:
-    """contract command returns exit code 0 (may report no interface for Python methods)."""
-    result = _invoke(python_service, [
-        "contract",
-        "synappspytest.services.AnimalService.get_greeting",
-    ])
-    assert result.exit_code == 0
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_type_impact(python_service: SynappsService) -> None:
-    """type-impact command returns exit code 0 for a Python class."""
-    result = _invoke(python_service, [
-        "type-impact",
-        "synappspytest.animals.IAnimal",
-    ])
-    assert result.exit_code == 0
-    assert "IAnimal" in result.output
-
-
-# ---------------------------------------------------------------------------
-# Audit / summarize commands
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_audit(python_service: SynappsService) -> None:
-    """audit command returns exit code 0 (empty violations for Python is OK)."""
-    result = _invoke(python_service, ["audit", "layering_violations"])
-    assert result.exit_code == 0
-    assert "layering_violations" in result.output
 
 
 # ---------------------------------------------------------------------------

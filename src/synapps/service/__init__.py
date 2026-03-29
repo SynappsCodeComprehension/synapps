@@ -18,7 +18,7 @@ from synapps.graph.lookups import (
     _TEST_PATH_PATTERN,
 )
 from synapps.graph.traversal import trace_call_chain, find_entry_points, get_call_depth
-from synapps.graph.analysis import analyze_change_impact, find_interface_contract, find_type_impact, audit_architecture
+from synapps.graph.analysis import analyze_change_impact, find_type_impact
 from synapps.plugin import LanguageRegistry, default_registry
 from synapps.service.formatting import _p, _slim, _apply_limit, _short_ref, _member_line
 from synapps.service.indexing import IndexingService
@@ -458,10 +458,6 @@ class SynappsService:
 
         return "\n".join(lines)
 
-    def find_interface_contract(self, method: str) -> dict:
-        method = self._resolve(method, preference="interface")
-        return find_interface_contract(self._conn, method)
-
     def find_type_impact(self, type_name: str, limit: int = 50) -> dict:
         type_name = self._resolve(type_name)
         result = find_type_impact(self._conn, type_name)
@@ -473,5 +469,3 @@ class SynappsService:
             result["_total_references"] = len(result["references"])
         return result
 
-    def audit_architecture(self, rule: str) -> dict:
-        return audit_architecture(self._conn, rule)

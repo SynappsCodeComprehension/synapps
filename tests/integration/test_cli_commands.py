@@ -103,49 +103,6 @@ def test_entry_points(service: SynappsService) -> None:
     assert "TaskController" in result.output
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_call_depth(service: SynappsService) -> None:
-    result = _invoke(service, [
-        "call-depth",
-        "SynappsTest.Controllers.TaskController.Create",
-    ])
-    assert result.exit_code == 0
-    assert "depth" in result.output.lower()
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_impact(service: SynappsService) -> None:
-    result = _invoke(service, [
-        "impact",
-        "SynappsTest.Services.TaskService.CreateTaskAsync",
-    ])
-    assert result.exit_code == 0
-    assert "TaskController" in result.output or "direct" in result.output.lower()
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_contract(service: SynappsService) -> None:
-    result = _invoke(service, [
-        "contract",
-        "SynappsTest.Services.TaskService.CreateTaskAsync",
-    ])
-    assert result.exit_code == 0
-    assert "ITaskService" in result.output
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_type_impact(service: SynappsService) -> None:
-    result = _invoke(service, [
-        "type-impact",
-        "SynappsTest.Services.ITaskService",
-    ])
-    assert result.exit_code == 0
-    assert "ITaskService" in result.output
-
 
 # ---------------------------------------------------------------------------
 # Symbol query commands
@@ -174,13 +131,6 @@ def test_search(service: SynappsService) -> None:
     assert result.exit_code == 0
     assert "Task" in result.output
 
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_type_refs(service: SynappsService) -> None:
-    result = _invoke(service, ["type-refs", "SynappsTest.Services.ITaskService"])
-    assert result.exit_code == 0
-    assert "TaskController" in result.output or "ITaskService" in result.output
 
 
 @pytest.mark.integration
@@ -215,17 +165,6 @@ def test_context(service: SynappsService) -> None:
     assert result.exit_code == 0
     assert "TaskController" in result.output
 
-
-# ---------------------------------------------------------------------------
-# Audit / summarize commands
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_audit(service: SynappsService) -> None:
-    result = _invoke(service, ["audit", "untested_services"])
-    assert result.exit_code == 0
-    assert "untested_services" in result.output
 
 
 # ---------------------------------------------------------------------------

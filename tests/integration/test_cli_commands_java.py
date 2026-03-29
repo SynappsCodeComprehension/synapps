@@ -148,13 +148,6 @@ def test_dependencies(java_service: SynappsService) -> None:
     assert result.exit_code == 0
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_type_refs(java_service: SynappsService) -> None:
-    """type-refs command returns exit code 0 (may be empty) for a Java interface."""
-    result = _invoke(java_service, ["type-refs", "com.synappstest.IAnimal"])
-    assert result.exit_code == 0
-
 
 # ---------------------------------------------------------------------------
 # Call chain / entry point / impact commands
@@ -181,28 +174,6 @@ def test_trace(java_service: SynappsService) -> None:
     assert result.exit_code == 0
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_impact(java_service: SynappsService) -> None:
-    """impact command returns exit code 0 and prints analysis output."""
-    result = _invoke(java_service, [
-        "impact",
-        "com.synappstest.AnimalService.greet",
-    ])
-    assert result.exit_code == 0
-    assert "direct" in result.output.lower() or "impact" in result.output.lower()
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_contract(java_service: SynappsService) -> None:
-    """contract command returns exit code 0 for a Java method."""
-    result = _invoke(java_service, [
-        "contract",
-        "com.synappstest.AnimalService.greet",
-    ])
-    assert result.exit_code == 0
-
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
@@ -214,41 +185,6 @@ def test_entry_points(java_service: SynappsService) -> None:
     ])
     assert result.exit_code == 0
 
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_call_depth(java_service: SynappsService) -> None:
-    """call-depth command returns exit code 0 for a Java method."""
-    result = _invoke(java_service, [
-        "call-depth",
-        "com.synappstest.AnimalService.greet",
-    ])
-    assert result.exit_code == 0
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_type_impact(java_service: SynappsService) -> None:
-    """type-impact command returns exit code 0 and names the Java interface."""
-    result = _invoke(java_service, [
-        "type-impact",
-        "com.synappstest.IAnimal",
-    ])
-    assert result.exit_code == 0
-    assert "IAnimal" in result.output
-
-
-# ---------------------------------------------------------------------------
-# Audit / summarize commands
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_audit(java_service: SynappsService) -> None:
-    """audit command returns exit code 0 (empty violations for Java is OK)."""
-    result = _invoke(java_service, ["audit", "layering_violations"])
-    assert result.exit_code == 0
-    assert "layering_violations" in result.output
 
 
 # ---------------------------------------------------------------------------

@@ -17,7 +17,6 @@ def _svc(overrides: dict | None = None):
     svc.find_callees.return_value = []
     svc.find_implementations.return_value = []
     svc.search_symbols.return_value = []
-    svc.find_type_references.return_value = []
     svc.find_dependencies.return_value = []
     svc.get_hierarchy.return_value = {"parents": [], "children": [], "implements": []}
     # Default: get_symbol returns a Method so callers/callees pass label validation
@@ -83,13 +82,6 @@ def test_hierarchy_prints_none_for_empty_sections():
     assert "Children:" in result.output
     assert "(none)" in result.output
 
-
-def test_type_refs_prints_full_name_and_kind():
-    svc = _svc({"find_type_references": [{"symbol": {"full_name": "A.Caller"}, "kind": "parameter"}]})
-    with patch("synapps.cli.app._get_service", return_value=svc):
-        result = runner.invoke(app, ["type-refs", "A.IFoo"])
-    assert "A.Caller" in result.output
-    assert "parameter" in result.output
 
 
 def test_dependencies_prints_full_name_and_depth():

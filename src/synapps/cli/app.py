@@ -28,7 +28,6 @@ from synapps.cli.tree import (
     render_tree,
     callers_tree,
     callees_tree,
-    call_depth_tree,
     hierarchy_tree,
     trace_tree,
     entry_points_tree,
@@ -393,21 +392,6 @@ def query(cypher: str) -> None:
         typer.echo(row)
 
 
-@app.command("type-refs")
-def type_refs(
-    full_name: str,
-    kind: Annotated[str | None, typer.Option("--kind", "-k", help="Filter by kind: parameter, return_type, property_type")] = None,
-) -> None:
-    """Find all symbols that reference a type. Use --kind to filter by reference kind."""
-    results = _get_service().find_type_references(full_name, kind=kind)
-    if not results:
-        typer.echo("No results.")
-        return
-    for item in results:
-        fn = item["symbol"].get("full_name", "?")
-        kind = item.get("kind", "")
-        typer.echo(f"{fn} ({kind})")
-
 
 @app.command("usages")
 def usages(
@@ -494,86 +478,6 @@ def entry_points(
         for ep in result["entry_points"]:
             typer.echo(f"{ep['entry']} → {' → '.join(ep['path'][1:])}")
 
-
-@app.command("call-depth")
-def call_depth(
-    method: str = typer.Argument(help="Starting method"),
-    depth: int = typer.Option(3, "--depth", "-d"),
-    tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
-) -> None:
-    """Show all methods reachable from a method up to N levels."""
-    svc = _get_service()
-    result = svc.get_call_depth(method, depth)
-    if not result["callees"]:
-        typer.echo("No callees found.")
-        return
-    if tree:
-        typer.echo(render_tree(call_depth_tree(result)))
-    else:
-        for c in result["callees"]:
-            indent = "  " * c["depth"]
-            typer.echo(f"{indent}[depth {c['depth']}] {c['full_name']}")
-
-
-@app.command("impact")
-def impact(
-    method: str = typer.Argument(help="Method to analyze"),
-) -> None:
-    """Analyze the blast radius of changing a method.
-
-    When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity still requires a qualified name."""
-    svc = _get_service()
-    result = svc.analyze_change_impact(method)
-    typer.echo(result)
-
-
-@app.command("contract")
-def contract(
-    method: str = typer.Argument(help="Implementation method"),
-) -> None:
-    """Find the interface contract and sibling implementations for a method.
-
-    When a short type name matches both an interface and concrete class, the interface is preferred. Method-level ambiguity still requires a qualified name."""
-    svc = _get_service()
-    result = svc.find_interface_contract(method)
-    if not result["interface"]:
-        typer.echo("No interface contract found.")
-        return
-    typer.echo(f"Interface: {result['interface']}")
-    typer.echo(f"Contract: {result['contract_method']}")
-    for s in result["sibling_implementations"]:
-        typer.echo(f"  Sibling: {s['class_name']} ({s['file_path']})")
-
-
-@app.command("type-impact")
-def type_impact(
-    type_name: str = typer.Argument(help="Type to analyze"),
-) -> None:
-    """Find all code affected if a type changes shape."""
-    svc = _get_service()
-    result = svc.find_type_impact(type_name)
-    typer.echo(f"Type impact for: {result['type']}")
-    typer.echo(f"  Prod references: {result['prod_count']}")
-    typer.echo(f"  Test references: {result['test_count']}")
-    for r in result["references"]:
-        typer.echo(f"    [{r['context']}] {r['full_name']}")
-
-
-@app.command("audit")
-def audit(
-    rule: str = typer.Argument(help="Rule: layering_violations, untested_services"),
-) -> None:
-    """Run an architectural audit rule."""
-    svc = _get_service()
-    try:
-        result = svc.audit_architecture(rule)
-    except ValueError as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(1)
-    typer.echo(f"Rule: {result['rule']} — {result['description']}")
-    typer.echo(f"Violations: {result['count']}")
-    for v in result["violations"]:
-        typer.echo(f"  {v}")
 
 
 @summary_app.command("get")

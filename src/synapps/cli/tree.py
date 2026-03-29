@@ -58,9 +58,6 @@ def _build_depth_tree(root_label: str, items: list[dict], name_key: str = "full_
     return root
 
 
-def call_depth_tree(data: dict) -> TreeNode:
-    return _build_depth_tree(data["root"], data["callees"])
-
 
 def hierarchy_tree(class_name: str, data: dict) -> TreeNode:
     categories: list[TreeNode] = []
