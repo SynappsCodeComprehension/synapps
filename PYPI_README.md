@@ -6,7 +6,7 @@ Code intelligence MCP server — gives AI coding agents a queryable graph of you
 
 - Indexes C#, Python, TypeScript/JavaScript, and Java codebases using tree-sitter and Language Server Protocol
 - Stores symbols, call chains, and relationships in a Memgraph graph database
-- Exposes semantic query tools as MCP tools — AI agents can find callers, trace call chains, and analyze change impact without reading every file
+- Exposes semantic query tools as MCP tools — AI agents can find usages, trace call trees, and analyze change impact without reading every file
 - Supports incremental sync via git-diff-based change detection and live file watching
 
 ## Install
@@ -47,11 +47,10 @@ synapps index /path/to/your/project
 
 ## Key MCP Tools
 
-- `get_context_for` — full context for a symbol before editing (callers, callees, tests)
-- `find_callers` — who calls a given method across the codebase
+- `get_context_for` — full context for a symbol before editing (callers, callees, tests); use `scope="impact"` for change impact analysis
+- `find_usages` — who calls a method or uses any symbol across the codebase
 - `find_callees` — what a method depends on downstream
-- `analyze_change_impact` — verify no unexpected breakage before committing
-- `trace_call_chain` — find call paths between two methods
+- `find_entry_points` — find API/controller entry points reaching a method
 - `search_symbols` — find symbols by name, kind, file, or namespace
 
 ## Links

@@ -20,9 +20,9 @@ Synapps gives your agent a compiler-grade understanding of how code connects, wi
 
 | Without Synapps | With Synapps |
 |---|---|
-| Grep for `.DoWork(` across the codebase, filter false positives manually | `find_callers("DoWork")` — precise results, including calls through interfaces |
+| Grep for `.DoWork(` across the codebase, filter false positives manually | `find_usages("DoWork")` — precise results, including calls through interfaces |
 | Read 5+ files to understand a method before editing | `get_context_for("X", scope="edit")` — source, callers, dependencies, and test coverage in one call |
-| Hope you found every caller before refactoring | `analyze_change_impact("X")` — structured impact report with test coverage |
+| Hope you found every caller before refactoring | `get_context_for("X", scope="impact")` — structured impact report with test coverage |
 | Manually trace from a method to its API endpoint | `find_entry_points("X")` — automatic root-caller discovery |
 | Guess which tests cover a method | Impact analysis separates prod callers from test callers automatically |
 
@@ -96,19 +96,19 @@ Synapps uses a two-phase indexing approach: LSP extracts structural symbols (cla
 
 This means your agent can follow a method call through 6 levels of indirection and know exactly what code is reachable, without reading a single file.
 
-**Tools:** `find_callers`, `find_callees` (with `depth` for call trees), `trace_call_chain`, `find_entry_points`
+**Tools:** `find_usages`, `find_callees` (with `depth` for call trees), `find_entry_points`
 
 ### Interface Dispatch Resolution
 
 In dependency-injected codebases, `service.Process()` could mean any of 5 concrete implementations. Grep finds the interface method. Synapps finds the interface method *and* every concrete implementation, automatically.
 
-**Tools:** `find_callers` (with `include_interface_dispatch`), `find_implementations` | **CLI:** `contract`
+**Tools:** `find_usages` (with `include_interface_dispatch`), `find_implementations` | **CLI:** `contract`
 
 ### Impact Analysis
 
 Before your agent changes a method, it should know: how many places call it, whether tests cover it, and what it depends on. `analyze_change_impact` answers all three in a single, token-efficient response — categorized into direct callers, transitive callers, test coverage, and downstream callees.
 
-**Tools:** `analyze_change_impact`, `find_usages` (with `include_test_breakdown`), `get_context_for` (with `scope="edit"`)
+**Tools:** `get_context_for` (with `scope="impact"`), `find_usages` (with `include_test_breakdown`), `get_context_for` (with `scope="edit"`)
 
 ### Scoped Context
 
@@ -117,6 +117,7 @@ Before your agent changes a method, it should know: how many places call it, whe
 - **`structure`** — type overview with member signatures (no method bodies)
 - **`method`** — source code + interface contract + callees + dependencies
 - **`edit`** — callers with line numbers, relevant dependencies, test coverage
+- **`impact`** — blast radius analysis: direct callers, transitive callers, test coverage, callees
 
 **Tools:** `get_context_for`
 
@@ -137,7 +138,7 @@ Synapps traces HTTP dependencies across language boundaries by detecting server-
 | Python | Flask, Django, FastAPI | requests |
 | Java | Spring Boot (`@RequestMapping`, `@GetMapping`, etc.), JAX-RS | RestTemplate, WebClient, java.net.http |
 
-**Tools:** `find_http_endpoints`, `trace_http_dependency`
+**Tools:** `find_http_endpoints` (use `trace=True` for the full dependency picture)
 
 **Known limitations:** Dynamic URL construction (runtime string concatenation, builder patterns) and API gateway/middleware route rewrites cannot be resolved by static analysis.
 
@@ -219,7 +220,7 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 
 ## MCP Tools
 
-21 tools available to any MCP client connected to `synapps-mcp`, organized into 7 categories.
+15 tools available to any MCP client connected to `synapps-mcp`, organized into 7 categories.
 
 ### Project Management
 
@@ -234,8 +235,6 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 | Tool | Parameters | Description |
 |---|---|---|
 | `search_symbols` | `query`, `kind?`, `namespace?`, `file_path?`, `language?`, `limit?` | Find symbols by name with filters |
-| `get_symbol` | `full_name` | Symbol metadata (file path, line range, kind) |
-| `get_symbol_source` | `full_name`, `include_class_signature?` | Source code from disk |
 | `find_implementations` | `interface_name`, `limit?` | Concrete implementations of an interface |
 | `get_hierarchy` | `class_name` | Full inheritance chain |
 
@@ -243,26 +242,22 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `find_callers` | `method_full_name`, `include_interface_dispatch?`, `exclude_test_callers?`, `limit?` | Find all callers, including through interface dispatch |
 | `find_callees` | `method_full_name`, `include_interface_dispatch?`, `limit?`, `depth?` | Find callees; `depth` enables call tree mode |
-| `find_usages` | `full_name`, `exclude_test_callers?`, `limit?`, `kind?`, `include_test_breakdown?` | Unified usage lookup — auto-selects by symbol kind |
-| `trace_call_chain` | `start`, `end`, `max_depth?` | Find all call paths between two methods |
+| `find_usages` | `full_name`, `exclude_test_callers?`, `limit?`, `kind?`, `include_test_breakdown?` | Unified usage lookup — auto-selects by symbol kind (replaces find_callers) |
 | `find_entry_points` | `method`, `max_depth?`, `exclude_pattern?`, `exclude_test_callers?` | Find API/controller entry points |
 
-### Impact Analysis
+### Context & Impact Analysis
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `get_context_for` | `full_name`, `scope?`, `max_lines?` | Context for understanding/editing a symbol |
-| `analyze_change_impact` | `method` | Blast radius: direct callers, transitive callers, test coverage, callees |
+| `get_context_for` | `full_name`, `scope?`, `max_lines?` | Context for understanding/editing/impact analysis. Scopes: `structure`, `method`, `edit`, `impact` |
 | `find_dependencies` | `full_name`, `depth?`, `limit?` | Field-type dependencies with optional transitive traversal |
 
 ### HTTP Endpoints
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `find_http_endpoints` | `route?`, `http_method?`, `language?` | Search endpoints by route, method, or language |
-| `trace_http_dependency` | `route`, `http_method?` | Find server handler and all client call sites |
+| `find_http_endpoints` | `route?`, `http_method?`, `language?`, `trace?` | Search endpoints by route, method, or language. Use `trace=True` for full server+client dependency picture |
 
 ### Summaries
 
@@ -399,22 +394,21 @@ Use Synapps MCP tools for code navigation instead of grep or file reads.
 
 ### Tool selection
 - Find symbols: `search_symbols` (with kind/namespace/file_path/language filters)
-- Symbol metadata: `get_symbol` | Source code: `get_symbol_source`
-- Full context: `get_context_for` (scopes: `structure`, `method`, `edit`)
-- Callers: `find_callers` (includes interface dispatch)
+- Symbol metadata and source code: `get_context_for` (scopes: `structure`, `method`, `edit`, `impact`)
+- Callers / all usages: `find_usages` (auto-selects by kind; `include_test_breakdown` for prod/test split)
 - Callees: `find_callees` (use `depth` for call tree)
-- All usages: `find_usages` (auto-selects by kind; `include_test_breakdown` for prod/test split)
-- Call paths: `trace_call_chain` | Entry points: `find_entry_points`
+- Entry points: `find_entry_points`
 - Implementations: `find_implementations` | Inheritance: `get_hierarchy`
 - Dependencies: `find_dependencies` (use `depth` for transitive)
-- Impact: `analyze_change_impact`
+- Impact analysis: `get_context_for` with `scope="impact"`
+- HTTP endpoints: `find_http_endpoints` (use `trace=True` for full dependency picture)
 - Annotations: `summary` (set/get/list) for non-derivable context
 - Raw Cypher: `get_schema` then `execute_query` (last resort)
 
 ### Anti-patterns
 - Don't guess symbol names — use `search_symbols`
 - Don't use `execute_query` when a dedicated tool exists
-- Don't read files with grep when `get_symbol_source` or `get_context_for` works
+- Don't read files with grep when `get_context_for` works
 - Don't skip `get_context_for` with `scope="edit"` before modifying a method
 ```
 

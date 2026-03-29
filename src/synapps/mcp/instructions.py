@@ -11,15 +11,14 @@ index_project to index a new project, sync_project to refresh a stale index.
 
 TOOL SELECTION (by task):
 - Understand a symbol before editing: get_context_for with scope="edit" (not manual file reads)
-- Find who calls a method: find_callers (not execute_query with CALLS pattern)
-- Find what a method calls: find_callees (not execute_query). Use depth param for reachable call tree
-- Read source code of a symbol: get_symbol_source (not reading files by line range)
-- Full context (source + relationships): get_context_for (not get_symbol + get_symbol_source + find_callers separately)
+- Read source code of a symbol: get_context_for (not reading files by line range)
+- Symbol metadata (file, line, kind): get_context_for with scope="structure"
 - Find a symbol by name: search_symbols (not guessing full_name strings)
-- All usages of any symbol: find_usages (auto-selects strategy by symbol kind). Use kind param to filter \
+- Find who calls a method: find_usages (auto-selects strategy by symbol kind)
+- Find what a method calls: find_callees (not execute_query). Use depth param for reachable call tree
+- All usages of any symbol: find_usages. Use kind param to filter \
 type references, include_test_breakdown=True for prod/test split
-- Impact analysis before changes: analyze_change_impact (not manual caller tracing)
-- Trace call paths between two methods: trace_call_chain (not recursive find_callees)
+- Impact analysis before changes: get_context_for with scope="impact" (not manual caller tracing)
 - Find API/controller entry points: find_entry_points (not recursive find_callers)
 - Find all classes implementing an interface: find_implementations
 - Understand class inheritance: get_hierarchy
@@ -31,14 +30,14 @@ deprecation plans): summary with action='set'/'get'/'list'. Do NOT store structu
 
 AVOID:
 - Do not use execute_query when a dedicated tool exists for the task.
-- Do not read files with grep or cat when get_symbol_source or get_context_for can retrieve the exact code.
+- Do not read files with grep or cat when get_context_for can retrieve the exact code.
 - Do not guess symbol names -- use search_symbols to discover them first.
 - Do not skip get_context_for with scope="edit" before modifying a method -- it shows callers, \
 dependencies, and tests that might break.
 
 EFFICIENCY:
 - Use the scope parameter on get_context_for to control detail level: \
-"structure" for overview, "method" for focused, "edit" for modification prep.
+"structure" for overview, "method" for focused, "edit" for modification prep, "impact" for change analysis.
 - Use search_symbols with kind, namespace, or file_path filters to narrow results.
 
 CLI-ONLY TOOLS (not available via MCP):
@@ -48,6 +47,5 @@ CLI-ONLY TOOLS (not available via MCP):
 
 HTTP ENDPOINTS:
 - Search endpoints by route, HTTP method, or language: find_http_endpoints (substring match on route)
-- Trace server handler + all client call sites for a specific endpoint: trace_http_dependency (exact route match)
-- Use find_http_endpoints first to discover routes, then trace_http_dependency for the full dependency picture.\
+- Trace server handler + all client call sites: find_http_endpoints with trace=True (requires exact route and http_method).\
 """
