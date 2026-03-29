@@ -386,16 +386,6 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         return result or "Symbol not found."
 
     @mcp.tool()
-    def trace_call_chain(start: str, end: str, max_depth: int = 6) -> dict:
-        """Find all call paths between two methods up to max_depth hops.
-
-        Supports short names (e.g. 'CreateMeeting' instead of full namespace).
-        Returns {paths: [[str]], start, end, max_depth}.
-        """
-        _auto_sync_check()
-        return service.trace_call_chain(start, end, max_depth)
-
-    @mcp.tool()
     def find_entry_points(
         method: str,
         max_depth: int = 8,

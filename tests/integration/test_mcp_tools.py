@@ -22,7 +22,7 @@ EXPECTED_TOOLS = {
     "find_implementations",
     "find_callees", "get_hierarchy", "search_symbols", "summary",
     "execute_query", "find_usages", "find_dependencies",
-    "get_context_for", "trace_call_chain", "find_entry_points",
+    "get_context_for", "find_entry_points",
     "analyze_change_impact",
     "get_schema",
     "find_http_endpoints", "trace_http_dependency",
@@ -302,20 +302,6 @@ def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
 # ---------------------------------------------------------------------------
 # Call chain / entry point / impact tools
 # ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_trace_call_chain(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("trace_call_chain", {
-        "start": "SynappsTest.Controllers.TaskController.Create",
-        "end": "SynappsTest.Services.ProjectService.ValidateProjectAsync",
-    }))
-    trace = result_json(result)
-    assert len(trace["paths"]) > 0, (
-        "Expected at least one path from TaskController.Create to "
-        "ProjectService.ValidateProjectAsync"
-    )
-
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)

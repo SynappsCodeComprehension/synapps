@@ -167,19 +167,6 @@ def test_get_call_depth(typescript_mcp: FastMCP) -> None:
     assert "callees" in depth_result
 
 
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_trace_call_chain(typescript_mcp: FastMCP) -> None:
-    """trace_call_chain returns dict with paths key (may be empty) for TypeScript methods."""
-    result = run(typescript_mcp.call_tool("trace_call_chain", {
-        "start": "src/services.Greeter.greet",
-        "end": "src/animals.IAnimal.speak",
-    }))
-    trace = result_json(result)
-    assert isinstance(trace, dict)
-    assert "paths" in trace
-
-
 # ---------------------------------------------------------------------------
 # Dependency tools
 # ---------------------------------------------------------------------------

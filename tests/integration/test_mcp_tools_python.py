@@ -179,19 +179,6 @@ def test_get_context_for(python_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_trace_call_chain(python_mcp: FastMCP) -> None:
-    """trace_call_chain returns dict with paths key without error (may be empty for Python)."""
-    result = run(python_mcp.call_tool("trace_call_chain", {
-        "start": "synappspytest.services.AnimalService.get_greeting",
-        "end": "synappspytest.animals.IAnimal.speak",
-    }))
-    trace = result_json(result)
-    assert isinstance(trace, dict)
-    assert "paths" in trace
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_entry_points(python_mcp: FastMCP) -> None:
     """find_entry_points returns dict without error (may be empty for Python fixture)."""
     result = run(python_mcp.call_tool("find_entry_points", {
