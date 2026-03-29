@@ -6,6 +6,8 @@ from pathlib import Path
 
 import typer
 
+import json
+
 import docker
 import docker.errors
 
@@ -76,6 +78,47 @@ def _show_failures(console, report) -> None:
                 console.print(f"  [dim]Fix:[/dim] {result.fix}")
 
 
+def _has_existing_db_config(project_path: str) -> bool:
+    """Check if the project already has a database configuration."""
+    config_path = Path(project_path) / ".synapps" / "config.json"
+    if not config_path.exists():
+        return False
+    try:
+        config = json.loads(config_path.read_text())
+        return "dedicated_instance" in config
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
+def _write_db_config(project_path: str, dedicated: bool) -> None:
+    """Write the dedicated_instance flag to the project's .synapps/config.json."""
+    config_path = Path(project_path) / ".synapps" / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config: dict = {}
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    config["dedicated_instance"] = dedicated
+    config_path.write_text(json.dumps(config, indent=2))
+
+
+def _prompt_db_mode(console, project_path: str) -> None:
+    """Ask the user whether to use shared or dedicated Memgraph and persist the choice."""
+    console.print("\n[bold]Database mode:[/bold]")
+    console.print("  [bold]Shared[/bold]   — one Memgraph instance for all projects (recommended)")
+    console.print("  [bold]Dedicated[/bold] — separate Memgraph container for this project\n")
+
+    dedicated = not typer.confirm("Use shared database?", default=True)
+    _write_db_config(project_path, dedicated)
+
+    if dedicated:
+        console.print("[dim]This project will use its own Memgraph container.[/dim]")
+    else:
+        console.print("[dim]This project will share the global Memgraph instance.[/dim]")
+
+
 def _offer_mcp_config(console, project_path: str) -> list[str]:
     """Detect MCP clients and offer to write config for each. Returns configured client names."""
     clients = detect_mcp_clients(project_path)
@@ -87,7 +130,7 @@ def _offer_mcp_config(console, project_path: str) -> list[str]:
     return configured
 
 
-def _print_summary(console, languages: list[str], report, mcp_clients: list[str]) -> None:
+def _print_summary(console, languages: list[str], report, mcp_clients: list[str], project_path: str) -> None:
     """Print a Rich table summarizing all wizard actions."""
     from rich.table import Table
 
@@ -101,6 +144,10 @@ def _print_summary(console, languages: list[str], report, mcp_clients: list[str]
         table.add_row("Languages detected", ", ".join(languages))
     else:
         table.add_row("Languages detected", "(none)")
+
+    from synapps.config import is_dedicated_instance
+    db_mode = "dedicated" if is_dedicated_instance(project_path) else "shared"
+    table.add_row("Database mode", db_mode)
 
     passed = sum(1 for r in report.checks if r.status == "pass")
     failed = sum(1 for r in report.checks if r.status == "fail")
@@ -177,6 +224,10 @@ def run_init(project_path: str, verbose: bool = False) -> None:
         if not typer.confirm("\nContinue with missing prerequisites?", default=False):
             raise typer.Exit(1)
 
+    # Step 3.5: Ask shared vs dedicated database (only on first init)
+    if not _has_existing_db_config(project_path):
+        _prompt_db_mode(console, project_path)
+
     # Step 4: Start Memgraph and index the project
     console.print("\n[bold]Starting Memgraph...[/bold]")
     conn = ConnectionManager(project_path).get_connection()
@@ -200,4 +251,4 @@ def run_init(project_path: str, verbose: bool = False) -> None:
     configured_clients = _offer_mcp_config(console, project_path)
 
     # Step 6: Summary
-    _print_summary(console, confirmed_languages, report, configured_clients)
+    _print_summary(console, confirmed_languages, report, configured_clients, project_path)

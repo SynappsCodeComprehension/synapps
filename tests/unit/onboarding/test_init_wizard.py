@@ -118,7 +118,7 @@ def _common_patches(
     }
 
 
-def _run_with_patches(project_path: str, opts: dict):
+def _run_with_patches(project_path: str, opts: dict, *, has_existing_db_config: bool = True):
     mock_doctor_service = MagicMock()
     mock_doctor_service.return_value.run.return_value = opts["doctor_report"]
 
@@ -140,6 +140,8 @@ def _run_with_patches(project_path: str, opts: dict):
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
+        patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=has_existing_db_config),
+        patch("synapps.onboarding.init_wizard._write_db_config"),
         patch("typer.confirm", side_effect=opts["confirm_side_effect"]),
         patch("sys.stdin") as mock_stdin,
     ):
@@ -197,6 +199,7 @@ def test_wizard_shows_fix_on_failure(capsys):
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
+        patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=True),
         patch("typer.confirm", side_effect=[True, True]),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture_print) as mock_console_print,
@@ -258,6 +261,7 @@ def test_summary_printed():
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
+        patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=True),
         patch("typer.confirm", return_value=True),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture),
@@ -317,3 +321,67 @@ def test_memgraph_auto_started_via_connection_manager():
     _, _, mock_cm = _run_with_patches("/tmp/myproject", opts)
     # ConnectionManager.get_connection() is called (which auto-starts Memgraph)
     mock_cm.return_value.get_connection.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Database mode prompt
+# ---------------------------------------------------------------------------
+
+def test_db_mode_prompt_shown_when_no_existing_config():
+    """Init should ask shared vs dedicated when no db config exists."""
+    # confirm_side_effect: [language confirm, db mode (shared=True)]
+    opts = _common_patches(confirm_side_effect=[True, True])
+    _run_with_patches("/tmp/myproject", opts, has_existing_db_config=False)
+
+
+def test_db_mode_prompt_skipped_when_config_exists():
+    """Init should skip db mode prompt when project already has db config."""
+    # confirm_side_effect: [language confirm] — no db mode confirm needed
+    opts = _common_patches(confirm_side_effect=[True])
+    _run_with_patches("/tmp/myproject", opts, has_existing_db_config=True)
+
+
+def test_has_existing_db_config_returns_false_for_missing_file(tmp_path):
+    from synapps.onboarding.init_wizard import _has_existing_db_config
+    assert _has_existing_db_config(str(tmp_path)) is False
+
+
+def test_has_existing_db_config_returns_false_without_key(tmp_path):
+    from synapps.onboarding.init_wizard import _has_existing_db_config
+    config_dir = tmp_path / ".synapps"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text('{"some_key": true}')
+    assert _has_existing_db_config(str(tmp_path)) is False
+
+
+def test_has_existing_db_config_returns_true_with_key(tmp_path):
+    from synapps.onboarding.init_wizard import _has_existing_db_config
+    config_dir = tmp_path / ".synapps"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text('{"dedicated_instance": false}')
+    assert _has_existing_db_config(str(tmp_path)) is True
+
+
+def test_write_db_config_creates_file(tmp_path):
+    from synapps.onboarding.init_wizard import _write_db_config
+    import json
+
+    _write_db_config(str(tmp_path), dedicated=True)
+
+    config = json.loads((tmp_path / ".synapps" / "config.json").read_text())
+    assert config["dedicated_instance"] is True
+
+
+def test_write_db_config_preserves_existing_keys(tmp_path):
+    from synapps.onboarding.init_wizard import _write_db_config
+    import json
+
+    config_dir = tmp_path / ".synapps"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text('{"existing_key": "value"}')
+
+    _write_db_config(str(tmp_path), dedicated=False)
+
+    config = json.loads((config_dir / "config.json").read_text())
+    assert config["dedicated_instance"] is False
+    assert config["existing_key"] == "value"
