@@ -372,6 +372,8 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         - "edit": task-oriented edit context — source, interface contract, direct callers with call-site
           lines, constructor dependencies relevant to the symbol, test coverage, summaries.
           Works for methods (filtered deps) and classes/interfaces (all deps, callers grouped by method).
+        - "impact": change impact analysis — direct callers, transitive callers (2-4 hops),
+          test coverage, and direct callees. Answers: "if I change this, what breaks?"
 
         max_lines: if source exceeds this many lines, show structure overview instead of full source.
         Set to 0 for structure-only. Set to -1 to disable the limit.
@@ -404,15 +406,6 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         """
         _auto_sync_check()
         return service.find_entry_points(method, max_depth, exclude_pattern, exclude_test_callers)
-
-    @mcp.tool()
-    def analyze_change_impact(method: str) -> str:
-        """Analyze the impact of changing a method — returns a compact text summary of direct callers, transitive callers, test coverage, and direct callees.
-
-        When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
-        """
-        _auto_sync_check()
-        return service.analyze_change_impact(method)
 
     @mcp.tool()
     def find_http_endpoints(

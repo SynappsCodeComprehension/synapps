@@ -212,10 +212,11 @@ def test_find_usages(typescript_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_analyze_change_impact(typescript_mcp: FastMCP) -> None:
-    """analyze_change_impact returns compact text summary for a TypeScript method."""
-    result = run(typescript_mcp.call_tool("analyze_change_impact", {
-        "method": "src/services.AnimalService.getGreeting"
+def test_get_context_for_impact(typescript_mcp: FastMCP) -> None:
+    """get_context_for(scope='impact') returns compact text summary for a TypeScript method."""
+    result = run(typescript_mcp.call_tool("get_context_for", {
+        "full_name": "src/services.AnimalService.getGreeting",
+        "scope": "impact",
     }))
     output = text(result)
     assert "Change Impact" in output

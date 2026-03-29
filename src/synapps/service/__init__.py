@@ -33,7 +33,7 @@ class SynappsService:
     ) -> None:
         self._conn = conn
         self._indexing = IndexingService(conn, registry)
-        self._context = ContextBuilder(conn)
+        self._context = ContextBuilder(conn, service=self)
         self._project_roots: list[str] | None = None
 
     # --- Name resolution ---

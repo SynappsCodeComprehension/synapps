@@ -23,7 +23,6 @@ EXPECTED_TOOLS = {
     "find_callees", "get_hierarchy", "search_symbols", "summary",
     "execute_query", "find_usages", "find_dependencies",
     "get_context_for", "find_entry_points",
-    "analyze_change_impact",
     "get_schema",
     "find_http_endpoints",
 }
@@ -319,13 +318,12 @@ def test_find_entry_points(mcp_server: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_analyze_change_impact(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("analyze_change_impact", {
-        "method": "SynappsTest.Services.TaskService.CreateTaskAsync",
+def test_get_context_for_impact(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("get_context_for", {
+        "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
+        "scope": "impact",
     }))
     output = text(result)
-    # analyze_change_impact returns compact markdown. Verify the tool
-    # returns key sections with callees and test coverage.
     assert "Change Impact" in output
     assert "CreateTaskAsync" in output
     assert "Test Coverage" in output or "Callees" in output
