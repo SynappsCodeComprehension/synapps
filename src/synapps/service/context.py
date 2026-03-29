@@ -55,17 +55,18 @@ class ContextBuilder:
     # --- Context entry point ---
 
     def get_context_for(self, full_name: str, scope: str | None = None, max_lines: int = 200) -> str | None:
+        # Impact scope delegates to SynappsService which handles its own resolution
+        if scope == "impact":
+            if self._service is None:
+                return "Impact scope requires service reference"
+            return self._service.analyze_change_impact(full_name)
+
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
             return None
 
         props = _p(symbol)
         labels = set(props.get("_labels", []))
-
-        if scope == "impact":
-            if self._service is None:
-                return "Impact scope requires service reference"
-            return self._service.analyze_change_impact(full_name)
 
         if scope == "structure":
             if not labels & {"Class", "Interface"}:
