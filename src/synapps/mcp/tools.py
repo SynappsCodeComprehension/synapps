@@ -450,4 +450,24 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         _auto_sync_check()
         return service.get_architecture_overview(limit=limit)
 
+    @mcp.tool()
+    def find_dead_code(
+        path: str,
+        exclude_pattern: str = "",
+    ) -> dict:
+        """Find methods with zero inbound callers (dead code candidates) in an indexed project.
+
+        Excludes test methods, HTTP handlers, interface implementations,
+        interface dispatch targets, constructor methods, and overriding methods.
+
+        path: project root path (must be indexed)
+        exclude_pattern: optional regex applied to full_name to filter additional methods
+          (e.g. 'MyApp\\.Generated\\..*' excludes generated code namespaces).
+          Use alternation for multiple patterns: 'pattern1|pattern2'.
+          Empty string means no additional filtering.
+        Returns {methods: [{full_name, file_path, line, inbound_call_count}], stats: {total_methods, dead_count, dead_ratio}}.
+        """
+        _auto_sync_check()
+        return service.find_dead_code(exclude_pattern=exclude_pattern)
+
 
