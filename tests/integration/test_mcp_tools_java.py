@@ -147,17 +147,6 @@ def test_get_hierarchy(java_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_find_callers(java_mcp: FastMCP) -> None:
-    """find_callers returns a list (possibly empty) without error for Java method."""
-    result = run(java_mcp.call_tool("find_callers", {
-        "method_full_name": "com.synappstest.IAnimal.speak"
-    }))
-    callers = result_json(result)
-    assert isinstance(callers, list)
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_callees(java_mcp: FastMCP) -> None:
     """find_callees returns a list (possibly empty) without error for Java method."""
     result = run(java_mcp.call_tool("find_callees", {

@@ -117,17 +117,6 @@ def test_get_hierarchy(python_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_find_callers(python_mcp: FastMCP) -> None:
-    """find_callers returns callers (possibly empty for Python fixture) without error."""
-    result = run(python_mcp.call_tool("find_callers", {
-        "method_full_name": "synappspytest.animals.IAnimal.speak"
-    }))
-    callers = result_json(result)
-    assert isinstance(callers, list)
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_callees(python_mcp: FastMCP) -> None:
     """find_callees returns callees (possibly empty for Python fixture) without error."""
     result = run(python_mcp.call_tool("find_callees", {

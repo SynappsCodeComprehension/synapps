@@ -210,29 +210,6 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         return service.find_implementations(interface_name, limit=limit)
 
     @mcp.tool()
-    def find_callers(
-        method_full_name: str,
-        include_interface_dispatch: bool = True,
-        exclude_test_callers: bool = True,
-        limit: int = 50,
-    ) -> list[dict] | dict:
-        """Find methods that call the given method. Includes interface dispatch by default — no need to manually resolve interface implementations first.
-
-        Callers that invoke this method through an interface are included
-        (common in C# DI codebases). Set include_interface_dispatch=False for
-        direct CALLS edges only.
-
-        Test callers are excluded by default (files whose path contains a
-        directory segment ending in Test, Tests, test, or tests —
-        e.g. MyApp.Tests/, tests/, IntegrationTests/). Set
-        exclude_test_callers=False to include them.
-
-        When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
-        """
-        _auto_sync_check()
-        return service.find_callers(method_full_name, include_interface_dispatch, exclude_test_callers, limit=limit)
-
-    @mcp.tool()
     def find_callees(
         method_full_name: str,
         include_interface_dispatch: bool = True,
@@ -327,7 +304,7 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
 
     @mcp.tool()
     def execute_query(cypher: str) -> list[dict]:
-        """Last resort — use dedicated tools (find_callers, find_callees, search_symbols, etc.) when possible.
+        """Last resort — use dedicated tools (find_usages, find_callees, search_symbols, etc.) when possible.
 
         Execute a read-only Cypher query against the graph.
 

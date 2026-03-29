@@ -145,18 +145,6 @@ def test_find_implementations(typescript_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_find_callers(typescript_mcp: FastMCP) -> None:
-    """find_callers returns a list (possibly empty) without error for TypeScript method."""
-    result = run(typescript_mcp.call_tool("find_callers", {
-        "method_full_name": "src/services.AnimalService.getGreeting"
-    }))
-    callers = result_json(result)
-    # Call edges depend on tsserver availability — assert list type only
-    assert isinstance(callers, list)
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_callees(typescript_mcp: FastMCP) -> None:
     """find_callees returns a list (possibly empty) without error for TypeScript method."""
     result = run(typescript_mcp.call_tool("find_callees", {

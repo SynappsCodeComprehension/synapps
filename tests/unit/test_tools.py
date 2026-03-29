@@ -98,9 +98,6 @@ def test_tool_docstrings_contain_disambiguation_cues():
     # search_symbols should mention discovering names for other tools
     assert "discover" in fns["search_symbols"].__doc__.lower()
 
-    # find_callers should mention interface dispatch is included
-    assert "interface dispatch" in fns["find_callers"].__doc__.lower()
-
 
 def test_graph_schema_notes_include_python_kinds() -> None:
     notes_text = " ".join(_GRAPH_SCHEMA["notes"])

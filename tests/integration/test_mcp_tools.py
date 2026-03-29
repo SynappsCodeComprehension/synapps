@@ -19,7 +19,7 @@ from tests.integration.conftest import run, text, result_json, FIXTURE_PATH
 
 EXPECTED_TOOLS = {
     "index_project", "list_projects", "sync_project",
-    "find_implementations", "find_callers",
+    "find_implementations",
     "find_callees", "get_hierarchy", "search_symbols", "summary",
     "execute_query", "find_usages", "find_dependencies",
     "get_context_for", "trace_call_chain", "find_entry_points",
@@ -159,20 +159,6 @@ def test_find_implementations_project_service(mcp_server: FastMCP) -> None:
     impls = result_json(result)
     names = [i["full_name"] for i in impls]
     assert "SynappsTest.Services.ProjectService" in names
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_find_callers(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("find_callers", {
-        "method_full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
-        "exclude_test_callers": False,
-    }))
-    callers = result_json(result)
-    names = [c.get("full_name", "") for c in callers]
-    assert any("Create" in n for n in names), (
-        f"Expected TaskController.Create in callers, got: {names}"
-    )
 
 
 @pytest.mark.integration
@@ -426,41 +412,3 @@ def test_execute_mutating_query_blocked(mcp_server: FastMCP) -> None:
             "cypher": "CREATE (n:Fake) RETURN n"
         }))
 
-
-# ---------------------------------------------------------------------------
-# Bug 1 regression: find_callers must exclude test-project callers when asked
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_find_callers_excludes_test_callers(service: SynappsService) -> None:
-    """Bug 1 regression: exclude_test_callers=True must filter callers
-    whose file_path lives inside a SynappsTest.Tests directory."""
-    all_callers = service.find_callers("SynappsTest.Services.TaskService.CreateTaskAsync", exclude_test_callers=False)
-    filtered_callers = service.find_callers(
-        "SynappsTest.Services.TaskService.CreateTaskAsync",
-        exclude_test_callers=True,
-    )
-
-    # Core: no test-project callers survive the filter
-    test_callers_in_filtered = [
-        c for c in filtered_callers
-        if "SynappsTest.Tests" in c.get("file_path", "")
-    ]
-    assert test_callers_in_filtered == [], (
-        f"Expected no test-project callers with exclude_test_callers=True, "
-        f"got: {test_callers_in_filtered}"
-    )
-
-    # Filter must not add callers
-    assert len(filtered_callers) <= len(all_callers)
-
-    # Non-vacuous: test caller must appear without the flag
-    test_callers_in_all = [
-        c for c in all_callers
-        if "SynappsTest.Tests" in c.get("file_path", "")
-    ]
-    assert len(test_callers_in_all) > 0, (
-        "Expected at least one caller from SynappsTest.Tests in all_callers. "
-        "The direct call in TaskServiceTests.TestCreateTask may not have been indexed."
-    )
