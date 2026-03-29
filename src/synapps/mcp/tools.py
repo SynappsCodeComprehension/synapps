@@ -89,7 +89,7 @@ _GRAPH_SCHEMA = {
         "Nodes may have an 'attributes' property (JSON list of decorator/attribute names, e.g. '[\"staticmethod\",\"ApiController\"]').",
         "All symbol nodes (Class, Interface, Method, Property, Field) carry a 'language' property ('csharp', 'python', or 'typescript').",
         "Method nodes may carry boolean flags: is_abstract, is_static, is_classmethod, is_async.",
-        "Endpoint nodes and SERVES/HTTP_CALLS edges are populated during indexing when HTTP frameworks are detected. Use find_http_endpoints and trace_http_dependency tools to query them.",
+        "Endpoint nodes and SERVES/HTTP_CALLS edges are populated during indexing when HTTP frameworks are detected. Use find_http_endpoints (and find_http_endpoints with trace=True for full dependency trace) to query them.",
     ],
 }
 
@@ -199,28 +199,6 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         return f"Synced: {result.updated} updated, {result.deleted} deleted, {result.unchanged} unchanged"
 
     @mcp.tool()
-    def get_symbol(full_name: str) -> dict | None:
-        """Get a symbol's metadata (file path, line range, kind, full name) by full name or short name. Does not return source code — use get_symbol_source for that. For source code + relationships in one call, use get_context_for."""
-        _auto_sync_check()
-        result = service.get_symbol(full_name)
-        if result:
-            warning = service._staleness_warning(full_name)
-            if warning:
-                result["_staleness_warning"] = warning
-        return result
-
-    @mcp.tool()
-    def get_symbol_source(full_name: str, include_class_signature: bool = False) -> str:
-        """Fetch the source code of a specific symbol by full name. Reads from the file on disk using the line range recorded at index time. Use include_class_signature=True to include the enclosing class declaration."""
-        _auto_sync_check()
-        result = service.get_symbol_source(full_name, include_class_signature)
-        if result is not None:
-            return result
-        if service.get_symbol(full_name) is not None:
-            return f"Source not available for {full_name} — re-index required"
-        return f"Symbol not found: {full_name}"
-
-    @mcp.tool()
     def find_implementations(interface_name: str, limit: int = 50) -> list[dict] | dict:
         """Find all classes that implement the given interface.
 
@@ -230,29 +208,6 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         """
         _auto_sync_check()
         return service.find_implementations(interface_name, limit=limit)
-
-    @mcp.tool()
-    def find_callers(
-        method_full_name: str,
-        include_interface_dispatch: bool = True,
-        exclude_test_callers: bool = True,
-        limit: int = 50,
-    ) -> list[dict] | dict:
-        """Find methods that call the given method. Includes interface dispatch by default — no need to manually resolve interface implementations first.
-
-        Callers that invoke this method through an interface are included
-        (common in C# DI codebases). Set include_interface_dispatch=False for
-        direct CALLS edges only.
-
-        Test callers are excluded by default (files whose path contains a
-        directory segment ending in Test, Tests, test, or tests —
-        e.g. MyApp.Tests/, tests/, IntegrationTests/). Set
-        exclude_test_callers=False to include them.
-
-        When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
-        """
-        _auto_sync_check()
-        return service.find_callers(method_full_name, include_interface_dispatch, exclude_test_callers, limit=limit)
 
     @mcp.tool()
     def find_callees(
@@ -349,7 +304,7 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
 
     @mcp.tool()
     def execute_query(cypher: str) -> list[dict]:
-        """Last resort — use dedicated tools (find_callers, find_callees, search_symbols, etc.) when possible.
+        """Last resort — use dedicated tools (find_usages, find_callees, search_symbols, etc.) when possible.
 
         Execute a read-only Cypher query against the graph.
 
@@ -417,6 +372,8 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         - "edit": task-oriented edit context — source, interface contract, direct callers with call-site
           lines, constructor dependencies relevant to the symbol, test coverage, summaries.
           Works for methods (filtered deps) and classes/interfaces (all deps, callers grouped by method).
+        - "impact": change impact analysis — direct callers, transitive callers (2-4 hops),
+          test coverage, and direct callees. Answers: "if I change this, what breaks?"
 
         max_lines: if source exceeds this many lines, show structure overview instead of full source.
         Set to 0 for structure-only. Set to -1 to disable the limit.
@@ -429,16 +386,6 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
             if warning:
                 result = f"\u26a0\ufe0f {warning}\n\n---\n\n{result}"
         return result or "Symbol not found."
-
-    @mcp.tool()
-    def trace_call_chain(start: str, end: str, max_depth: int = 6) -> dict:
-        """Find all call paths between two methods up to max_depth hops.
-
-        Supports short names (e.g. 'CreateMeeting' instead of full namespace).
-        Returns {paths: [[str]], start, end, max_depth}.
-        """
-        _auto_sync_check()
-        return service.trace_call_chain(start, end, max_depth)
 
     @mcp.tool()
     def find_entry_points(
@@ -461,20 +408,12 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         return service.find_entry_points(method, max_depth, exclude_pattern, exclude_test_callers)
 
     @mcp.tool()
-    def analyze_change_impact(method: str) -> str:
-        """Analyze the impact of changing a method — returns a compact text summary of direct callers, transitive callers, test coverage, and direct callees.
-
-        When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
-        """
-        _auto_sync_check()
-        return service.analyze_change_impact(method)
-
-    @mcp.tool()
     def find_http_endpoints(
         route: str | None = None,
         http_method: str | None = None,
         language: str | None = None,
         limit: int = 50,
+        trace: bool = False,
     ) -> list[dict] | dict:
         """Search for HTTP endpoints by route pattern, HTTP method, or language.
 
@@ -483,21 +422,16 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         language: filter to endpoints served by handlers in this language (e.g. 'csharp', 'python').
         Endpoints without a server handler are excluded when language is specified.
         Returns list of dicts: route, http_method, handler_full_name, file_path, line, language, has_server_handler.
-        Use find_http_endpoints to discover routes, then trace_http_dependency for full dependency trace.
+
+        trace: if True, requires both route and http_method. Returns the server handler and all
+        client call sites for the exact endpoint instead of a list. Use this after discovering
+        routes to get the full dependency picture.
         """
         _auto_sync_check()
+        if trace:
+            if not route or not http_method:
+                return {"error": "trace=True requires both route and http_method"}
+            return service.trace_http_dependency(route, http_method)
         return service.find_http_endpoints(route, http_method, language, limit=limit)
-
-    @mcp.tool()
-    def trace_http_dependency(route: str, http_method: str) -> dict:
-        """Find the server handler and all client call sites for a specific HTTP endpoint.
-
-        route: exact endpoint route (use find_http_endpoints first to discover routes).
-        http_method: exact HTTP method (GET, POST, PUT, DELETE, etc.).
-        Returns {route, http_method, has_server_handler, server_handler, client_callers}.
-        server_handler is null when no server handler is indexed (e.g. external or unindexed service).
-        """
-        _auto_sync_check()
-        return service.trace_http_dependency(route, http_method)
 
 

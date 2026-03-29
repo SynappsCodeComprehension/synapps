@@ -70,44 +70,6 @@ def test_index_project(java_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_symbol(java_mcp: FastMCP) -> None:
-    """get_symbol returns a node for a known Java interface."""
-    result = run(java_mcp.call_tool("get_symbol", {
-        "full_name": "com.synappstest.IAnimal"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert "IAnimal" in symbol["full_name"]
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_is_abstract(java_mcp: FastMCP) -> None:
-    """get_symbol on an abstract class returns is_abstract=True."""
-    result = run(java_mcp.call_tool("get_symbol", {
-        "full_name": "com.synappstest.Animal"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol.get("is_abstract") is True, (
-        f"Expected is_abstract=True for Animal, got: {symbol.get('is_abstract')}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_source(java_mcp: FastMCP) -> None:
-    """get_symbol_source returns Java source code for a known class."""
-    result = run(java_mcp.call_tool("get_symbol_source", {
-        "full_name": "com.synappstest.Dog"
-    }))
-    source = text(result)
-    assert isinstance(source, str)
-    assert len(source) > 0
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_search_symbols_finds_classes(java_mcp: FastMCP) -> None:
     """search_symbols for 'Animal' returns Animal and IAnimal."""
     result = run(java_mcp.call_tool("search_symbols", {"query": "Animal"}))
@@ -185,17 +147,6 @@ def test_get_hierarchy(java_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_find_callers(java_mcp: FastMCP) -> None:
-    """find_callers returns a list (possibly empty) without error for Java method."""
-    result = run(java_mcp.call_tool("find_callers", {
-        "method_full_name": "com.synappstest.IAnimal.speak"
-    }))
-    callers = result_json(result)
-    assert isinstance(callers, list)
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_callees(java_mcp: FastMCP) -> None:
     """find_callees returns a list (possibly empty) without error for Java method."""
     result = run(java_mcp.call_tool("find_callees", {
@@ -259,19 +210,6 @@ def test_get_context_for(java_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_trace_call_chain(java_mcp: FastMCP) -> None:
-    """trace_call_chain returns dict with paths key (may be empty for Java fixture)."""
-    result = run(java_mcp.call_tool("trace_call_chain", {
-        "start": "com.synappstest.AnimalService.greet",
-        "end": "com.synappstest.IAnimal.speak",
-    }))
-    trace = result_json(result)
-    assert isinstance(trace, dict)
-    assert "paths" in trace
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_entry_points(java_mcp: FastMCP) -> None:
     """find_entry_points returns dict with entry_points key without error."""
     result = run(java_mcp.call_tool("find_entry_points", {
@@ -297,10 +235,11 @@ def test_get_call_depth(java_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_analyze_change_impact(java_mcp: FastMCP) -> None:
-    """analyze_change_impact returns compact text summary for a Java method."""
-    result = run(java_mcp.call_tool("analyze_change_impact", {
-        "method": "com.synappstest.AnimalService.greet"
+def test_get_context_for_impact(java_mcp: FastMCP) -> None:
+    """get_context_for(scope='impact') returns compact text summary for a Java method."""
+    result = run(java_mcp.call_tool("get_context_for", {
+        "full_name": "com.synappstest.AnimalService.greet",
+        "scope": "impact",
     }))
     output = text(result)
     assert "Change Impact" in output

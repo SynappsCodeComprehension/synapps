@@ -11,9 +11,9 @@
 This project is indexed by the Synapps MCP server. Use it instead of grep/read for navigating code relationships:
 
 - Before modifying a method, use `get_context_for` (scope="edit") to understand its callers, callees, dependencies, and test coverage
-- Use `find_callers` / `find_usages` to trace how a symbol is used across the codebase — prefer this over grep
+- Use `find_usages` to trace how a symbol is used across the codebase — prefer this over grep
 - Use `find_callees` (with optional `depth` param for reachable call tree) to understand what a method depends on downstream
-- After making changes, use `analyze_change_impact` to verify no unexpected breakage
+- Before making changes, use `get_context_for` (scope="impact") to verify no unexpected breakage
 - Use `get_hierarchy` to understand inheritance before modifying class structures
 - Use `search_symbols` to find symbols by name, kind, file, or namespace — faster and more precise than file search
 - Use `execute_query` for ad-hoc Cypher queries; call `get_schema` first to see available labels and relationships

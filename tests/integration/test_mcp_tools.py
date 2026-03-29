@@ -19,13 +19,12 @@ from tests.integration.conftest import run, text, result_json, FIXTURE_PATH
 
 EXPECTED_TOOLS = {
     "index_project", "list_projects", "sync_project",
-    "get_symbol", "get_symbol_source", "find_implementations", "find_callers",
+    "find_implementations",
     "find_callees", "get_hierarchy", "search_symbols", "summary",
     "execute_query", "find_usages", "find_dependencies",
-    "get_context_for", "trace_call_chain", "find_entry_points",
-    "analyze_change_impact",
+    "get_context_for", "find_entry_points",
     "get_schema",
-    "find_http_endpoints", "trace_http_dependency",
+    "find_http_endpoints",
 }
 
 
@@ -125,37 +124,6 @@ def test_get_schema(mcp_server: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_symbol(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_symbol", {
-        "full_name": "SynappsTest.Services.TaskService"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol["full_name"] == "SynappsTest.Services.TaskService"
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_not_found(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_symbol", {
-        "full_name": "DoesNotExist.Nope"
-    }))
-    assert result_json(result) is None
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_source(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_symbol_source", {
-        "full_name": "SynappsTest.Controllers.TaskController"
-    }))
-    source = text(result)
-    assert "TaskController" in source
-    assert "_taskService" in source
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_search_symbols(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("search_symbols", {
         "query": "Task", "kind": "Class"
@@ -190,20 +158,6 @@ def test_find_implementations_project_service(mcp_server: FastMCP) -> None:
     impls = result_json(result)
     names = [i["full_name"] for i in impls]
     assert "SynappsTest.Services.ProjectService" in names
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_find_callers(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("find_callers", {
-        "method_full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
-        "exclude_test_callers": False,
-    }))
-    callers = result_json(result)
-    names = [c.get("full_name", "") for c in callers]
-    assert any("Create" in n for n in names), (
-        f"Expected TaskController.Create in callers, got: {names}"
-    )
 
 
 @pytest.mark.integration
@@ -350,20 +304,6 @@ def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_trace_call_chain(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("trace_call_chain", {
-        "start": "SynappsTest.Controllers.TaskController.Create",
-        "end": "SynappsTest.Services.ProjectService.ValidateProjectAsync",
-    }))
-    trace = result_json(result)
-    assert len(trace["paths"]) > 0, (
-        "Expected at least one path from TaskController.Create to "
-        "ProjectService.ValidateProjectAsync"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_entry_points(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_entry_points", {
         "method": "SynappsTest.Services.ProjectService.ValidateProjectAsync",
@@ -378,13 +318,12 @@ def test_find_entry_points(mcp_server: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_analyze_change_impact(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("analyze_change_impact", {
-        "method": "SynappsTest.Services.TaskService.CreateTaskAsync",
+def test_get_context_for_impact(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("get_context_for", {
+        "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
+        "scope": "impact",
     }))
     output = text(result)
-    # analyze_change_impact returns compact markdown. Verify the tool
-    # returns key sections with callees and test coverage.
     assert "Change Impact" in output
     assert "CreateTaskAsync" in output
     assert "Test Coverage" in output or "Callees" in output
@@ -457,41 +396,3 @@ def test_execute_mutating_query_blocked(mcp_server: FastMCP) -> None:
             "cypher": "CREATE (n:Fake) RETURN n"
         }))
 
-
-# ---------------------------------------------------------------------------
-# Bug 1 regression: find_callers must exclude test-project callers when asked
-# ---------------------------------------------------------------------------
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_find_callers_excludes_test_callers(service: SynappsService) -> None:
-    """Bug 1 regression: exclude_test_callers=True must filter callers
-    whose file_path lives inside a SynappsTest.Tests directory."""
-    all_callers = service.find_callers("SynappsTest.Services.TaskService.CreateTaskAsync", exclude_test_callers=False)
-    filtered_callers = service.find_callers(
-        "SynappsTest.Services.TaskService.CreateTaskAsync",
-        exclude_test_callers=True,
-    )
-
-    # Core: no test-project callers survive the filter
-    test_callers_in_filtered = [
-        c for c in filtered_callers
-        if "SynappsTest.Tests" in c.get("file_path", "")
-    ]
-    assert test_callers_in_filtered == [], (
-        f"Expected no test-project callers with exclude_test_callers=True, "
-        f"got: {test_callers_in_filtered}"
-    )
-
-    # Filter must not add callers
-    assert len(filtered_callers) <= len(all_callers)
-
-    # Non-vacuous: test caller must appear without the flag
-    test_callers_in_all = [
-        c for c in all_callers
-        if "SynappsTest.Tests" in c.get("file_path", "")
-    ]
-    assert len(test_callers_in_all) > 0, (
-        "Expected at least one caller from SynappsTest.Tests in all_callers. "
-        "The direct call in TaskServiceTests.TestCreateTask may not have been indexed."
-    )

@@ -31,38 +31,6 @@ def _register(service):
     return registered
 
 
-def test_get_symbol_source_node_missing():
-    service = MagicMock()
-    service.get_symbol_source.return_value = None
-    service.get_symbol.return_value = None  # node does not exist
-    fns = _register(service)
-
-    result = fns["get_symbol_source"]("Ns.Missing")
-    assert result == "Symbol not found: Ns.Missing"
-
-
-def test_get_symbol_source_stale_index():
-    service = MagicMock()
-    service.get_symbol_source.return_value = None
-    service.get_symbol.return_value = {"full_name": "Ns.Cls"}  # node exists, source missing
-
-    fns = _register(service)
-
-    result = fns["get_symbol_source"]("Ns.Cls")
-    assert "re-index" in result.lower()
-    assert "Symbol not found" not in result
-
-
-def test_get_symbol_source_returns_source_when_available():
-    service = MagicMock()
-    service.get_symbol_source.return_value = "// src/Ns/Cls.cs:5\npublic class Cls {}"
-    fns = _register(service)
-
-    result = fns["get_symbol_source"]("Ns.Cls")
-    assert result == "// src/Ns/Cls.cs:5\npublic class Cls {}"
-    service.get_symbol.assert_not_called()
-
-
 def test_list_projects_has_description():
     """list_projects must have a docstring so FastMCP generates a tool description."""
     fns = _register(MagicMock())
@@ -124,17 +92,11 @@ def test_tool_docstrings_contain_disambiguation_cues():
     # execute_query should indicate it's a last resort
     assert "last resort" in fns["execute_query"].__doc__.lower()
 
-    # get_symbol should point to get_context_for
-    assert "get_context_for" in fns["get_symbol"].__doc__
-
     # find_usages should describe what it does
     assert "find all code that uses a symbol" in fns["find_usages"].__doc__.lower()
 
     # search_symbols should mention discovering names for other tools
     assert "discover" in fns["search_symbols"].__doc__.lower()
-
-    # find_callers should mention interface dispatch is included
-    assert "interface dispatch" in fns["find_callers"].__doc__.lower()
 
 
 def test_graph_schema_notes_include_python_kinds() -> None:
@@ -295,7 +257,7 @@ def test_find_http_endpoints_passes_all_params() -> None:
     service.find_http_endpoints.assert_called_once_with("/api", "POST", "python", limit=10)
 
 
-def test_trace_http_dependency_delegates_to_service() -> None:
+def test_find_http_endpoints_trace_delegates_to_service() -> None:
     service = MagicMock()
     service.trace_http_dependency.return_value = {
         "route": "/api/items", "http_method": "GET", "has_server_handler": True,
@@ -303,23 +265,38 @@ def test_trace_http_dependency_delegates_to_service() -> None:
         "client_callers": [],
     }
     fns = _register(service)
-    result = fns["trace_http_dependency"](route="/api/items", http_method="GET")
+    result = fns["find_http_endpoints"](route="/api/items", http_method="GET", trace=True)
     service.trace_http_dependency.assert_called_once_with("/api/items", "GET")
+    service.find_http_endpoints.assert_not_called()
     assert result["has_server_handler"] is True
     assert result["server_handler"]["full_name"] == "ItemsController.GetAll"
 
 
-def test_trace_http_dependency_no_server_handler() -> None:
+def test_find_http_endpoints_trace_no_server_handler() -> None:
     service = MagicMock()
     service.trace_http_dependency.return_value = {
         "route": "/api/external", "http_method": "GET", "has_server_handler": False,
         "server_handler": None, "client_callers": [{"full_name": "MyService.fetchData", "file_path": "src/service.ts", "line": 42, "language": "typescript"}],
     }
     fns = _register(service)
-    result = fns["trace_http_dependency"](route="/api/external", http_method="GET")
+    result = fns["find_http_endpoints"](route="/api/external", http_method="GET", trace=True)
     assert result["has_server_handler"] is False
     assert result["server_handler"] is None
     assert len(result["client_callers"]) == 1
+
+
+def test_find_http_endpoints_trace_requires_route_and_method() -> None:
+    service = MagicMock()
+    fns = _register(service)
+    result = fns["find_http_endpoints"](route="/api/items", trace=True)
+    assert "error" in result
+    service.trace_http_dependency.assert_not_called()
+
+
+def test_trace_http_dependency_not_registered() -> None:
+    """trace_http_dependency was merged into find_http_endpoints(trace=True) and must not exist as a separate tool."""
+    fns = _register(MagicMock())
+    assert "trace_http_dependency" not in fns
 
 
 def test_graph_schema_no_experimental_note() -> None:
@@ -334,6 +311,6 @@ def test_removed_tools_not_registered() -> None:
     removed = {"set_summary", "get_summary", "list_summarized", "get_call_depth",
                 "find_type_references", "find_type_impact", "get_index_status",
                 "find_interface_contract", "audit_architecture", "check_environment",
-                "delete_project", "summarize_from_graph"}
+                "delete_project", "summarize_from_graph", "trace_http_dependency"}
     present = removed & set(fns.keys())
     assert not present, f"Removed tools still registered: {present}"

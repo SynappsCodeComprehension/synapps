@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from synapps.graph.connection import GraphConnection
+
+if TYPE_CHECKING:
+    from synapps.service import SynappsService
 from synapps.graph.lookups import (
     get_symbol, get_symbol_source_info,
     get_containing_type, get_members_overview, get_implemented_interfaces,
@@ -19,8 +24,9 @@ class ContextBuilder:
     _TYPE_CALLER_LIMIT = 10
     _TYPE_METHOD_LIMIT = 10
 
-    def __init__(self, conn: GraphConnection) -> None:
+    def __init__(self, conn: GraphConnection, service: SynappsService | None = None) -> None:
         self._conn = conn
+        self._service = service
 
     # --- Source retrieval ---
 
@@ -49,6 +55,12 @@ class ContextBuilder:
     # --- Context entry point ---
 
     def get_context_for(self, full_name: str, scope: str | None = None, max_lines: int = 200) -> str | None:
+        # Impact scope delegates to SynappsService which handles its own resolution
+        if scope == "impact":
+            if self._service is None:
+                return "Impact scope requires service reference"
+            return self._service.analyze_change_impact(full_name)
+
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
             return None
@@ -73,7 +85,7 @@ class ContextBuilder:
                 kind = props.get("kind", "unknown")
                 return f"scope='edit' requires a method, class, or interface, but '{full_name}' is a {kind}."
         elif scope is not None:
-            return f"Unknown scope '{scope}'. Valid values: 'structure', 'method', 'edit'."
+            return f"Unknown scope '{scope}'. Valid values: 'structure', 'method', 'edit', 'impact'."
 
         return self._context_full(full_name, labels=labels, max_lines=max_lines)
 

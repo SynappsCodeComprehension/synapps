@@ -55,86 +55,6 @@ def test_get_schema(python_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_symbol(python_mcp: FastMCP) -> None:
-    """get_symbol returns a node for a known Python class."""
-    result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synappspytest.animals.IAnimal"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert "IAnimal" in symbol["full_name"]
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_is_abstract(python_mcp: FastMCP) -> None:
-    """get_symbol on an ABC class returns is_abstract=True."""
-    result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synappspytest.animals.IAnimal"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol.get("is_abstract") is True, (
-        f"Expected is_abstract=True for IAnimal, got: {symbol.get('is_abstract')}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_metadata_static(python_mcp: FastMCP) -> None:
-    """get_symbol on a @staticmethod returns is_static=True."""
-    result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synappspytest.services.AnimalService.version"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol.get("is_static") is True, (
-        f"Expected is_static=True for AnimalService.version, got: {symbol.get('is_static')}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_metadata_classmethod(python_mcp: FastMCP) -> None:
-    """get_symbol on a @classmethod returns is_classmethod=True."""
-    result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synappspytest.services.AnimalService.from_name"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol.get("is_classmethod") is True, (
-        f"Expected is_classmethod=True for AnimalService.from_name, got: {symbol.get('is_classmethod')}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_metadata_async(python_mcp: FastMCP) -> None:
-    """get_symbol on an async def returns is_async=True."""
-    result = run(python_mcp.call_tool("get_symbol", {
-        "full_name": "synappspytest.services.AnimalService.get_greeting_async"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol.get("is_async") is True, (
-        f"Expected is_async=True for AnimalService.get_greeting_async, got: {symbol.get('is_async')}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_source(python_mcp: FastMCP) -> None:
-    """get_symbol_source returns Python source code for a known method."""
-    result = run(python_mcp.call_tool("get_symbol_source", {
-        "full_name": "synappspytest.animals.Dog.speak"
-    }))
-    source = text(result)
-    assert source is not None
-    assert len(source) > 0
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_search_symbols(python_mcp: FastMCP) -> None:
     """search_symbols returns matching Python symbols."""
     result = run(python_mcp.call_tool("search_symbols", {"query": "Animal"}))
@@ -193,17 +113,6 @@ def test_get_hierarchy(python_mcp: FastMCP) -> None:
     assert any("Animal" in n for n in parent_names), (
         f"Expected Animal in Dog's parents, got: {parent_names}"
     )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_find_callers(python_mcp: FastMCP) -> None:
-    """find_callers returns callers (possibly empty for Python fixture) without error."""
-    result = run(python_mcp.call_tool("find_callers", {
-        "method_full_name": "synappspytest.animals.IAnimal.speak"
-    }))
-    callers = result_json(result)
-    assert isinstance(callers, list)
 
 
 @pytest.mark.integration
@@ -270,19 +179,6 @@ def test_get_context_for(python_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_trace_call_chain(python_mcp: FastMCP) -> None:
-    """trace_call_chain returns dict with paths key without error (may be empty for Python)."""
-    result = run(python_mcp.call_tool("trace_call_chain", {
-        "start": "synappspytest.services.AnimalService.get_greeting",
-        "end": "synappspytest.animals.IAnimal.speak",
-    }))
-    trace = result_json(result)
-    assert isinstance(trace, dict)
-    assert "paths" in trace
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_entry_points(python_mcp: FastMCP) -> None:
     """find_entry_points returns dict without error (may be empty for Python fixture)."""
     result = run(python_mcp.call_tool("find_entry_points", {
@@ -308,10 +204,11 @@ def test_get_call_depth(python_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_analyze_change_impact(python_mcp: FastMCP) -> None:
-    """analyze_change_impact returns compact text summary for a Python method."""
-    result = run(python_mcp.call_tool("analyze_change_impact", {
-        "method": "synappspytest.services.AnimalService.get_greeting",
+def test_get_context_for_impact(python_mcp: FastMCP) -> None:
+    """get_context_for(scope='impact') returns compact text summary for a Python method."""
+    result = run(python_mcp.call_tool("get_context_for", {
+        "full_name": "synappspytest.services.AnimalService.get_greeting",
+        "scope": "impact",
     }))
     output = text(result)
     assert "Change Impact" in output

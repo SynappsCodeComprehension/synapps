@@ -67,45 +67,6 @@ def test_index_project(typescript_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_symbol(typescript_mcp: FastMCP) -> None:
-    """get_symbol returns a node for a known TypeScript interface."""
-    result = run(typescript_mcp.call_tool("get_symbol", {
-        "full_name": "src/animals.IAnimal"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert "IAnimal" in symbol["full_name"]
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_is_abstract(typescript_mcp: FastMCP) -> None:
-    """get_symbol on an abstract class returns is_abstract=True."""
-    result = run(typescript_mcp.call_tool("get_symbol", {
-        "full_name": "src/animals.Animal"
-    }))
-    symbol = result_json(result)
-    assert symbol is not None
-    assert symbol.get("is_abstract") is True, (
-        f"Expected is_abstract=True for Animal, got: {symbol.get('is_abstract')}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_symbol_source(typescript_mcp: FastMCP) -> None:
-    """get_symbol_source returns source or not-found message for a TypeScript class."""
-    result = run(typescript_mcp.call_tool("get_symbol_source", {
-        "full_name": "src/animals.Dog"
-    }))
-    source = text(result)
-    # Source retrieval depends on LSP; assert it's a non-empty string (source or message)
-    assert isinstance(source, str)
-    assert len(source) > 0
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_search_symbols(typescript_mcp: FastMCP) -> None:
     """search_symbols returns matching TypeScript symbols."""
     result = run(typescript_mcp.call_tool("search_symbols", {"query": "Dog"}))
@@ -184,18 +145,6 @@ def test_find_implementations(typescript_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_find_callers(typescript_mcp: FastMCP) -> None:
-    """find_callers returns a list (possibly empty) without error for TypeScript method."""
-    result = run(typescript_mcp.call_tool("find_callers", {
-        "method_full_name": "src/services.AnimalService.getGreeting"
-    }))
-    callers = result_json(result)
-    # Call edges depend on tsserver availability — assert list type only
-    assert isinstance(callers, list)
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
 def test_find_callees(typescript_mcp: FastMCP) -> None:
     """find_callees returns a list (possibly empty) without error for TypeScript method."""
     result = run(typescript_mcp.call_tool("find_callees", {
@@ -216,19 +165,6 @@ def test_get_call_depth(typescript_mcp: FastMCP) -> None:
     depth_result = result_json(result)
     assert isinstance(depth_result, dict)
     assert "callees" in depth_result
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_trace_call_chain(typescript_mcp: FastMCP) -> None:
-    """trace_call_chain returns dict with paths key (may be empty) for TypeScript methods."""
-    result = run(typescript_mcp.call_tool("trace_call_chain", {
-        "start": "src/services.Greeter.greet",
-        "end": "src/animals.IAnimal.speak",
-    }))
-    trace = result_json(result)
-    assert isinstance(trace, dict)
-    assert "paths" in trace
 
 
 # ---------------------------------------------------------------------------
@@ -276,10 +212,11 @@ def test_find_usages(typescript_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_analyze_change_impact(typescript_mcp: FastMCP) -> None:
-    """analyze_change_impact returns compact text summary for a TypeScript method."""
-    result = run(typescript_mcp.call_tool("analyze_change_impact", {
-        "method": "src/services.AnimalService.getGreeting"
+def test_get_context_for_impact(typescript_mcp: FastMCP) -> None:
+    """get_context_for(scope='impact') returns compact text summary for a TypeScript method."""
+    result = run(typescript_mcp.call_tool("get_context_for", {
+        "full_name": "src/services.AnimalService.getGreeting",
+        "scope": "impact",
     }))
     output = text(result)
     assert "Change Impact" in output
