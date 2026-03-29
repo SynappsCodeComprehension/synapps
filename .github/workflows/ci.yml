@@ -31,6 +31,7 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       memgraph:
         image: memgraph/memgraph
@@ -73,20 +74,20 @@ jobs:
 
       - name: Run C# integration tests
         run: |
-          pytest tests/integration/test_mcp_tools.py -v -m integration
-          pytest tests/integration/test_cli_commands.py -v -m integration
+          pytest tests/integration/test_mcp_tools.py -v -m integration -o timeout_func_only=true
+          pytest tests/integration/test_cli_commands.py -v -m integration -o timeout_func_only=true
 
       - name: Run Python integration tests
         run: |
-          pytest tests/integration/test_mcp_tools_python.py -v -m integration
-          pytest tests/integration/test_cli_commands_python.py -v -m integration
+          pytest tests/integration/test_mcp_tools_python.py -v -m integration -o timeout_func_only=true
+          pytest tests/integration/test_cli_commands_python.py -v -m integration -o timeout_func_only=true
 
       - name: Run TypeScript integration tests
         run: |
-          pytest tests/integration/test_mcp_tools_typescript.py -v -m integration
-          pytest tests/integration/test_cli_commands_typescript.py -v -m integration
+          pytest tests/integration/test_mcp_tools_typescript.py -v -m integration -o timeout_func_only=true
+          pytest tests/integration/test_cli_commands_typescript.py -v -m integration -o timeout_func_only=true
 
       - name: Run Java integration tests
         run: |
-          pytest tests/integration/test_mcp_tools_java.py -v -m integration
-          pytest tests/integration/test_cli_commands_java.py -v -m integration
+          pytest tests/integration/test_mcp_tools_java.py -v -m integration -o timeout_func_only=true
+          pytest tests/integration/test_cli_commands_java.py -v -m integration -o timeout_func_only=true
