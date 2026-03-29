@@ -434,4 +434,20 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
             return service.trace_http_dependency(route, http_method)
         return service.find_http_endpoints(route, http_method, language, limit=limit)
 
+    @mcp.tool()
+    def get_architecture(path: str, limit: int = 10) -> dict:
+        """Get a single-call architecture overview of an indexed project.
+
+        Returns a structured overview with four sections:
+        - packages: package/namespace breakdown with file and symbol counts (most meaningful for C# projects)
+        - hotspots: top N methods by inbound caller count (test methods excluded)
+        - http_service_map: HTTP endpoints served by and called from this codebase
+        - stats: total files, symbols, packages, endpoints, and per-language file counts
+
+        path: project root path (must be indexed)
+        limit: max number of hotspot methods to return (default 10)
+        """
+        _auto_sync_check()
+        return service.get_architecture_overview(limit=limit)
+
 
