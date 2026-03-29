@@ -187,6 +187,54 @@ def audit_architecture(conn: GraphConnection, rule: str) -> dict:
     }
 
 
+def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
+    """Query for methods with zero inbound CALLS, excluding test/framework/infra methods."""
+    dead_rows = conn.query(
+        "MATCH (m:Method) "
+        "WHERE NOT m.file_path =~ $test_pattern "
+        "AND NOT (m)-[:SERVES]->() "
+        "AND NOT ()-[:IMPLEMENTS]->(m) "
+        "AND NOT ()-[:DISPATCHES_TO]->(m) "
+        "AND NOT (m)-[:OVERRIDES]->() "
+        "AND NOT m.name IN ['__init__', 'constructor'] "
+        "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
+        "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
+        "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
+        "AND NOT EXISTS { MATCH ()-[:CALLS]->(m) } "
+        "RETURN m.full_name, m.file_path, m.line "
+        "ORDER BY m.file_path, m.full_name",
+        {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern},
+    )
+    total_rows = conn.query(
+        "MATCH (m:Method) "
+        "WHERE NOT m.file_path =~ $test_pattern "
+        "AND NOT (m)-[:SERVES]->() "
+        "AND NOT ()-[:IMPLEMENTS]->(m) "
+        "AND NOT ()-[:DISPATCHES_TO]->(m) "
+        "AND NOT (m)-[:OVERRIDES]->() "
+        "AND NOT m.name IN ['__init__', 'constructor'] "
+        "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
+        "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
+        "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
+        "RETURN count(m)",
+        {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern},
+    )
+    methods = [
+        {"full_name": r[0], "file_path": r[1], "line": r[2], "inbound_call_count": 0}
+        for r in dead_rows
+    ]
+    total_methods = total_rows[0][0] if total_rows else 0
+    dead_count = len(methods)
+    return {
+        "methods": methods,
+        "stats": {
+            "total_methods": total_methods,
+            "dead_count": dead_count,
+            "dead_ratio": round(dead_count / total_methods, 4) if total_methods else 0.0,
+        },
+    }
+
+
 def get_architecture_overview(conn: GraphConnection, limit: int = 10) -> dict:
     """Single-call project architecture overview for agent orientation.
 
