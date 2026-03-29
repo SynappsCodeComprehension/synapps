@@ -6,10 +6,13 @@ from pathlib import Path
 
 import typer
 
+import docker
+import docker.errors
+
 from synapps.onboarding.language_detector import detect_languages
 from synapps.onboarding.mcp_configurator import detect_mcp_clients, write_mcp_config
 from synapps.doctor.service import DoctorService
-from synapps.container.manager import ConnectionManager
+from synapps.container.manager import ConnectionManager, _docker_start_command
 from synapps.graph.schema import ensure_schema
 from synapps.service import SynappsService
 
@@ -25,9 +28,12 @@ _LANGUAGE_TO_GROUP: dict[str, str] = {
 
 
 def _checks_for_languages(languages: list[str]) -> list:
-    """Return doctor check instances for core + the given languages only."""
-    from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
-    from synapps.doctor.checks.memgraph_bolt import MemgraphBoltCheck
+    """Return doctor check instances for the given languages only.
+
+    Docker and Memgraph are handled separately by run_init (Docker is
+    verified early, Memgraph is auto-started via ConnectionManager), so
+    they are not included here.
+    """
     from synapps.doctor.checks.dotnet import DotNetCheck
     from synapps.doctor.checks.csharp_ls import CSharpLSCheck
     from synapps.doctor.checks.node import NodeCheck
@@ -44,7 +50,7 @@ def _checks_for_languages(languages: list[str]) -> list:
         "java": [JavaCheck(), JdtlsCheck()],
     }
 
-    checks = [DockerDaemonCheck(), MemgraphBoltCheck()]
+    checks: list = []
     for lang in languages:
         key = lang.lower()
         if key in _LANGUAGE_CHECKS:
@@ -126,6 +132,19 @@ def run_init(project_path: str, verbose: bool = False) -> None:
     console.print("[bold]Synapps Init Wizard[/bold]")
     console.print(f"Setting up project: {project_path}\n")
 
+    # Step 0: Verify Docker is running (hard requirement)
+    console.print("[bold]Checking Docker...[/bold]")
+    try:
+        docker.from_env().ping()
+        console.print("[green]Docker is running[/green]\n")
+    except docker.errors.DockerException:
+        console.print(
+            f"[red]Docker is not running.[/red]\n"
+            f"  Start it: {_docker_start_command()}\n"
+            f"  Then re-run: synapps init {project_path}",
+        )
+        raise typer.Exit(1)
+
     # Step 1: Detect languages
     detected = detect_languages(project_path)
     if not detected:
@@ -158,9 +177,11 @@ def run_init(project_path: str, verbose: bool = False) -> None:
         if not typer.confirm("\nContinue with missing prerequisites?", default=False):
             raise typer.Exit(1)
 
-    # Step 4: Index the project
-    console.print("\n[bold]Indexing project...[/bold]")
+    # Step 4: Start Memgraph and index the project
+    console.print("\n[bold]Starting Memgraph...[/bold]")
     conn = ConnectionManager(project_path).get_connection()
+    console.print("[green]Memgraph is ready[/green]")
+    console.print("\n[bold]Indexing project...[/bold]")
     ensure_schema(conn)
     svc = SynappsService(conn)
 

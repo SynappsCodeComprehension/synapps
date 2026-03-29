@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
+import docker
+import docker.errors
 import pytest
 import typer
 
@@ -41,8 +43,9 @@ def test_checks_for_languages_python_only():
     checks = _checks_for_languages(["python"])
 
     check_types = [type(c) for c in checks]
-    assert DockerDaemonCheck in check_types
-    assert MemgraphBoltCheck in check_types
+    # Docker and Memgraph are handled by run_init, not in language checks
+    assert DockerDaemonCheck not in check_types
+    assert MemgraphBoltCheck not in check_types
     assert PythonCheck in check_types
     assert PylspCheck in check_types
     assert DotNetCheck not in check_types
@@ -50,16 +53,11 @@ def test_checks_for_languages_python_only():
     assert JavaCheck not in check_types
 
 
-def test_checks_for_languages_includes_core():
+def test_checks_for_languages_empty_returns_nothing():
     from synapps.onboarding.init_wizard import _checks_for_languages
-    from synapps.doctor.checks.docker_daemon import DockerDaemonCheck
-    from synapps.doctor.checks.memgraph_bolt import MemgraphBoltCheck
 
     checks = _checks_for_languages([])
-
-    check_types = [type(c) for c in checks]
-    assert DockerDaemonCheck in check_types
-    assert MemgraphBoltCheck in check_types
+    assert checks == []
 
 
 def test_checks_for_languages_multi():
@@ -76,8 +74,8 @@ def test_checks_for_languages_multi():
     checks = _checks_for_languages(["python", "typescript"])
 
     check_types = [type(c) for c in checks]
-    assert DockerDaemonCheck in check_types
-    assert MemgraphBoltCheck in check_types
+    assert DockerDaemonCheck not in check_types
+    assert MemgraphBoltCheck not in check_types
     assert PythonCheck in check_types
     assert PylspCheck in check_types
     assert NodeCheck in check_types
@@ -131,6 +129,8 @@ def _run_with_patches(project_path: str, opts: dict):
     mock_svc = MagicMock()
     mock_svc.return_value.smart_index.return_value = opts["smart_index_result"]
 
+    mock_docker_client = MagicMock()
+
     with (
         patch("synapps.onboarding.init_wizard.detect_languages", return_value=opts["detect_languages"]),
         patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=opts["detect_mcp_clients"]),
@@ -139,9 +139,12 @@ def _run_with_patches(project_path: str, opts: dict):
         patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
+        patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("typer.confirm", side_effect=opts["confirm_side_effect"]),
         patch("sys.stdin") as mock_stdin,
     ):
+        mock_docker_mod.from_env.return_value = mock_docker_client
+        mock_docker_mod.errors = docker.errors
         mock_stdin.isatty.return_value = opts["isatty"]
 
         from synapps.onboarding.init_wizard import run_init
@@ -193,10 +196,13 @@ def test_wizard_shows_fix_on_failure(capsys):
         patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
+        patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("typer.confirm", side_effect=[True, True]),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture_print) as mock_console_print,
     ):
+        mock_docker_mod.from_env.return_value = MagicMock()
+        mock_docker_mod.errors = docker.errors
         mock_stdin.isatty.return_value = True
         from synapps.onboarding.init_wizard import run_init
         run_init("/tmp/myproject")
@@ -251,10 +257,13 @@ def test_summary_printed():
         patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
+        patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("typer.confirm", return_value=True),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture),
     ):
+        mock_docker_mod.from_env.return_value = MagicMock()
+        mock_docker_mod.errors = docker.errors
         mock_stdin.isatty.return_value = True
         from synapps.onboarding.init_wizard import run_init
         run_init("/tmp/myproject")
@@ -278,3 +287,33 @@ def test_non_interactive_stdin():
             assert exc.exit_code == 1
         else:
             assert exc.code == 1
+
+
+def test_docker_not_running_exits_with_error():
+    """Init should fail early with a clear message when Docker is not running."""
+    with (
+        patch("sys.stdin") as mock_stdin,
+        patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
+        patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
+    ):
+        mock_stdin.isatty.return_value = True
+        mock_docker_mod.from_env.return_value.ping.side_effect = docker.errors.DockerException("not running")
+        mock_docker_mod.errors = docker.errors
+
+        from synapps.onboarding.init_wizard import run_init
+        with pytest.raises((typer.Exit, SystemExit)) as exc_info:
+            run_init("/tmp/myproject")
+
+        exc = exc_info.value
+        if isinstance(exc, typer.Exit):
+            assert exc.exit_code == 1
+        else:
+            assert exc.code == 1
+
+
+def test_memgraph_auto_started_via_connection_manager():
+    """Init should start Memgraph automatically instead of failing on a bolt check."""
+    opts = _common_patches(confirm_side_effect=[True, True, True, True])
+    _, _, mock_cm = _run_with_patches("/tmp/myproject", opts)
+    # ConnectionManager.get_connection() is called (which auto-starts Memgraph)
+    mock_cm.return_value.get_connection.assert_called_once()
