@@ -36,7 +36,7 @@ def detect_agents(
         agents.append(DetectedAgent(
             name="cursor",
             display_name="Cursor",
-            config_path=home / ".cursor" / "hooks.json",
+            config_path=project / ".cursor" / "hooks.json",
         ))
 
     if (project / ".github").is_dir():

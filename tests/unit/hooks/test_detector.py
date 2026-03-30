@@ -60,3 +60,14 @@ class TestDetectAgents:
         agents = detect_agents(home_dir=tmp_path, project_path=project)
         copilot = next(a for a in agents if a.name == "copilot")
         assert copilot.config_path == project / ".github" / "hooks" / "hooks.json"
+
+    def test_cursor_config_path_is_project_relative(self, tmp_path: Path) -> None:
+        """Cursor hooks must be installed at <project>/.cursor/hooks.json, not ~/.cursor/."""
+        from synapps.hooks.detector import detect_agents
+
+        project = tmp_path / "my-repo"
+        project.mkdir()
+        (tmp_path / ".cursor").mkdir()  # home-level marker (Cursor installed)
+        agents = detect_agents(home_dir=tmp_path, project_path=project)
+        cursor = next(a for a in agents if a.name == "cursor")
+        assert cursor.config_path == project / ".cursor" / "hooks.json"

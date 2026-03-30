@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Fixed
 - **C# generic HTTP method extraction** — `GetFromJsonAsync<T>`, `PostAsJsonAsync<T>`, and other generic `System.Net.Http.Json` methods now correctly produce HTTP_CALLS edges; previously the `generic_name` AST node caused the method name to be missed
 - **False-positive IMPLEMENTS edges across projects** — structural protocol dispatch (matching classes to interfaces by method names) is now restricted to Python only; C#, Java, and TypeScript use nominal typing where IMPLEMENTS edges come from LSP declarations
+- **Cursor hooks installed at user-level instead of project-level** — `synapps init` now writes Cursor hooks to `<project>/.cursor/hooks.json` instead of `~/.cursor/hooks.json`
 
 ## [1.4.0] - 2026-03-30
 
