@@ -780,60 +780,6 @@ class Indexer:
             log.warning("LSP open_file failed for %s, skipping base type resolution", rel_path)
 
 
-def _namespace_of(full_name: str) -> str:
-    """Return the namespace prefix of a fully-qualified name.
-
-    For 'Foo.Services.Cache' returns 'Foo.Services'.
-    For a top-level name like 'Cache' returns ''.
-    """
-    dot = full_name.rfind(".")
-    return full_name[:dot] if dot != -1 else ""
-
-
-def _common_prefix_length(a: str, b: str) -> int:
-    """Count the number of dot-separated namespace segments shared by a and b."""
-    if not a or not b:
-        return 0
-    parts_a = a.split(".")
-    parts_b = b.split(".")
-    count = 0
-    for pa, pb in zip(parts_a, parts_b):
-        if pa == pb:
-            count += 1
-        else:
-            break
-    return count
-
-
-def _disambiguate_by_namespace(type_full: str, base_candidates: list[str]) -> list[str]:
-    """Return the subset of base_candidates that best matches type_full's namespace.
-
-    When multiple candidates share the same simple name (e.g. ICache in Foo.Services
-    and Bar.Services), prefer the ones whose namespace shares the longest common prefix
-    with type_full's namespace. Falls back to all candidates when no candidate shares
-    any namespace prefix, ensuring no regressions when there is only one candidate.
-    """
-    if len(base_candidates) <= 1:
-        return base_candidates
-
-    type_ns = _namespace_of(type_full)
-    best_len = 0
-    for base_full in base_candidates:
-        base_ns = _namespace_of(base_full)
-        length = _common_prefix_length(type_ns, base_ns)
-        if length > best_len:
-            best_len = length
-
-    if best_len == 0:
-        # No namespace overlap found — keep all candidates (original behaviour)
-        return base_candidates
-
-    return [
-        base_full for base_full in base_candidates
-        if _common_prefix_length(type_ns, _namespace_of(base_full)) == best_len
-    ]
-
-
 _INTERFACE_MARKERS: frozenset[str] = frozenset({"ABC", "Protocol"})
 
 _ATTR_TO_FLAG: dict[str, str] = {
