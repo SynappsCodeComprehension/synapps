@@ -319,8 +319,8 @@ def test_list_summarized(typescript_mcp: FastMCP) -> None:
 def test_path_alias_import_creates_calls_edge(typescript_mcp: FastMCP) -> None:
     """Components imported via @/ path alias should have CALLS edges from their callers."""
     result = run(typescript_mcp.call_tool("find_usages", {
-        "symbol_name": "Greeting",
-        "project_path": TYPESCRIPT_FIXTURE_PATH,
+        "full_name": "Greeting",
+        "exclude_test_callers": False,
     }))
     output = text(result)
     # App.tsx renders <Greeting />, so App should be a caller
@@ -331,7 +331,7 @@ def test_path_alias_import_creates_calls_edge(typescript_mcp: FastMCP) -> None:
 def test_path_alias_component_not_dead_code(typescript_mcp: FastMCP) -> None:
     """Components imported via @/ should NOT appear as dead code."""
     result = run(typescript_mcp.call_tool("find_dead_code", {
-        "project_path": TYPESCRIPT_FIXTURE_PATH,
+        "path": TYPESCRIPT_FIXTURE_PATH,
     }))
     output = text(result)
     # Greeting is used by App via @/ import — should not be dead
