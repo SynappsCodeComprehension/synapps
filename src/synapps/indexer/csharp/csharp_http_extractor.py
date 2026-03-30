@@ -26,10 +26,15 @@ _HTTPCLIENT_VERB_MAP: dict[str, str] = {
     "GetAsync": "GET",
     "GetStringAsync": "GET",
     "GetByteArrayAsync": "GET",
+    "GetStreamAsync": "GET",
+    "GetFromJsonAsync": "GET",
     "PostAsync": "POST",
+    "PostAsJsonAsync": "POST",
     "PutAsync": "PUT",
+    "PutAsJsonAsync": "PUT",
     "DeleteAsync": "DELETE",
     "PatchAsync": "PATCH",
+    "PatchAsJsonAsync": "PATCH",
 }
 
 _RESTSHARP_METHOD_MAP: dict[str, str] = {
@@ -328,11 +333,20 @@ def _extract_qualified_text(node) -> str:
 
 
 def _extract_last_identifier(node) -> str | None:
-    """Extract the rightmost identifier from a member_access_expression (the method name)."""
+    """Extract the rightmost identifier from a member_access_expression (the method name).
+
+    Handles both plain identifiers (GetAsync) and generic names (GetFromJsonAsync<T>)
+    where tree-sitter wraps the identifier inside a generic_name node.
+    """
     last: str | None = None
     for child in node.children:
         if child.type == "identifier":
             last = node_text(child)
+        elif child.type == "generic_name":
+            for gc in child.children:
+                if gc.type == "identifier":
+                    last = node_text(gc)
+                    break
     return last
 
 

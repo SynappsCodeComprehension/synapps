@@ -457,3 +457,82 @@ def test_find_enclosing_symbol_outer_only_when_not_in_inner() -> None:
 def test_find_enclosing_symbol_single_symbol() -> None:
     symbols = [(1, 50, "OuterClass.outerMethod")]
     assert _find_enclosing_symbol(15, symbols) == "OuterClass.outerMethod"
+
+
+# ---------------------------------------------------------------------------
+# Generic method extraction tests -- HTTP_CALLS regression
+# ---------------------------------------------------------------------------
+
+
+def test_httpclient_get_from_json_async() -> None:
+    """GetFromJsonAsync<T> is a generic method; extractor must handle generic_name AST nodes."""
+    source = '''\
+public class UserService {
+    private HttpClient _httpClient;
+    public async Task<List<User>> GetUsers() {
+        return await _httpClient.GetFromJsonAsync<List<User>>("/api/users");
+    }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols_with_end([("GetUsers", "UserService.GetUsers", 3, 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.client_calls) == 1
+    call = result.client_calls[0]
+    assert call.http_method == "GET"
+    assert call.route == "/api/users"
+    assert call.caller_full_name == "UserService.GetUsers"
+
+
+def test_httpclient_post_as_json_async() -> None:
+    """PostAsJsonAsync<T> is a generic method."""
+    source = '''\
+public class UserService {
+    private HttpClient _httpClient;
+    public async Task CreateUser(User user) {
+        await _httpClient.PostAsJsonAsync<User>("/api/users", user);
+    }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols_with_end([("CreateUser", "UserService.CreateUser", 3, 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.client_calls) == 1
+    assert result.client_calls[0].http_method == "POST"
+    assert result.client_calls[0].route == "/api/users"
+
+
+def test_httpclient_put_as_json_async() -> None:
+    """PutAsJsonAsync<T> is a generic method."""
+    source = '''\
+public class UserService {
+    private HttpClient _httpClient;
+    public async Task UpdateUser(int id, User user) {
+        await _httpClient.PutAsJsonAsync<User>($"/api/users/{id}", user);
+    }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols_with_end([("UpdateUser", "UserService.UpdateUser", 3, 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.client_calls) == 1
+    assert result.client_calls[0].http_method == "PUT"
+    assert result.client_calls[0].route == "/api/users/{param}"
+
+
+def test_httpclient_get_stream_async() -> None:
+    """GetStreamAsync is non-generic but missing from verb map."""
+    source = '''\
+public class DataService {
+    private HttpClient _httpClient;
+    public async Task<Stream> DownloadData() {
+        return await _httpClient.GetStreamAsync("/api/data/export");
+    }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols_with_end([("DownloadData", "DataService.DownloadData", 3, 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.client_calls) == 1
+    assert result.client_calls[0].http_method == "GET"
+    assert result.client_calls[0].route == "/api/data/export"
