@@ -77,6 +77,17 @@ class PythonCallExtractor:
                 call_col_0 = node.start_point[1]
                 callee_name = node_text(node)
 
+                # Qualify self.method() calls with the enclosing class name
+                # so the resolver can match against EnclosingClass.method
+                parent_attr = node.parent
+                if (parent_attr is not None
+                        and parent_attr.type == "attribute"):
+                    obj = parent_attr.child_by_field_name("object")
+                    if obj is not None and obj.type == "identifier" and node_text(obj) == "self":
+                        enclosing_class = self._find_enclosing_class(node)
+                        if enclosing_class:
+                            callee_name = f"{enclosing_class}.{callee_name}"
+
                 scope_type, scope_func_line = self._get_call_scope(node)
 
                 if scope_type == "class":
@@ -102,6 +113,17 @@ class PythonCallExtractor:
                     results.append(entry)
 
         return results
+
+    def _find_enclosing_class(self, node) -> str | None:
+        """Walk parent chain to find the nearest enclosing class name."""
+        parent = node.parent
+        while parent is not None:
+            if parent.type == "class_definition":
+                name_node = parent.child_by_field_name("name")
+                if name_node is not None:
+                    return node_text(name_node)
+            parent = parent.parent
+        return None
 
     def _get_call_scope(self, node) -> tuple[str, int | None]:
         """

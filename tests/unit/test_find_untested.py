@@ -152,7 +152,11 @@ def test_constructors_excluded_via_cypher():
     conn = _conn_with_side_effects([], [(0,)])
     find_untested(conn)
     cypher = conn.query.call_args_list[0].args[0]
-    assert "m.name IN ['__init__', 'constructor']" in cypher
+    assert "'__init__'" in cypher
+    assert "'constructor'" in cypher
+    assert "'Up'" in cypher
+    assert "'Down'" in cypher
+    assert "'BuildTargetModel'" in cypher
     assert "parent.name = m.name" in cypher
 
 
@@ -192,6 +196,49 @@ def test_empty_exclude_pattern_default():
     cypher = conn.query.call_args_list[0].args[0]
     assert params["exclude_pattern"] == ""
     assert "$exclude_pattern = ''" in cypher
+
+
+# ---------------------------------------------------------------------------
+# Regression: exclude_pattern without .* anchors must be auto-wrapped
+# so Cypher =~ (which is full-string match) works as substring match
+# ---------------------------------------------------------------------------
+
+def test_exclude_pattern_auto_wrapped_for_substring_match():
+    conn = _conn_with_side_effects([], [(0,)])
+    find_untested(conn, exclude_pattern=r"Configuration\.Configure")
+    params = conn.query.call_args_list[0].args[1]
+    assert params["exclude_pattern"] == r".*Configuration\.Configure.*"
+
+
+def test_exclude_pattern_already_anchored_not_double_wrapped():
+    conn = _conn_with_side_effects([], [(0,)])
+    find_untested(conn, exclude_pattern=".*Generated.*")
+    params = conn.query.call_args_list[0].args[1]
+    assert params["exclude_pattern"] == ".*Generated.*"
+
+
+# ---------------------------------------------------------------------------
+# Regression: decorator-registered entry points excluded via attributes
+# ---------------------------------------------------------------------------
+
+def test_decorator_entry_points_excluded_via_cypher():
+    conn = _conn_with_side_effects([], [(0,)])
+    find_untested(conn)
+    cypher = conn.query.call_args_list[0].args[0]
+    assert 'CONTAINS \'"command"\'' in cypher
+    assert 'CONTAINS \'"tool"\'' in cypher
+    assert 'CONTAINS \'"callback"\'' in cypher
+
+
+# ---------------------------------------------------------------------------
+# Regression: Interface/Protocol definition methods excluded
+# ---------------------------------------------------------------------------
+
+def test_interface_member_methods_excluded_via_cypher():
+    conn = _conn_with_side_effects([], [(0,)])
+    find_untested(conn)
+    cypher = conn.query.call_args_list[0].args[0]
+    assert "NOT (m)<-[:CONTAINS]-(:Interface)" in cypher
 
 
 # ---------------------------------------------------------------------------

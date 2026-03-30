@@ -6,6 +6,8 @@ from synapps.indexer.method_implements_indexer import MethodImplementsIndexer
 def test_index_writes_edge_for_shared_method_name() -> None:
     conn = MagicMock()
     conn.query.side_effect = [
+        # _materialize_transitive_implements — no transitive pairs
+        [],
         # _get_impl_pairs
         [["Ns.MeetingService", "Ns.IMeetingService"]],
         # _get_methods(MeetingService)
@@ -13,6 +15,8 @@ def test_index_writes_edge_for_shared_method_name() -> None:
         # _get_methods(IMeetingService)
         [["CreateAsync", "Ns.IMeetingService.CreateAsync"], ["GetAllAsync", "Ns.IMeetingService.GetAllAsync"]],
         # _get_abstract_inherits_pairs — none
+        [],
+        # _get_protocol_dispatch_candidates — interface methods
         [],
     ]
     MethodImplementsIndexer(conn).index()
@@ -28,7 +32,7 @@ def test_index_writes_edge_for_shared_method_name() -> None:
 
 def test_index_writes_no_edges_when_no_pairs() -> None:
     conn = MagicMock()
-    conn.query.side_effect = [[], []]  # no impl pairs, no abstract pairs
+    conn.query.side_effect = [[], [], [], []]  # transitive, impl pairs, abstract pairs, protocol
     MethodImplementsIndexer(conn).index()
     conn.execute.assert_not_called()
 
@@ -36,10 +40,14 @@ def test_index_writes_no_edges_when_no_pairs() -> None:
 def test_index_writes_no_edges_when_no_matching_methods() -> None:
     conn = MagicMock()
     conn.query.side_effect = [
+        # _materialize_transitive_implements — none
+        [],
         [["Ns.Svc", "Ns.ISvc"]],
         [["PrivateMethod", "Ns.Svc.PrivateMethod"]],   # not on interface
         [["PublicMethod", "Ns.ISvc.PublicMethod"]],     # not on impl
         # _get_abstract_inherits_pairs — none
+        [],
+        # _get_protocol_dispatch_candidates — interface methods
         [],
     ]
     MethodImplementsIndexer(conn).index()
@@ -49,6 +57,8 @@ def test_index_writes_no_edges_when_no_matching_methods() -> None:
 def test_index_writes_multiple_edges_for_multiple_pairs() -> None:
     conn = MagicMock()
     conn.query.side_effect = [
+        # _materialize_transitive_implements — none
+        [],
         # Two impl pairs
         [["Ns.TaskService", "Ns.ITaskService"], ["Ns.TaskController", "Ns.ITaskService"]],
         # TaskService methods
@@ -61,6 +71,8 @@ def test_index_writes_multiple_edges_for_multiple_pairs() -> None:
         [["CreateAsync", "Ns.ITaskService.CreateAsync"]],
         # _get_abstract_inherits_pairs — none
         [],
+        # _get_protocol_dispatch_candidates — interface methods
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     # Two method pairs × two edges each (IMPLEMENTS + DISPATCHES_TO)
@@ -71,6 +83,8 @@ def test_index_writes_dispatches_to_for_abstract_base() -> None:
     """ABC abstract parent connected via INHERITS with is_abstract=true produces DISPATCHES_TO only."""
     conn = MagicMock()
     conn.query.side_effect = [
+        # _materialize_transitive_implements — none
+        [],
         # _get_impl_pairs — no interface pairs
         [],
         # _get_abstract_inherits_pairs — one abstract pair
@@ -79,6 +93,8 @@ def test_index_writes_dispatches_to_for_abstract_base() -> None:
         [["speak", "pkg.Dog.speak"]],
         # _get_methods(Animal)
         [["speak", "pkg.Animal.speak"]],
+        # _get_protocol_dispatch_candidates — interface methods
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     # Exactly 1 execute call: DISPATCHES_TO only (no IMPLEMENTS for abstract base)
@@ -94,6 +110,8 @@ def test_index_no_edges_for_abstract_base_no_matching_methods() -> None:
     """No edges when abstract parent has no matching method names with child."""
     conn = MagicMock()
     conn.query.side_effect = [
+        # _materialize_transitive_implements — none
+        [],
         # _get_impl_pairs — empty
         [],
         # _get_abstract_inherits_pairs — one pair
@@ -102,6 +120,8 @@ def test_index_no_edges_for_abstract_base_no_matching_methods() -> None:
         [["bark", "pkg.Dog.bark"]],
         # _get_methods(Animal) — disjoint names
         [["speak", "pkg.Animal.speak"]],
+        # _get_protocol_dispatch_candidates — interface methods
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     conn.execute.assert_not_called()
@@ -111,6 +131,8 @@ def test_index_handles_both_interface_and_abstract_pairs() -> None:
     """Both interface IMPLEMENTS pairs and abstract INHERITS pairs are processed in one run."""
     conn = MagicMock()
     conn.query.side_effect = [
+        # _materialize_transitive_implements — none
+        [],
         # _get_impl_pairs — one interface pair
         [["Ns.Svc", "Ns.ISvc"]],
         # _get_methods(Ns.Svc)
@@ -123,7 +145,71 @@ def test_index_handles_both_interface_and_abstract_pairs() -> None:
         [["speak", "pkg.Dog.speak"]],
         # _get_methods(pkg.Animal)
         [["speak", "pkg.Animal.speak"]],
+        # _get_protocol_dispatch_candidates — interface methods
+        [],
     ]
     MethodImplementsIndexer(conn).index()
     # Interface pair: 2 (IMPLEMENTS + DISPATCHES_TO), abstract pair: 1 (DISPATCHES_TO only) = 3 total
     assert conn.execute.call_count == 3
+
+
+# ---------------------------------------------------------------------------
+# Regression: transitive IMPLEMENTS through interface inheritance chain
+# ---------------------------------------------------------------------------
+
+
+def test_transitive_implements_creates_edges() -> None:
+    """Class → InterfaceB → InterfaceA chain should create IMPLEMENTS to InterfaceA."""
+    conn = MagicMock()
+    conn.query.side_effect = [
+        # _materialize_transitive_implements — finds one transitive pair
+        [["Ns.JiraProvider", "Ns.IIntegrationProvider"]],
+        # _get_impl_pairs — includes the new transitive edge
+        [["Ns.JiraProvider", "Ns.IJiraProvider"], ["Ns.JiraProvider", "Ns.IIntegrationProvider"]],
+        # _get_methods(JiraProvider) — for IJiraProvider pair
+        [["Revoke", "Ns.JiraProvider.Revoke"]],
+        # _get_methods(IJiraProvider)
+        [["Revoke", "Ns.IJiraProvider.Revoke"]],
+        # _get_methods(JiraProvider) — for IIntegrationProvider pair
+        [["Revoke", "Ns.JiraProvider.Revoke"]],
+        # _get_methods(IIntegrationProvider)
+        [["Revoke", "Ns.IIntegrationProvider.Revoke"]],
+        # _get_abstract_inherits_pairs — none
+        [],
+        # _get_protocol_dispatch_candidates — none
+        [],
+    ]
+    MethodImplementsIndexer(conn).index()
+    # 1 transitive IMPLEMENTS + 2 impl pairs × 2 edges each = 5 execute calls
+    assert conn.execute.call_count >= 3
+
+
+# ---------------------------------------------------------------------------
+# Regression: Protocol structural dispatch creates DISPATCHES_TO edges
+# ---------------------------------------------------------------------------
+
+
+def test_protocol_dispatch_creates_edges() -> None:
+    """Concrete class with matching methods to a Protocol gets DISPATCHES_TO edges."""
+    conn = MagicMock()
+    conn.query.side_effect = [
+        # _materialize_transitive_implements — none
+        [],
+        # _get_impl_pairs — empty
+        [],
+        # _get_abstract_inherits_pairs — empty
+        [],
+        # _get_protocol_dispatch_candidates — interface methods query
+        [["pkg.LanguagePlugin", "create_lsp_adapter", "pkg.LanguagePlugin.create_lsp_adapter"],
+         ["pkg.LanguagePlugin", "name", "pkg.LanguagePlugin.name"]],
+        # candidate query for LanguagePlugin (2 methods)
+        [[
+            [{"name": "create_lsp_adapter", "full_name": "pkg.CSharpPlugin.create_lsp_adapter"},
+             {"name": "name", "full_name": "pkg.CSharpPlugin.name"}],
+        ]],
+    ]
+    MethodImplementsIndexer(conn).index()
+    assert conn.execute.call_count == 2
+    for call_args in conn.execute.call_args_list:
+        cypher = call_args[0][0]
+        assert "DISPATCHES_TO" in cypher

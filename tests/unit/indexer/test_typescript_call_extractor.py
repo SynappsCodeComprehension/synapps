@@ -291,6 +291,83 @@ def test_sites_seen_zero_for_empty_source(extractor):
     assert extractor._sites_seen == 0
 
 
+# ---------------------------------------------------------------------------
+# JSX component calls — <Component /> must emit CALLS edges
+# ---------------------------------------------------------------------------
+
+
+def test_jsx_self_closing_element_emits_call(extractor):
+    """<Button /> in a function body should create a CALLS edge to Button."""
+    source = """\
+function App() {
+    return <Button />;
+}
+"""
+    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "Button" in callees
+
+
+def test_jsx_opening_element_emits_call(extractor):
+    """<Card>...</Card> should create a CALLS edge to Card."""
+    source = """\
+function App() {
+    return <Card>content</Card>;
+}
+"""
+    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "Card" in callees
+
+
+def test_jsx_nested_components(extractor):
+    """Nested JSX components should all be captured."""
+    source = """\
+function Dashboard() {
+    return <Layout><Sidebar /><Content /></Layout>;
+}
+"""
+    symbol_map = {("/proj/app.tsx", 0): "mypackage.Dashboard"}
+    results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "Layout" in callees
+    assert "Sidebar" in callees
+    assert "Content" in callees
+
+
+def test_jsx_html_tags_also_captured(extractor):
+    """HTML tags like <div> are also captured — LSP resolution will discard unresolvable ones."""
+    source = """\
+function App() {
+    return <div><span>hello</span></div>;
+}
+"""
+    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "div" in callees
+
+
+def test_jsx_not_captured_in_ts_files(extractor):
+    """Regular .ts files don't run the JSX query — no false positives."""
+    source = """\
+function caller() {
+    helper();
+}
+"""
+    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
+    assert len(results) == 1
+    assert results[0][1] == "helper"
+
+
+# ---------------------------------------------------------------------------
+# _sites_seen counter
+# ---------------------------------------------------------------------------
+
+
 def test_sites_seen_resets_per_extract_call(extractor):
     source_three = """\
 function caller() {

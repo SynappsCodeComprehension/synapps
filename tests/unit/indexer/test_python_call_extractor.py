@@ -68,7 +68,8 @@ class MyClass:
     }
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
-    assert "other_method" in callees
+    # self.other_method() is now qualified as MyClass.other_method
+    assert "MyClass.other_method" in callees
 
 
 def test_attribute_call_callee_simple_name(extractor):
@@ -264,3 +265,60 @@ def caller():
     extractor.extract("/proj/bar.py", _parse(source_one), symbol_map_one)
     # Must reflect only the second call, not cumulative
     assert extractor._sites_seen == 1
+
+
+# ---------------------------------------------------------------------------
+# Regression: self.method() must be qualified with enclosing class
+# ---------------------------------------------------------------------------
+
+
+def test_self_method_call_qualified_with_class(extractor):
+    """self.helper() inside MyClass should emit callee 'MyClass.helper'."""
+    source = """\
+class MyClass:
+    def caller(self):
+        self.helper()
+
+    def helper(self):
+        pass
+"""
+    symbol_map = {
+        ("/proj/foo.py", 1): "mypackage.MyClass.caller",
+        ("/proj/foo.py", 4): "mypackage.MyClass.helper",
+    }
+    results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "MyClass.helper" in callees
+
+
+def test_self_private_method_qualified(extractor):
+    """self._internal() should emit callee 'MyClass._internal'."""
+    source = """\
+class MyClass:
+    def run(self):
+        self._internal()
+
+    def _internal(self):
+        pass
+"""
+    symbol_map = {
+        ("/proj/foo.py", 1): "mypackage.MyClass.run",
+        ("/proj/foo.py", 4): "mypackage.MyClass._internal",
+    }
+    results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "MyClass._internal" in callees
+
+
+def test_bare_function_call_not_qualified(extractor):
+    """helper() (not self.helper()) should stay as bare 'helper'."""
+    source = """\
+class MyClass:
+    def caller(self):
+        helper()
+"""
+    symbol_map = {("/proj/foo.py", 1): "mypackage.MyClass.caller"}
+    results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "helper" in callees
+    assert "MyClass.helper" not in callees

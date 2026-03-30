@@ -21,6 +21,23 @@ _TS_CALLS_QUERY = """
 )
 """
 
+# JSX element references are component calls — <Button /> invokes the Button function.
+# Separate query because jsx nodes only exist in the TSX grammar.
+_TSX_JSX_QUERY = """
+(jsx_self_closing_element
+  name: (identifier) @name
+)
+(jsx_opening_element
+  name: (identifier) @name
+)
+(jsx_self_closing_element
+  name: (member_expression object: (identifier) property: (property_identifier) @name)
+)
+(jsx_opening_element
+  name: (member_expression object: (identifier) property: (property_identifier) @name)
+)
+"""
+
 # tree-sitter node types that introduce a new function scope
 _FUNCTION_SCOPE_TYPES = frozenset({
     "function_declaration",
@@ -64,6 +81,7 @@ class TypeScriptCallExtractor:
 
         self._ts_query = Query(self._ts_lang, _TS_CALLS_QUERY)
         self._tsx_query = Query(self._tsx_lang, _TS_CALLS_QUERY)
+        self._tsx_jsx_query = Query(self._tsx_lang, _TSX_JSX_QUERY)
 
         self._QueryCursor = QueryCursor
         self._sites_seen: int = 0
@@ -94,37 +112,42 @@ class TypeScriptCallExtractor:
         results: list[tuple[str, str, int, int]] = []
         seen: set[tuple[str, str, int, int]] = set()
 
-        cursor = self._QueryCursor(query)
-        for _pattern_idx, captures in cursor.matches(tree.root_node):
-            nodes = captures.get("name", [])
-            for node in nodes:
-                call_line_0 = node.start_point[0]
-                call_col_0 = node.start_point[1]
-                callee_name = node_text(node)
+        queries = [query]
+        if uses_tsx:
+            queries.append(self._tsx_jsx_query)
 
-                scope_type, _scope_func_line = self._get_call_scope(node)
+        for active_query in queries:
+            cursor = self._QueryCursor(active_query)
+            for _pattern_idx, captures in cursor.matches(tree.root_node):
+                nodes = captures.get("name", [])
+                for node in nodes:
+                    call_line_0 = node.start_point[0]
+                    call_col_0 = node.start_point[1]
+                    callee_name = node_text(node)
 
-                if scope_type == "class":
-                    continue
+                    scope_type, _scope_func_line = self._get_call_scope(node)
 
-                if scope_type == "function":
-                    caller = find_enclosing_scope(call_line_0, method_lines)
-                    if caller is None:
-                        continue
-                else:
-                    # module scope
-                    if self._module_name_resolver is None:
-                        continue
-                    caller = self._module_name_resolver(file_path)
-                    if caller is None:
+                    if scope_type == "class":
                         continue
 
-                self._sites_seen += 1
+                    if scope_type == "function":
+                        caller = find_enclosing_scope(call_line_0, method_lines)
+                        if caller is None:
+                            continue
+                    else:
+                        # module scope
+                        if self._module_name_resolver is None:
+                            continue
+                        caller = self._module_name_resolver(file_path)
+                        if caller is None:
+                            continue
 
-                entry = (caller, callee_name, call_line_0 + 1, call_col_0)
-                if entry not in seen:
-                    seen.add(entry)
-                    results.append(entry)
+                    self._sites_seen += 1
+
+                    entry = (caller, callee_name, call_line_0 + 1, call_col_0)
+                    if entry not in seen:
+                        seen.add(entry)
+                        results.append(entry)
 
         return results
 

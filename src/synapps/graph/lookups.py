@@ -15,6 +15,7 @@ _TEST_PATH_PATTERN = (
     r"(?:"
     r".*[/\\][A-Za-z0-9.]*[Tt]ests?[/\\].*"
     r"|.*[/\\]__tests__[/\\].*"
+    r"|.*[/\\]test-[A-Za-z0-9_-]+[/\\].*"
     r"|.*\.(?:test|spec)\.[jt]sx?$"
     r"|.*_test\.[a-z]+$"
     r"|.*[/\\]src[/\\]test[/\\].*"

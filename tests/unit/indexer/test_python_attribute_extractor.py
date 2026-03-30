@@ -234,3 +234,47 @@ class Comparable(Protocol):
     assert "Comparable" in names_and_attrs
     assert "Protocol" in names_and_attrs["Comparable"]
     assert "runtime_checkable" in names_and_attrs["Comparable"]
+
+
+# ---------------------------------------------------------------------------
+# Regression: nested function decorators must be captured
+# ---------------------------------------------------------------------------
+
+
+def test_nested_decorated_function_captured() -> None:
+    """@mcp.tool() on a nested function inside register_tools must be extracted."""
+    source = """\
+def register_tools(mcp, service):
+    @mcp.tool()
+    def find_dead_code(path: str) -> dict:
+        return service.find_dead_code()
+
+    @mcp.tool()
+    def find_untested(path: str) -> dict:
+        return service.find_untested()
+"""
+    extractor = _make()
+    results = extractor.extract("tools.py", _parse(source))
+    names_and_attrs = {name: attrs for name, attrs in results}
+    assert "find_dead_code" in names_and_attrs
+    assert "tool" in names_and_attrs["find_dead_code"]
+    assert "find_untested" in names_and_attrs
+    assert "tool" in names_and_attrs["find_untested"]
+
+
+def test_nested_decorated_inside_decorated_function() -> None:
+    """Nested decorators inside a decorated outer function."""
+    source = """\
+@app.callback()
+def main():
+    @app.command()
+    def index(path: str):
+        pass
+"""
+    extractor = _make()
+    results = extractor.extract("cli.py", _parse(source))
+    names_and_attrs = {name: attrs for name, attrs in results}
+    assert "main" in names_and_attrs
+    assert "callback" in names_and_attrs["main"]
+    assert "index" in names_and_attrs
+    assert "command" in names_and_attrs["index"]

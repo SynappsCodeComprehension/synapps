@@ -36,6 +36,11 @@ class PythonAttributeExtractor:
                         self._walk(block_child, results, parent_class=class_name)
         elif node.type == "function_definition":
             self._handle_function(node, [], results, parent_class)
+            # Recurse into function body for nested decorated definitions
+            for child in node.children:
+                if child.type == "block":
+                    for block_child in child.children:
+                        self._walk(block_child, results, parent_class)
         else:
             for child in node.children:
                 self._walk(child, results, parent_class)
@@ -66,6 +71,11 @@ class PythonAttributeExtractor:
                         self._walk(block_child, results, parent_class=class_name)
         else:
             self._handle_function(inner, decorators, results, parent_class)
+            # Recurse into decorated function body for nested definitions
+            for child in inner.children:
+                if child.type == "block":
+                    for block_child in child.children:
+                        self._walk(block_child, results, parent_class)
 
     def _handle_class(self, node, decorators: list[str], results: list[tuple[str, list[str]]]) -> None:
         name = self._node_name(node)

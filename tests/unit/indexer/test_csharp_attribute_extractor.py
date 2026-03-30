@@ -200,3 +200,80 @@ public class TaskController { }
     results = extractor.extract("test.cs", _parse(source))
     attrs = dict(results)
     assert "Route" in attrs["TaskController"]
+
+
+# ---------------------------------------------------------------------------
+# Regression: method name must be extracted from the named 'name' field,
+# not the first identifier (which could be an attribute or return type)
+# ---------------------------------------------------------------------------
+
+
+def test_fact_attribute_extracted_for_async_task_method() -> None:
+    """[Fact] on async Task<T> methods must resolve to the method name, not 'Task'."""
+    source = """
+public class UserTests {
+    [Fact]
+    public async Task InvokeAsync_ReturnsOk() { }
+}
+"""
+    extractor = CSharpAttributeExtractor()
+    results = extractor.extract("test.cs", _parse(source))
+    attrs = dict(results)
+    assert "InvokeAsync_ReturnsOk" in attrs
+    assert "Fact" in attrs["InvokeAsync_ReturnsOk"]
+
+
+def test_theory_attribute_extracted_for_generic_return() -> None:
+    """[Theory] on methods with generic return types (Task<bool>) must use the method name."""
+    source = """
+public class ServiceTests {
+    [Theory]
+    [InlineData(1)]
+    public async Task<bool> Validate_ReturnsFalse(int id) { return false; }
+}
+"""
+    extractor = CSharpAttributeExtractor()
+    results = extractor.extract("test.cs", _parse(source))
+    attrs = dict(results)
+    assert "Validate_ReturnsFalse" in attrs
+    assert "Theory" in attrs["Validate_ReturnsFalse"]
+
+
+def test_fact_on_void_method_still_works() -> None:
+    """Regression guard: simple void methods still extract correctly."""
+    source = """
+public class Tests {
+    [Fact]
+    public void Simple_Test() { }
+}
+"""
+    extractor = CSharpAttributeExtractor()
+    results = extractor.extract("test.cs", _parse(source))
+    attrs = dict(results)
+    assert "Simple_Test" in attrs
+    assert "Fact" in attrs["Simple_Test"]
+
+
+def test_multiple_attributed_methods_in_class() -> None:
+    """All methods in a class get their own attributes, not mixed up."""
+    source = """
+public class MixedTests {
+    [Fact]
+    public async Task First_Test() { }
+
+    [Theory]
+    [InlineData("x")]
+    public async Task<string> Second_Test(string input) { return input; }
+
+    public void Helper() { }
+}
+"""
+    extractor = CSharpAttributeExtractor()
+    results = extractor.extract("test.cs", _parse(source))
+    attrs = dict(results)
+    assert "First_Test" in attrs
+    assert "Fact" in attrs["First_Test"]
+    assert "Second_Test" in attrs
+    assert "Theory" in attrs["Second_Test"]
+    # Helper has no attributes but has async modifier — should not appear
+    assert "Helper" not in attrs

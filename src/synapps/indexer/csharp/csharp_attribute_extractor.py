@@ -91,6 +91,11 @@ class CSharpAttributeExtractor:
                                 if id_node.type == "identifier":
                                     return node_text(id_node)
             return None
+        # Use the named 'name' field when available — avoids returning
+        # an attribute or return-type identifier instead of the method name
+        named = node.child_by_field_name("name")
+        if named is not None:
+            return node_text(named)
         for child in node.children:
             if child.type == "identifier":
                 return node_text(child)

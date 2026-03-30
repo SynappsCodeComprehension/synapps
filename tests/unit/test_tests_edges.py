@@ -41,6 +41,14 @@ def test_existing_python_test_path_still_matches():
     assert re.fullmatch(_TEST_PATH_PATTERN, "/repo/tests/test_foo.py")
 
 
+def test_test_utils_directory_matches_pattern():
+    assert re.fullmatch(_TEST_PATH_PATTERN, "frontend/src/test-utils/test-wrapper.tsx")
+
+
+def test_test_helpers_directory_matches_pattern():
+    assert re.fullmatch(_TEST_PATH_PATTERN, "src/test-helpers/mock-data.ts")
+
+
 def test_production_path_does_not_match():
     assert re.fullmatch(_TEST_PATH_PATTERN, "src/main/java/com/foo/Bar.java") is None
 
@@ -87,6 +95,22 @@ def test_tests_phase_derivation_creates_tests_edges():
     phase.run()
     derivation_cypher = conn.execute.call_args_list[1].args[0]
     assert "MERGE (caller)-[:TESTS]->(callee)" in derivation_cypher
+
+
+def test_tests_phase_derivation_uses_variable_length_contains():
+    """All three steps must use [:CONTAINS*] to reach methods inside classes."""
+    conn = _mock_conn()
+    conn.query.return_value = [(0,)]
+    phase = TestsPhase(conn, "/repo")
+    phase.run()
+    # Step 1 (DELETE) and Step 2 (MERGE) both go through execute
+    for call_args in conn.execute.call_args_list:
+        cypher = call_args.args[0]
+        # Must use CONTAINS* (variable-length), not bare CONTAINS (single hop)
+        assert "CONTAINS*" in cypher, f"Missing variable-length CONTAINS in: {cypher[:80]}..."
+    # Step 3 (COUNT) goes through query
+    count_cypher = conn.query.call_args_list[0].args[0]
+    assert "CONTAINS*" in count_cypher
 
 
 # ---------------------------------------------------------------------------

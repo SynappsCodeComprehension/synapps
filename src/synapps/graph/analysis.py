@@ -187,8 +187,20 @@ def audit_architecture(conn: GraphConnection, rule: str) -> dict:
     }
 
 
+def _ensure_full_match_regex(pattern: str) -> str:
+    """Wrap a pattern in .* anchors so Cypher =~ does substring matching."""
+    if not pattern:
+        return pattern
+    if not pattern.startswith(".*"):
+        pattern = ".*" + pattern
+    if not pattern.endswith(".*"):
+        pattern = pattern + ".*"
+    return pattern
+
+
 def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
     """Query for methods with zero inbound CALLS, excluding test/framework/infra methods."""
+    exclude_pattern = _ensure_full_match_regex(exclude_pattern)
     dead_rows = conn.query(
         "MATCH (m:Method) "
         "WHERE NOT m.file_path =~ $test_pattern "
@@ -196,9 +208,17 @@ def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
         "AND NOT ()-[:IMPLEMENTS]->(m) "
         "AND NOT ()-[:DISPATCHES_TO]->(m) "
         "AND NOT (m)-[:OVERRIDES]->() "
-        "AND NOT m.name IN ['__init__', 'constructor'] "
+        "AND NOT (m)<-[:CONTAINS]-(:Interface) "
+        "AND NOT m.name IN ['__init__', 'constructor', "
+        "'Up', 'Down', 'BuildTargetModel', 'BuildModel', "
+        "'OnModelCreating', 'CreateDbContext'] "
         "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
         "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
+        "AND NOT (m.name = 'Configure' AND EXISTS { MATCH (cfg)-[:CONTAINS]->(m) "
+        "WHERE cfg:Class AND cfg.name ENDS WITH 'Configuration' }) "
+        "AND NOT (coalesce(m.attributes, '[]') CONTAINS '\"command\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"tool\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"callback\"') "
         "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
         "AND NOT EXISTS { MATCH ()-[:CALLS]->(m) } "
         "RETURN m.full_name, m.file_path, m.line "
@@ -212,9 +232,17 @@ def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
         "AND NOT ()-[:IMPLEMENTS]->(m) "
         "AND NOT ()-[:DISPATCHES_TO]->(m) "
         "AND NOT (m)-[:OVERRIDES]->() "
-        "AND NOT m.name IN ['__init__', 'constructor'] "
+        "AND NOT (m)<-[:CONTAINS]-(:Interface) "
+        "AND NOT m.name IN ['__init__', 'constructor', "
+        "'Up', 'Down', 'BuildTargetModel', 'BuildModel', "
+        "'OnModelCreating', 'CreateDbContext'] "
         "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
         "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
+        "AND NOT (m.name = 'Configure' AND EXISTS { MATCH (cfg)-[:CONTAINS]->(m) "
+        "WHERE cfg:Class AND cfg.name ENDS WITH 'Configuration' }) "
+        "AND NOT (coalesce(m.attributes, '[]') CONTAINS '\"command\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"tool\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"callback\"') "
         "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
         "RETURN count(m)",
         {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern},
@@ -237,6 +265,7 @@ def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
 
 def find_untested(conn: GraphConnection, exclude_pattern: str = "") -> dict:
     """Query for production methods with no inbound TESTS edges."""
+    exclude_pattern = _ensure_full_match_regex(exclude_pattern)
     untested_rows = conn.query(
         "MATCH (m:Method) "
         "WHERE NOT m.file_path =~ $test_pattern "
@@ -244,9 +273,17 @@ def find_untested(conn: GraphConnection, exclude_pattern: str = "") -> dict:
         "AND NOT ()-[:IMPLEMENTS]->(m) "
         "AND NOT ()-[:DISPATCHES_TO]->(m) "
         "AND NOT (m)-[:OVERRIDES]->() "
-        "AND NOT m.name IN ['__init__', 'constructor'] "
+        "AND NOT (m)<-[:CONTAINS]-(:Interface) "
+        "AND NOT m.name IN ['__init__', 'constructor', "
+        "'Up', 'Down', 'BuildTargetModel', 'BuildModel', "
+        "'OnModelCreating', 'CreateDbContext'] "
         "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
         "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
+        "AND NOT (m.name = 'Configure' AND EXISTS { MATCH (cfg)-[:CONTAINS]->(m) "
+        "WHERE cfg:Class AND cfg.name ENDS WITH 'Configuration' }) "
+        "AND NOT (coalesce(m.attributes, '[]') CONTAINS '\"command\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"tool\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"callback\"') "
         "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
         "AND NOT EXISTS { MATCH ()-[:TESTS]->(m) } "
         "RETURN m.full_name, m.file_path, m.line "
@@ -260,9 +297,17 @@ def find_untested(conn: GraphConnection, exclude_pattern: str = "") -> dict:
         "AND NOT ()-[:IMPLEMENTS]->(m) "
         "AND NOT ()-[:DISPATCHES_TO]->(m) "
         "AND NOT (m)-[:OVERRIDES]->() "
-        "AND NOT m.name IN ['__init__', 'constructor'] "
+        "AND NOT (m)<-[:CONTAINS]-(:Interface) "
+        "AND NOT m.name IN ['__init__', 'constructor', "
+        "'Up', 'Down', 'BuildTargetModel', 'BuildModel', "
+        "'OnModelCreating', 'CreateDbContext'] "
         "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
         "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
+        "AND NOT (m.name = 'Configure' AND EXISTS { MATCH (cfg)-[:CONTAINS]->(m) "
+        "WHERE cfg:Class AND cfg.name ENDS WITH 'Configuration' }) "
+        "AND NOT (coalesce(m.attributes, '[]') CONTAINS '\"command\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"tool\"' "
+        "      OR coalesce(m.attributes, '[]') CONTAINS '\"callback\"') "
         "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
         "RETURN count(m)",
         {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern},

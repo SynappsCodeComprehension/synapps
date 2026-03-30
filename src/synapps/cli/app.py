@@ -47,8 +47,8 @@ def main(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable debug logging")] = False,
 ) -> None:
     _verbose_callback(verbose)
-summary_app = typer.Typer(name="summary")
-app.add_typer(summary_app, name="summary")
+summary_app = typer.Typer(name="summary", help="Get, set, or list symbol summaries.")
+app.add_typer(summary_app, name="summary", rich_help_panel="Symbol Queries")
 
 _svc: SynappsService | None = None
 
@@ -120,7 +120,7 @@ def _render_report(console: object, report: object) -> None:
     console.print(f"\n[{summary_style}]{passed} passed, {warned} warnings, {failed} failed[/{summary_style}]")  # type: ignore[attr-defined]
 
 
-@app.command("doctor")
+@app.command("doctor", rich_help_panel="Setup & Diagnostics")
 def doctor() -> None:
     """Check environment: Docker, Memgraph, and all language server dependencies."""
     from rich.console import Console
@@ -146,7 +146,7 @@ def doctor() -> None:
         raise typer.Exit(1)
 
 
-@app.command()
+@app.command(rich_help_panel="Setup & Diagnostics")
 def init(
     path: str = typer.Argument(default=".", help="Project path to initialise"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed output"),
@@ -158,7 +158,7 @@ def init(
     run_init(abs_path, verbose=verbose)
 
 
-@app.command()
+@app.command(rich_help_panel="Indexing")
 def index(path: str, language: str = "csharp") -> None:
     """Index a project. Smart: full index if new, git sync if git project, mtime sync otherwise."""
     abs_path = str(Path(path).resolve())
@@ -176,7 +176,7 @@ def index(path: str, language: str = "csharp") -> None:
     typer.echo(f"Done ({result})")
 
 
-@app.command()
+@app.command(rich_help_panel="Indexing")
 def watch(path: str) -> None:
     """Watch a project for changes and keep the graph updated."""
     abs_path = str(Path(path).resolve())
@@ -194,7 +194,7 @@ def watch(path: str) -> None:
         _get_service().unwatch_project(abs_path)
 
 
-@app.command()
+@app.command(rich_help_panel="Indexing")
 def sync(path: str) -> None:
     """Sync the graph with the current filesystem — re-indexes only changed files."""
     abs_path = str(Path(path).resolve())
@@ -222,7 +222,7 @@ def sync(path: str) -> None:
     typer.echo(f"Synced: {result.updated} updated, {result.deleted} deleted, {result.unchanged} unchanged")
 
 
-@app.command()
+@app.command(rich_help_panel="Indexing")
 def delete(path: str) -> None:
     """Remove a project from the graph."""
     abs_path = str(Path(path).resolve())
@@ -230,7 +230,7 @@ def delete(path: str) -> None:
     typer.echo(f"Deleted {abs_path}")
 
 
-@app.command()
+@app.command(rich_help_panel="Indexing")
 def status(path: Optional[str] = None) -> None:
     """Show index status for a project or all projects."""
     svc = _get_service()
@@ -242,21 +242,21 @@ def status(path: Optional[str] = None) -> None:
             typer.echo(proj)
 
 
-@app.command()
+@app.command(rich_help_panel="Symbol Queries")
 def symbol(full_name: str) -> None:
     """Get a symbol's node and relationships."""
     result = _get_service().get_symbol(full_name)
     typer.echo(result or "Not found")
 
 
-@app.command()
+@app.command(rich_help_panel="Symbol Queries")
 def source(full_name: str, include_class: bool = False) -> None:
     """Print the source code of a symbol."""
     result = _get_service().get_symbol_source(full_name, include_class_signature=include_class)
     typer.echo(result or "Not found")
 
 
-@app.command()
+@app.command(rich_help_panel="Relationships & Traversal")
 def callers(
     method_full_name: str,
     include_tests: bool = typer.Option(False, "--include-tests", help="Include test callers"),
@@ -285,7 +285,7 @@ def callers(
             typer.echo(_fmt(item))
 
 
-@app.command()
+@app.command(rich_help_panel="Relationships & Traversal")
 def callees(
     method_full_name: str,
     tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
@@ -309,7 +309,7 @@ def callees(
             typer.echo(_fmt(item))
 
 
-@app.command()
+@app.command(rich_help_panel="Relationships & Traversal")
 def implementations(interface_name: str) -> None:
     """Find all concrete implementations of an interface or abstract class.
 
@@ -337,7 +337,7 @@ def implementations(interface_name: str) -> None:
         typer.echo(_fmt(item))
 
 
-@app.command()
+@app.command(rich_help_panel="Relationships & Traversal")
 def hierarchy(
     class_name: str,
     tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
@@ -370,7 +370,7 @@ def hierarchy(
             typer.echo("  (none)")
 
 
-@app.command()
+@app.command(rich_help_panel="Symbol Queries")
 def search(
     query: str,
     kind: Optional[str] = None,
@@ -385,7 +385,7 @@ def search(
         typer.echo(_fmt(item))
 
 
-@app.command()
+@app.command(rich_help_panel="Advanced")
 def query(cypher: str) -> None:
     """Execute a raw read-only Cypher query."""
     for row in _get_service().execute_query(cypher):
@@ -393,7 +393,7 @@ def query(cypher: str) -> None:
 
 
 
-@app.command("usages")
+@app.command("usages", rich_help_panel="Relationships & Traversal")
 def usages(
     full_name: str = typer.Argument(help="Symbol to find usages of"),
     include_tests: bool = typer.Option(False, "--include-tests", help="Include test usages"),
@@ -404,7 +404,7 @@ def usages(
     typer.echo(result)
 
 
-@app.command()
+@app.command(rich_help_panel="Relationships & Traversal")
 def dependencies(
     full_name: str,
     tree: bool = typer.Option(False, "--tree", "-t", help="Display as ASCII tree"),
@@ -424,7 +424,7 @@ def dependencies(
             typer.echo(f"{fn} (depth {depth})")
 
 
-@app.command()
+@app.command(rich_help_panel="Symbol Queries")
 def context(
     full_name: str,
     scope: Annotated[str | None, typer.Option(help="Scope: 'structure', 'method', 'edit', or omit for full")] = None,
@@ -437,7 +437,7 @@ def context(
     typer.echo(result or "Not found")
 
 
-@app.command("trace")
+@app.command("trace", rich_help_panel="Relationships & Traversal")
 def trace_chain(
     start: str = typer.Argument(help="Starting method"),
     end: str = typer.Argument(help="Ending method"),
@@ -457,7 +457,7 @@ def trace_chain(
             typer.echo(f"Path {i}: {' → '.join(path)}")
 
 
-@app.command("entry-points")
+@app.command("entry-points", rich_help_panel="Relationships & Traversal")
 def entry_points(
     method: str = typer.Argument(help="Target method"),
     max_depth: int = typer.Option(8, "--depth", "-d"),

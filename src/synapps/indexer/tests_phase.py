@@ -29,6 +29,7 @@ class TestsPhase:
         )
 
         # Step 2: Derive TESTS edges from CALLS where caller is test, callee is prod.
+        # Scoped to the current repo to prevent cross-repo edge creation.
         # Language-specific detection per D-06:
         #   Python:     test_ prefix + test file
         #   TypeScript: any method in test file (Jest test()/it() not Method nodes)
@@ -36,7 +37,8 @@ class TestsPhase:
         #   Java:       @Test annotation + test file
         # Attribute detection uses string CONTAINS on JSON (D-07, no APOC in Memgraph).
         self._conn.execute(
-            "MATCH (caller:Method)-[:CALLS]->(callee:Method) "
+            "MATCH (r:Repository {path: $repo})-[:CONTAINS*]->(f:File)"
+            "-[:CONTAINS*]->(caller:Method)-[:CALLS]->(callee:Method) "
             "WHERE caller.file_path =~ $test_pattern "
             "AND NOT callee.file_path =~ $test_pattern "
             "AND ("
@@ -50,7 +52,7 @@ class TestsPhase:
             "    coalesce(caller.attributes, '[]') CONTAINS '\"test\"')"
             ") "
             "MERGE (caller)-[:TESTS]->(callee)",
-            {"test_pattern": _TEST_PATH_PATTERN},
+            {"test_pattern": _TEST_PATH_PATTERN, "repo": self._repo_path},
         )
 
         # Step 3: Log count of created TESTS edges scoped to this repo
