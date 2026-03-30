@@ -425,6 +425,15 @@ class Indexer:
                         len(semantic_map), len(assignment_position_map),
                     )
 
+        # Build import map for TypeScript import-based call fallback
+        import_map: dict[str, dict[str, str]] | None = None
+        if self._language == "typescript" and self._import_extractor is not None and parsed_cache:
+            from synapps.indexer.typescript.typescript_import_extractor import build_import_map as _build_import_map
+            file_trees = {fp: pf.tree for fp, pf in parsed_cache.items()}
+            import_map = _build_import_map(self._import_extractor, file_trees)
+            if import_map:
+                log.info("Built import map: %d files with named imports", len(import_map))
+
         # Pre-build class_lines_per_file for the resolver so it doesn't have to
         # recompute from class_symbol_map on each call.
         resolver_class_lines: dict[str, list[tuple[int, str]]] = {}
@@ -444,6 +453,7 @@ class Indexer:
             assignment_position_map=assignment_position_map,
             parsed_cache=parsed_cache,
             class_lines_per_file=resolver_class_lines,
+            import_map=import_map,
         )
         if single_file:
             resolver.resolve_single_file(single_file, symbol_map, class_symbol_map=class_symbol_map)
