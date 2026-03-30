@@ -25,7 +25,7 @@ from synapps.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtr
 from synapps.indexer.method_implements_indexer import MethodImplementsIndexer
 from synapps.indexer.overrides_indexer import OverridesIndexer
 from synapps.indexer.symbol_resolver import SymbolResolver
-from synapps.lsp.interface import IndexSymbol, LSPAdapter, SymbolKind
+from synapps.lsp.interface import IndexSymbol, LSPAdapter, LSPResolverBackend, SymbolKind
 
 if TYPE_CHECKING:
     from tree_sitter import Tree
@@ -194,16 +194,23 @@ class Indexer:
                 name_to_full_names.setdefault(sym.name, []).append(sym.full_name)
                 kind_map[sym.full_name] = sym.kind
 
+        _TYPE_KINDS = {SymbolKind.CLASS, SymbolKind.INTERFACE, SymbolKind.ABSTRACT_CLASS, SymbolKind.ENUM, SymbolKind.RECORD}
+        base_type_symbol_map: dict[tuple[str, int], str] = {}
+        for syms in symbols_by_file.values():
+            for sym in syms:
+                if sym.kind in _TYPE_KINDS:
+                    base_type_symbol_map[(sym.file_path, sym.line)] = sym.full_name
+
         if on_progress:
             on_progress("Resolving base types...")
 
         # Base type pass
         t_base = time.monotonic()
         for file_path, pf in parsed_cache.items():
-            try:
-                self._index_base_types(file_path, pf.tree, name_to_full_names, kind_map)
-            except Exception:
-                log.warning("Could not process %s for base type extraction", file_path)
+            self._index_base_types(
+                file_path, pf.tree, base_type_symbol_map, kind_map,
+                self._lsp.language_server, root_path, name_to_full_names,
+            )
         log.info("Base type resolution: %.1fs", time.monotonic() - t_base)
 
         if on_progress:
@@ -314,7 +321,17 @@ class Indexer:
             name_to_full_names.setdefault(sym.name, []).append(sym.full_name)
             kind_map[sym.full_name] = sym.kind
 
-        self._index_base_types(file_path, pf.tree, name_to_full_names, kind_map)
+        _TYPE_KINDS = {SymbolKind.CLASS, SymbolKind.INTERFACE, SymbolKind.ABSTRACT_CLASS, SymbolKind.ENUM, SymbolKind.RECORD}
+        base_type_symbol_map: dict[tuple[str, int], str] = {
+            (sym.file_path, sym.line): sym.full_name
+            for sym in symbols
+            if sym.kind in _TYPE_KINDS
+        }
+
+        self._index_base_types(
+            file_path, pf.tree, base_type_symbol_map, kind_map,
+            self._lsp.language_server, root_path, name_to_full_names,
+        )
         if cached_attr_results is not None:
             self._index_attributes_from_results(file_path, cached_attr_results, symbols)
         else:
@@ -706,40 +723,61 @@ class Indexer:
         self,
         file_path: str,
         tree: Tree,
-        name_to_full_names: dict[str, list[str]],
+        symbol_map: dict[tuple[str, int], str],
         kind_map: dict[str, SymbolKind],
+        ls: LSPResolverBackend,
+        root_path: str,
+        name_to_full_names: dict[str, list[str]],
     ) -> None:
         triples = self._base_type_extractor.extract(file_path, tree)
-        for type_simple, base_simple, is_first, _line, _col in triples:
-            type_candidates = name_to_full_names.get(type_simple, [])
-            base_candidates = name_to_full_names.get(base_simple, [])
-            for type_full in type_candidates:
-                type_kind = kind_map.get(type_full)
-                resolved_bases = _disambiguate_by_namespace(type_full, base_candidates)
-                for base_full in resolved_bases:
-                    if self._language in ("python", "java"):
-                        base_kind = kind_map.get(base_full)
-                        if type_kind == SymbolKind.INTERFACE:
-                            # Interface extends interface
+        if not triples:
+            return
+
+        rel_path = os.path.relpath(file_path, root_path)
+        try:
+            with ls.open_file(rel_path):
+                for type_simple, base_simple, is_first, line, col in triples:
+                    try:
+                        definitions = ls.request_definition(rel_path, line, col)
+                    except Exception:
+                        log.debug("LSP request_definition failed for %s:%d:%d", rel_path, line, col)
+                        continue
+                    if not definitions:
+                        log.debug("No definition for base type '%s' at %s:%d:%d", base_simple, rel_path, line, col)
+                        continue
+                    base_full: str | None = None
+                    for defn in definitions:
+                        abs_path = defn.get("absolutePath")
+                        def_line = defn.get("range", {}).get("start", {}).get("line")
+                        if abs_path is not None and def_line is not None:
+                            base_full = symbol_map.get((abs_path, def_line))
+                            if base_full is not None:
+                                break
+                    if base_full is None:
+                        log.debug("Definition for '%s' not in symbol_map (external type)", base_simple)
+                        continue
+                    for type_full in name_to_full_names.get(type_simple, []):
+                        type_kind = kind_map.get(type_full)
+                        if self._language in ("python", "java"):
+                            base_kind = kind_map.get(base_full)
+                            if type_kind == SymbolKind.INTERFACE:
+                                upsert_interface_inherits(self._conn, type_full, base_full)
+                            elif base_kind == SymbolKind.INTERFACE:
+                                upsert_implements(self._conn, type_full, base_full)
+                            else:
+                                upsert_inherits(self._conn, type_full, base_full)
+                        elif type_kind == SymbolKind.INTERFACE:
                             upsert_interface_inherits(self._conn, type_full, base_full)
-                        elif base_kind == SymbolKind.INTERFACE:
-                            # Class implements interface
+                        elif is_first:
+                            # C# rule: first base of a class is the base class (INHERITS) if it's a
+                            # class, or an interface (IMPLEMENTS) if it's an interface. Attempt both;
+                            # typed MATCH labels ensure only the semantically correct edge writes.
+                            upsert_inherits(self._conn, type_full, base_full)
                             upsert_implements(self._conn, type_full, base_full)
                         else:
-                            # Regular class inheritance
-                            upsert_inherits(self._conn, type_full, base_full)
-                    elif type_kind == SymbolKind.INTERFACE:
-                        # Interfaces only extend other interfaces
-                        upsert_interface_inherits(self._conn, type_full, base_full)
-                    elif is_first:
-                        # C# rule: first base of a class is the base class (INHERITS) if it's a
-                        # class, or an interface (IMPLEMENTS) if it's an interface. Attempt both;
-                        # typed MATCH labels ensure only the semantically correct edge writes.
-                        upsert_inherits(self._conn, type_full, base_full)
-                        upsert_implements(self._conn, type_full, base_full)
-                    else:
-                        # Non-first entries in a class base list are always interfaces
-                        upsert_implements(self._conn, type_full, base_full)
+                            upsert_implements(self._conn, type_full, base_full)
+        except Exception:
+            log.warning("LSP open_file failed for %s, skipping base type resolution", rel_path)
 
 
 def _namespace_of(full_name: str) -> str:

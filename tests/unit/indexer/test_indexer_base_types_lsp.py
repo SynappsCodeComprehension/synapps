@@ -91,20 +91,23 @@ def _location(abs_path: str, line: int, col: int = 0) -> dict:
 
 
 def _collect_edges(mock_conn) -> dict[str, list[tuple[str, str]]]:
-    """Extract edge upsert calls grouped by edge type from conn.execute calls."""
+    """Extract edge upsert calls grouped by edge type from conn.execute calls.
+
+    Uses param names from edges.py:
+    - upsert_inherits: {"child": ..., "parent": ...}  cypher has :Class INHERITS :Class
+    - upsert_implements: {"cls": ..., "iface": ...}  cypher has :Class IMPLEMENTS
+    - upsert_interface_inherits: {"child": ..., "parent": ...}  cypher has :Interface INHERITS
+    """
     edges: dict[str, list[tuple[str, str]]] = {"INHERITS": [], "IMPLEMENTS": [], "INTERFACE_INHERITS": []}
     for c in mock_conn.execute.call_args_list:
         cypher, params = c[0]
-        if "INHERITS" in cypher and "cls" in params and "base" in params:
-            edges["INHERITS"].append((params["cls"], params["base"]))
         if "IMPLEMENTS" in cypher and "cls" in params and "iface" in params:
             edges["IMPLEMENTS"].append((params["cls"], params["iface"]))
-        if "INTERFACE_INHERITS" in cypher:
-            # interface_inherits uses child/parent parameter names
-            child = params.get("child") or params.get("cls") or params.get("sub")
-            parent = params.get("parent") or params.get("base") or params.get("iface")
-            if child and parent:
-                edges["INTERFACE_INHERITS"].append((child, parent))
+        elif "INHERITS" in cypher and "child" in params and "parent" in params:
+            if "Interface" in cypher:
+                edges["INTERFACE_INHERITS"].append((params["child"], params["parent"]))
+            else:
+                edges["INHERITS"].append((params["child"], params["parent"]))
     return edges
 
 

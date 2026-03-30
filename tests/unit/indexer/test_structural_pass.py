@@ -1,7 +1,23 @@
 import pytest
+from contextlib import contextmanager
 from unittest.mock import MagicMock, call, mock_open, patch
 from synapps.indexer.indexer import Indexer
 from synapps.lsp.interface import IndexSymbol, SymbolKind, LSPAdapter
+
+
+def _make_mock_ls(abs_path: str, def_line: int):
+    """Create a mock LSPResolverBackend that returns a single definition location."""
+    ls = MagicMock()
+
+    @contextmanager
+    def _open_file(rel_path):
+        yield
+
+    ls.open_file = _open_file
+    ls.request_definition.return_value = [
+        {"absolutePath": abs_path, "range": {"start": {"line": def_line, "character": 0}, "end": {"line": def_line, "character": 1}}}
+    ]
+    return ls
 
 
 @pytest.fixture
@@ -397,9 +413,13 @@ def test_python_base_types_class_to_class_produce_inherits(mock_conn):
     kind_map = {"mymod.Dog": SymbolKind.CLASS, "mymod.Animal": SymbolKind.CLASS}
 
     mock_extractor = indexer._base_type_extractor
+    base_abs = "/proj/Animal.py"
     mock_extractor.extract.return_value = [("Dog", "Animal", True, 0, 10)]
 
-    indexer._index_base_types("/proj/mymod.py", "class Dog(Animal): pass", name_to_full_names, kind_map)
+    ls = _make_mock_ls(base_abs, def_line=5)
+    symbol_map = {(base_abs, 5): "mymod.Animal"}
+
+    indexer._index_base_types("/proj/mymod.py", None, symbol_map, kind_map, ls, "/proj", name_to_full_names)
 
     calls = [str(c) for c in mock_conn.execute.call_args_list]
     assert any("INHERITS" in c for c in calls), "Expected INHERITS edge for Python base type"
@@ -413,9 +433,13 @@ def test_python_base_type_abc_produces_implements(mock_conn):
     kind_map = {"mymod.Animal": SymbolKind.CLASS, "mymod.IAnimal": SymbolKind.INTERFACE}
 
     mock_extractor = indexer._base_type_extractor
+    base_abs = "/proj/IAnimal.py"
     mock_extractor.extract.return_value = [("Animal", "IAnimal", True, 0, 10)]
 
-    indexer._index_base_types("/proj/mymod.py", "class Animal(IAnimal): pass", name_to_full_names, kind_map)
+    ls = _make_mock_ls(base_abs, def_line=3)
+    symbol_map = {(base_abs, 3): "mymod.IAnimal"}
+
+    indexer._index_base_types("/proj/mymod.py", None, symbol_map, kind_map, ls, "/proj", name_to_full_names)
 
     calls = [str(c) for c in mock_conn.execute.call_args_list]
     assert any("IMPLEMENTS" in c for c in calls), "Expected IMPLEMENTS edge when base is :Interface"
@@ -429,9 +453,13 @@ def test_python_interface_extends_interface_produces_interface_inherits(mock_con
     kind_map = {"mymod.ISpecial": SymbolKind.INTERFACE, "mymod.IAnimal": SymbolKind.INTERFACE}
 
     mock_extractor = indexer._base_type_extractor
+    base_abs = "/proj/IAnimal.py"
     mock_extractor.extract.return_value = [("ISpecial", "IAnimal", True, 0, 10)]
 
-    indexer._index_base_types("/proj/mymod.py", "class ISpecial(IAnimal): pass", name_to_full_names, kind_map)
+    ls = _make_mock_ls(base_abs, def_line=0)
+    symbol_map = {(base_abs, 0): "mymod.IAnimal"}
+
+    indexer._index_base_types("/proj/mymod.py", None, symbol_map, kind_map, ls, "/proj", name_to_full_names)
 
     calls = [str(c) for c in mock_conn.execute.call_args_list]
     # upsert_interface_inherits uses MATCH (src:Interface ... dst:Interface ... INHERITS
