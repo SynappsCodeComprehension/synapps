@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 
 from tree_sitter import Tree
 
@@ -13,10 +15,113 @@ log = logging.getLogger(__name__)
 # (TS grammar is a superset of JS for the import/export subset we parse).
 _TSX_EXTENSIONS = frozenset({".tsx", ".jsx"})
 
+_TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+
+
+def _strip_jsonc_comments(text: str) -> str:
+    """Strip // and /* */ comments from JSONC text, preserving strings.
+
+    Also strips trailing commas before } and ] for tsconfig.json compatibility.
+    Uses a state machine to avoid stripping comment-like sequences inside strings.
+    """
+    result: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        # String literal — copy verbatim until closing quote
+        if c == '"':
+            result.append(c)
+            i += 1
+            while i < n:
+                sc = text[i]
+                result.append(sc)
+                i += 1
+                if sc == '\\' and i < n:
+                    result.append(text[i])
+                    i += 1
+                elif sc == '"':
+                    break
+        # Line comment — skip to end of line
+        elif c == '/' and i + 1 < n and text[i + 1] == '/':
+            i += 2
+            while i < n and text[i] != '\n':
+                i += 1
+        # Block comment — skip to */
+        elif c == '/' and i + 1 < n and text[i + 1] == '*':
+            i += 2
+            while i < n:
+                if text[i] == '*' and i + 1 < n and text[i + 1] == '/':
+                    i += 2
+                    break
+                i += 1
+        else:
+            result.append(c)
+            i += 1
+
+    return _TRAILING_COMMA_RE.sub(r"\1", "".join(result))
+
+
+def _load_tsconfig_paths(source_root: str) -> list[tuple[str, str]]:
+    """Load path alias mappings from tsconfig.json compilerOptions.paths.
+
+    Searches source_root and its immediate subdirectories (for monorepos
+    where tsconfig.json is in frontend/, packages/app/, etc.).
+
+    Returns a list of (prefix, replacement_dir) tuples, e.g.,
+    [("@/", "src/")] for {"@/*": ["./src/*"]}.
+    """
+    if not source_root:
+        return []
+
+    candidates: list[str] = []
+    # Check source_root itself first
+    for name in ("tsconfig.json", "tsconfig.app.json"):
+        candidates.append(os.path.join(source_root, name))
+    # Check immediate subdirectories (monorepo: frontend/, app/, etc.)
+    try:
+        for entry in os.scandir(source_root):
+            if entry.is_dir() and not entry.name.startswith("."):
+                for name in ("tsconfig.json", "tsconfig.app.json"):
+                    candidates.append(os.path.join(entry.path, name))
+    except OSError:
+        pass
+
+    for config_path in candidates:
+        if not os.path.isfile(config_path):
+            continue
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                raw = json.loads(_strip_jsonc_comments(f.read()))
+            paths = raw.get("compilerOptions", {}).get("paths", {})
+            if not paths:
+                continue
+            config_dir = os.path.relpath(os.path.dirname(config_path), source_root)
+            result: list[tuple[str, str]] = []
+            for alias_pattern, targets in paths.items():
+                if not targets or not alias_pattern.endswith("/*"):
+                    continue
+                prefix = alias_pattern[:-1]  # "@/*" → "@/"
+                target = targets[0]
+                if target.endswith("/*"):
+                    target = target[:-1]  # "./src/*" → "./src/"
+                if target.startswith("./"):
+                    target = target[2:]  # "./src/" → "src/"
+                # Prepend tsconfig directory for subdirectory configs
+                if config_dir and config_dir != ".":
+                    target = config_dir + "/" + target
+                result.append((prefix, target))
+            if result:
+                return result
+        except (json.JSONDecodeError, OSError):
+            continue
+    return []
+
 
 class TypeScriptImportExtractor:
     def __init__(self, source_root: str = "") -> None:
         self._source_root = source_root
+        self._path_aliases: list[tuple[str, str]] | None = None
 
     def extract(self, file_path: str, tree: Tree) -> list[tuple[str, str | None]]:
         """Return (module_path, imported_symbol_name_or_None) pairs.
@@ -139,10 +244,17 @@ class TypeScriptImportExtractor:
                         return node_text(sc)
         return None
 
-    def _resolve_specifier(self, specifier: str, file_path: str) -> str:
-        """Resolve ./foo or ../bar to a path relative to source_root with forward slashes.
+    def _get_path_aliases(self) -> list[tuple[str, str]]:
+        """Lazily load path aliases — must wait until _source_root is set."""
+        if self._path_aliases is None:
+            self._path_aliases = _load_tsconfig_paths(self._source_root)
+        return self._path_aliases
 
-        Package imports (no leading dot) pass through unchanged.
+    def _resolve_specifier(self, specifier: str, file_path: str) -> str:
+        """Resolve import specifiers to paths relative to source_root.
+
+        Handles: relative paths (./foo, ../bar), tsconfig path aliases (@/foo).
+        Package imports (no leading dot, no alias match) pass through unchanged.
         """
         if specifier.startswith("."):
             dir_path = os.path.dirname(file_path)
@@ -153,6 +265,11 @@ class TypeScriptImportExtractor:
                 else resolved
             )
             return rel.replace(os.sep, "/")
+        # Check tsconfig path aliases (e.g., "@/" → "src/")
+        for prefix, replacement in self._get_path_aliases():
+            if specifier.startswith(prefix):
+                remainder = specifier[len(prefix):]
+                return (replacement + remainder).replace(os.sep, "/")
         return specifier
 
     @staticmethod

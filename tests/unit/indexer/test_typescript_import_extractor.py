@@ -269,3 +269,131 @@ def test_mixed_import_styles(extractor: TypeScriptImportExtractor) -> None:
     assert ("react", "FC") in result
     assert ("animals", "Dog") in result
     assert ("barrel", None) in result
+
+
+# ---------------------------------------------------------------------------
+# Regression: tsconfig path alias resolution
+# ---------------------------------------------------------------------------
+
+
+def test_path_alias_resolved_from_tsconfig(tmp_path) -> None:
+    """@/ aliases from tsconfig.json paths should be resolved to real paths."""
+    # Create a tsconfig.json with path alias
+    tsconfig = tmp_path / "tsconfig.json"
+    tsconfig.write_text('{"compilerOptions": {"paths": {"@/*": ["./src/*"]}}}')
+
+    ext = TypeScriptImportExtractor(source_root=str(tmp_path))
+    source = "import { Navigation } from '@/features/auth/Navigation';\n"
+    file_path = str(tmp_path / "src" / "App.tsx")
+    result = ext.extract(file_path, _parse(source, file_path))
+    modules = [m for m, _ in result]
+    assert "src/features/auth/Navigation" in modules
+
+
+def test_path_alias_from_subdirectory_tsconfig(tmp_path) -> None:
+    """Monorepo: tsconfig.json in frontend/ subdirectory should be found."""
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    tsconfig = frontend / "tsconfig.json"
+    tsconfig.write_text('{"compilerOptions": {"paths": {"@/*": ["./src/*"]}}}')
+
+    ext = TypeScriptImportExtractor(source_root=str(tmp_path))
+    source = "import { Nav } from '@/components/Nav';\n"
+    file_path = str(tmp_path / "frontend" / "src" / "App.tsx")
+    result = ext.extract(file_path, _parse(source, file_path))
+    modules = [m for m, _ in result]
+    assert "frontend/src/components/Nav" in modules
+
+
+def test_path_alias_lazy_loading() -> None:
+    """Aliases load lazily — constructor with empty source_root doesn't fail."""
+    ext = TypeScriptImportExtractor(source_root="")
+    # Setting source_root after construction (mimics indexer.py:531)
+    ext._source_root = "/nonexistent"
+    # Should not raise — just returns empty aliases
+    source = "import { X } from '@/foo';\n"
+    result = ext.extract("/test.ts", _parse(source))
+    modules = [m for m, _ in result]
+    # No tsconfig.json at /nonexistent, so alias passes through unchanged
+    assert "@/foo" in modules
+
+
+# ---------------------------------------------------------------------------
+# JSONC (comments + trailing commas) in tsconfig.json
+# ---------------------------------------------------------------------------
+
+
+def test_path_alias_with_block_comments(tmp_path) -> None:
+    """tsconfig.json with /* */ block comments should parse correctly."""
+    tsconfig = tmp_path / "tsconfig.json"
+    tsconfig.write_text(
+        '{\n'
+        '  "compilerOptions": {\n'
+        '    /* Bundler mode */\n'
+        '    "moduleResolution": "bundler",\n'
+        '    "paths": {"@/*": ["./src/*"]}\n'
+        '  }\n'
+        '}'
+    )
+    ext = TypeScriptImportExtractor(source_root=str(tmp_path))
+    source = "import { Nav } from '@/components/Nav';\n"
+    file_path = str(tmp_path / "src" / "App.tsx")
+    result = ext.extract(file_path, _parse(source, file_path))
+    modules = [m for m, _ in result]
+    assert "src/components/Nav" in modules
+
+
+def test_path_alias_with_line_comments(tmp_path) -> None:
+    """tsconfig.json with // line comments should parse correctly."""
+    tsconfig = tmp_path / "tsconfig.json"
+    tsconfig.write_text(
+        '{\n'
+        '  "compilerOptions": {\n'
+        '    // Path aliases\n'
+        '    "paths": {"@/*": ["./src/*"]}\n'
+        '  }\n'
+        '}'
+    )
+    ext = TypeScriptImportExtractor(source_root=str(tmp_path))
+    source = "import { Nav } from '@/components/Nav';\n"
+    file_path = str(tmp_path / "src" / "App.tsx")
+    result = ext.extract(file_path, _parse(source, file_path))
+    modules = [m for m, _ in result]
+    assert "src/components/Nav" in modules
+
+
+def test_path_alias_with_trailing_commas(tmp_path) -> None:
+    """tsconfig.json with trailing commas should parse correctly."""
+    tsconfig = tmp_path / "tsconfig.json"
+    tsconfig.write_text(
+        '{\n'
+        '  "compilerOptions": {\n'
+        '    "paths": {"@/*": ["./src/*"]},\n'
+        '  },\n'
+        '}'
+    )
+    ext = TypeScriptImportExtractor(source_root=str(tmp_path))
+    source = "import { Nav } from '@/components/Nav';\n"
+    file_path = str(tmp_path / "src" / "App.tsx")
+    result = ext.extract(file_path, _parse(source, file_path))
+    modules = [m for m, _ in result]
+    assert "src/components/Nav" in modules
+
+
+def test_jsonc_comments_inside_strings_preserved(tmp_path) -> None:
+    """Comments inside JSON string values must not be stripped."""
+    tsconfig = tmp_path / "tsconfig.json"
+    tsconfig.write_text(
+        '{\n'
+        '  "compilerOptions": {\n'
+        '    "paths": {"@/*": ["./src/*"]},\n'
+        '    "baseUrl": ".//weird"\n'
+        '  }\n'
+        '}'
+    )
+    ext = TypeScriptImportExtractor(source_root=str(tmp_path))
+    source = "import { Nav } from '@/components/Nav';\n"
+    file_path = str(tmp_path / "src" / "App.tsx")
+    result = ext.extract(file_path, _parse(source, file_path))
+    modules = [m for m, _ in result]
+    assert "src/components/Nav" in modules
