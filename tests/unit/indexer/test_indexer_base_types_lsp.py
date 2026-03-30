@@ -125,7 +125,7 @@ class TestLspHitCreatesInherits:
         tree = _parse(source)
 
         abs_path = "/proj/Animal.cs"
-        symbol_map = {(abs_path, 0): "Animals.Animal"}
+        symbol_map = {(abs_path, 0): "Animals.Animal", ("/proj/Dog.cs", 0): "Animals.Dog"}
         kind_map = {
             "Animals.Dog": SymbolKind.CLASS,
             "Animals.Animal": SymbolKind.CLASS,
@@ -149,7 +149,7 @@ class TestLspHitCreatesImplements:
         tree = _parse(source)
 
         abs_path = "/proj/ICache.cs"
-        symbol_map = {(abs_path, 0): "Services.ICache"}
+        symbol_map = {(abs_path, 0): "Services.ICache", ("/proj/Cache.cs", 0): "Services.Cache"}
         kind_map = {
             "Services.Cache": SymbolKind.CLASS,
             "Services.ICache": SymbolKind.INTERFACE,
@@ -173,7 +173,7 @@ class TestLspHitCreatesInterfaceInherits:
         tree = _parse(source)
 
         abs_path = "/proj/IBase.cs"
-        symbol_map = {(abs_path, 0): "NS.IBase"}
+        symbol_map = {(abs_path, 0): "NS.IBase", ("/proj/IExtended.cs", 0): "NS.IExtended"}
         kind_map = {
             "NS.IExtended": SymbolKind.INTERFACE,
             "NS.IBase": SymbolKind.INTERFACE,
@@ -197,7 +197,7 @@ class TestLspCsharpFirstBaseDualWrite:
         tree = _parse(source)
 
         abs_path = "/proj/Animal.cs"
-        symbol_map = {(abs_path, 0): "NS.Animal"}
+        symbol_map = {(abs_path, 0): "NS.Animal", ("/proj/Dog.cs", 0): "NS.Dog"}
         kind_map = {
             "NS.Dog": SymbolKind.CLASS,
             "NS.Animal": SymbolKind.CLASS,
@@ -324,6 +324,7 @@ class TestMultipleBaseTypes:
             (base_abs, 5): "mymod.Base",
             (ifoo_abs, 3): "mymod.IFoo",
             (ibar_abs, 7): "mymod.IBar",
+            ("/proj/MyClass.py", 0): "mymod.MyClass",
         }
         kind_map = {
             "mymod.MyClass": SymbolKind.CLASS,
@@ -365,22 +366,27 @@ class TestMultipleBaseTypes:
         assert ("mymod.MyClass", "mymod.IBar") in edges["IMPLEMENTS"]
 
 
-class TestDeclaringTypeResolvedViaNameToFullNames:
-    """type_simple is looked up in name_to_full_names (the declaring type)."""
+class TestDeclaringTypeResolvedViaFileScope:
+    """type_simple is resolved from file-scoped symbol_map entries only."""
 
-    def test_declaring_type_resolved_via_name_to_full_names(self):
+    def test_declaring_type_resolved_from_same_file(self):
         indexer, mock_conn = _make_indexer()
 
         source = "class Dog : Animal {}"
         tree = _parse(source)
 
         abs_path = "/proj/Animal.cs"
-        symbol_map = {(abs_path, 0): "NS.Animal"}
+        # Both Dog types are in the same file — both should get edges
+        symbol_map = {
+            (abs_path, 0): "NS.Animal",
+            ("/proj/Dog.cs", 0): "NS.Dog",
+            ("/proj/Dog.cs", 10): "NS2.Dog",
+        }
         kind_map = {
             "NS.Dog": SymbolKind.CLASS,
+            "NS2.Dog": SymbolKind.CLASS,
             "NS.Animal": SymbolKind.CLASS,
         }
-        # Two possible full names for "Dog" — both should get edges
         name_to_full_names = {"Dog": ["NS.Dog", "NS2.Dog"]}
         ls = _mock_ls(definitions=[_location(abs_path, 0)])
 
@@ -389,3 +395,32 @@ class TestDeclaringTypeResolvedViaNameToFullNames:
         edges = _collect_edges(mock_conn)
         assert ("NS.Dog", "NS.Animal") in edges["INHERITS"]
         assert ("NS2.Dog", "NS.Animal") in edges["INHERITS"]
+
+    def test_declaring_type_in_different_file_not_matched(self):
+        """A type with the same simple name in a different file must NOT get edges."""
+        indexer, mock_conn = _make_indexer()
+
+        source = "class Dog : Animal {}"
+        tree = _parse(source)
+
+        abs_path = "/proj/Animal.cs"
+        # NS.Dog is in Dog.cs, NS2.Dog is in a DIFFERENT file
+        symbol_map = {
+            (abs_path, 0): "NS.Animal",
+            ("/proj/Dog.cs", 0): "NS.Dog",
+            ("/proj/other/Dog.cs", 0): "NS2.Dog",
+        }
+        kind_map = {
+            "NS.Dog": SymbolKind.CLASS,
+            "NS2.Dog": SymbolKind.CLASS,
+            "NS.Animal": SymbolKind.CLASS,
+        }
+        name_to_full_names = {"Dog": ["NS.Dog", "NS2.Dog"]}
+        ls = _mock_ls(definitions=[_location(abs_path, 0)])
+
+        indexer._index_base_types("/proj/Dog.cs", tree, symbol_map, kind_map, ls, "/proj", name_to_full_names)
+
+        edges = _collect_edges(mock_conn)
+        assert ("NS.Dog", "NS.Animal") in edges["INHERITS"]
+        # NS2.Dog is in a different file — must NOT get an edge
+        assert ("NS2.Dog", "NS.Animal") not in edges["INHERITS"]

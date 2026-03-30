@@ -733,6 +733,15 @@ class Indexer:
         if not triples:
             return
 
+        # Build file-scoped lookup: simple_name -> [full_name] for types in THIS file only.
+        # Using the global name_to_full_names would match identically-named types across
+        # namespaces (e.g. 3 "Cache" classes in different projects).
+        file_type_names: dict[str, list[str]] = {}
+        for (sm_path, _), full_name in symbol_map.items():
+            if sm_path == file_path:
+                simple = full_name.rsplit(".", 1)[-1]
+                file_type_names.setdefault(simple, []).append(full_name)
+
         rel_path = os.path.relpath(file_path, root_path)
         try:
             with ls.open_file(rel_path):
@@ -756,7 +765,7 @@ class Indexer:
                     if base_full is None:
                         log.debug("Definition for '%s' not in symbol_map (external type)", base_simple)
                         continue
-                    for type_full in name_to_full_names.get(type_simple, []):
+                    for type_full in file_type_names.get(type_simple, []):
                         type_kind = kind_map.get(type_full)
                         if self._language in ("python", "java"):
                             base_kind = kind_map.get(base_full)
