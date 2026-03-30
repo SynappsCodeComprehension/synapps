@@ -55,7 +55,7 @@ COPILOT_GATE_SH = """\
 source "$(dirname "$0")/common.sh"
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | grep -o '"toolName":"[^"]*"' | cut -d'"' -f4)
+TOOL_NAME=$(echo "$INPUT" | grep -o '"toolName": *"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"')
 
 if is_synapps_project && echo "$TOOL_NAME" | grep -qiE "grep|glob|find|search|read_file"; then
   emit_reminder
