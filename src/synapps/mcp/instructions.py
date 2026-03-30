@@ -23,6 +23,11 @@ type references, include_test_breakdown=True for prod/test split
 - Find all classes implementing an interface: find_implementations
 - Understand class inheritance: get_hierarchy
 - Find constructor/field dependencies: find_dependencies
+- Architecture overview of a project: get_architecture (packages, hotspots, HTTP map, stats in one call)
+- [Experimental] Find dead code (methods with zero callers): find_dead_code (excludes tests, HTTP handlers, \
+interface implementations, dispatch targets, constructors, overrides)
+- [Experimental] Find which tests cover a method: find_tests_for (direct TESTS edge lookup)
+- [Experimental] Find production methods with no test coverage: find_untested (same exclusions as find_dead_code)
 - Annotate symbols with non-derivable context (design rationale, constraints, ownership, \
 deprecation plans): summary with action='set'/'get'/'list'. Do NOT store structural descriptions \
 — use get_context_for, find_dependencies, etc. for that

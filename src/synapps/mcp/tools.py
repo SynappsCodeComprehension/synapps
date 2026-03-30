@@ -79,6 +79,7 @@ _GRAPH_SCHEMA = {
         "REFERENCES": "any → Class/Interface (field type, param type, return type)",
         "OVERRIDES": "Method → Method (child class method overrides parent class method by name)",
         "IMPORTS": "File → Package/any (import dependency)",
+        "TESTS": "Method → Method (test method directly covers a production method; derived from CALLS where caller is a test function)",
         "SERVES": "Method → Endpoint (controller method handles this HTTP endpoint)",
         "HTTP_CALLS": "Method → Endpoint (frontend method makes HTTP request to this endpoint)",
     },
@@ -455,10 +456,17 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         path: str,
         exclude_pattern: str = "",
     ) -> dict:
-        """Find methods with zero inbound callers (dead code candidates) in an indexed project.
+        """[Experimental] Find methods with zero inbound callers (dead code candidates) in an indexed project.
 
         Excludes test methods, HTTP handlers, interface implementations,
-        interface dispatch targets, constructor methods, and overriding methods.
+        interface dispatch targets, interface/protocol definition methods,
+        constructor methods, overriding methods, EF Core migration methods,
+        and decorator-registered entry points (@command, @tool, @callback).
+
+        Known false positive patterns (use exclude_pattern to filter):
+        - Methods called via closures/callbacks passed as arguments
+        - Methods invoked through dict-based dispatch
+        - Some self.method() calls where LSP resolution is incomplete
 
         path: project root path (must be indexed)
         exclude_pattern: optional regex applied to full_name to filter additional methods
@@ -475,7 +483,7 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         path: str,
         method_full_name: str,
     ) -> list[dict]:
-        """Find test methods that directly cover a production method via TESTS edges.
+        """[Experimental] Find test methods that directly cover a production method via TESTS edges.
 
         Returns test methods that have a direct TESTS relationship to the target method.
         TESTS edges are derived from CALLS edges where the caller is a test method
@@ -493,10 +501,17 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         path: str,
         exclude_pattern: str = "",
     ) -> dict:
-        """Find production methods with no inbound TESTS edges (not directly covered by any test).
+        """[Experimental] Find production methods with no inbound TESTS edges (not directly covered by any test).
 
         Excludes test methods, HTTP handlers, interface implementations,
-        interface dispatch targets, constructor methods, and overriding methods.
+        interface dispatch targets, interface/protocol definition methods,
+        constructor methods, overriding methods, EF Core migration methods,
+        and decorator-registered entry points (@command, @tool, @callback).
+
+        Known false positive patterns (use exclude_pattern to filter):
+        - Methods tested only through string-based dispatch (MCP call_tool, mocks)
+        - Private methods tested indirectly through public API (transitive coverage)
+        - Some self.method() calls where LSP resolution is incomplete
 
         path: project root path (must be indexed)
         exclude_pattern: optional regex applied to full_name to filter additional methods

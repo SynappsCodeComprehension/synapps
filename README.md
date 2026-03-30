@@ -24,7 +24,10 @@ Synapps gives your agent a compiler-grade understanding of how code connects, wi
 | Read 5+ files to understand a method before editing | `get_context_for("X", scope="edit")` — source, callers, dependencies, and test coverage in one call |
 | Hope you found every caller before refactoring | `get_context_for("X", scope="impact")` — structured impact report with test coverage |
 | Manually trace from a method to its API endpoint | `find_entry_points("X")` — automatic root-caller discovery |
-| Guess which tests cover a method | Impact analysis separates prod callers from test callers automatically |
+| Guess which tests cover a method | `find_tests_for` — direct test→method lookup via TESTS edges *(experimental)* |
+| Check test coverage gaps across the codebase | `find_untested` — production methods with no test coverage *(experimental)* |
+| Skim dozens of files to understand a new codebase | `get_architecture` — packages, hotspot methods, HTTP service map, and stats in one call |
+| Manually audit for unused methods | `find_dead_code` — methods with zero callers, false positives filtered out *(experimental)* |
 
 ## Quick Start
 
@@ -248,6 +251,15 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 | `get_context_for` | `full_name`, `scope?`, `max_lines?` | Context for understanding/editing/impact analysis. Scopes: `structure`, `method`, `edit`, `impact` |
 | `find_dependencies` | `full_name`, `depth?`, `limit?` | Field-type dependencies with optional transitive traversal |
 
+### Code Intelligence
+
+| Tool | Parameters | Description |
+|---|---|---|
+| `get_architecture` | `path`, `limit?` | Single-call architecture overview: packages, hotspot methods (by inbound caller count), HTTP service map, and summary statistics |
+| `find_dead_code` | `path`, `exclude_pattern?` | *(Experimental)* Find methods with zero inbound callers. Excludes test methods, HTTP handlers, interface implementations, dispatch targets, constructors, and overrides by default |
+| `find_tests_for` | `path`, `method_full_name` | *(Experimental)* Find test methods that directly cover a production method via TESTS edges. Short names supported via resolution |
+| `find_untested` | `path`, `exclude_pattern?` | *(Experimental)* Find production methods with no test coverage (no inbound TESTS edges). Same exclusion logic as `find_dead_code` |
+
 ### HTTP Endpoints
 
 | Tool | Parameters | Description |
@@ -264,9 +276,9 @@ Attach non-derivable context to symbols — design rationale, constraints, owner
 
 | Tool | Parameters | Description |
 |---|---|---|
-| `find_dead_code` | `path`, `limit?` | Methods with zero callers (excludes tests, HTTP handlers, interface impls, constructors, overrides) |
-| `find_tests_for` | `method_full_name` | Find which tests cover a method via TESTS edges |
-| `find_untested` | `path`, `limit?` | Production methods with no test coverage |
+| `find_dead_code` | `path`, `limit?` | *(Experimental)* Methods with zero callers (excludes tests, HTTP handlers, interface impls, constructors, overrides) |
+| `find_tests_for` | `method_full_name` | *(Experimental)* Find which tests cover a method via TESTS edges |
+| `find_untested` | `path`, `limit?` | *(Experimental)* Production methods with no test coverage |
 
 ### Summaries
 
@@ -357,6 +369,7 @@ A `:Summarized` label is added to any node with an attached summary.
 | `DISPATCHES_TO` | Interface method→concrete implementation (inverse of method-level IMPLEMENTS) |
 | `INHERITS` | Class inherits from class, or interface extends interface |
 | `REFERENCES` | Symbol references a type (field, parameter, return type) |
+| `TESTS` | Test method directly covers a production method (derived from CALLS where caller is a test function) |
 | `SERVES` | Method handles an HTTP endpoint |
 | `HTTP_CALLS` | Method makes an HTTP request to an endpoint (with `call_sites`) |
 
@@ -438,6 +451,9 @@ Use Synapps MCP tools for code navigation instead of grep or file reads.
 - Implementations: `find_implementations` | Inheritance: `get_hierarchy`
 - Dependencies: `find_dependencies` (use `depth` for transitive)
 - Impact analysis: `get_context_for` with `scope="impact"`
+- Architecture overview: `get_architecture` (packages, hotspots, HTTP map, stats in one call)
+- Dead code *(experimental)*: `find_dead_code` (methods with zero callers, use `exclude_pattern` for additional filtering)
+- Test coverage *(experimental)*: `find_tests_for` (which tests cover a method) and `find_untested` (methods with no test coverage)
 - HTTP endpoints: `find_http_endpoints` (use `trace=True` for full dependency picture)
 - Annotations: `summary` (set/get/list) for non-derivable context
 - Raw Cypher: `get_schema` then `execute_query` (last resort)
