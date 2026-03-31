@@ -30,12 +30,21 @@ class MCPClient:
 
 
 def detect_mcp_clients(project_path: str) -> list[MCPClient]:
-    """Return MCP clients whose application directory exists on this machine."""
+    """Return MCP clients whose application directory exists on this machine.
+
+    For project-scoped clients (Cursor, VS Code, Claude Code) we only require the
+    project root to exist — the config subdirectory (e.g. ``.cursor/``) will be
+    created on write.  For global clients (Claude Desktop) we check the app's
+    config directory to confirm the application is installed.
+    """
     clients: list[MCPClient] = []
     for display_name, lib_key, servers_key, needs_path in _CLIENT_DEFS:
         kwargs: dict[str, str] = {"path": project_path} if needs_path else {}
         config_path = Path(get_config_path(lib_key, **kwargs))
-        if config_path.parent.exists():
+        # Project-scoped: project root must exist (always true during init).
+        # Global: application config directory must exist.
+        check_dir = Path(project_path) if needs_path else config_path.parent
+        if check_dir.exists():
             clients.append(MCPClient(
                 name=display_name,
                 config_path=config_path,

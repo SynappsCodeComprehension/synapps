@@ -16,13 +16,13 @@ class TestDetectMCPClients:
         names = [c.name for c in clients]
         assert "Claude Code" in names
 
-    def test_detect_clients_skips_uninstalled(self, tmp_path: Path) -> None:
+    def test_detect_clients_skips_global_when_app_not_installed(self, tmp_path: Path) -> None:
+        """Global clients (Claude Desktop) are skipped when their app config dir doesn't exist."""
         nonexistent = tmp_path / "nonexistent_app_dir" / "config.json"
 
         def fake_get_config_path(key: str, **kwargs: object) -> str:
-            if key == "cursor":
+            if key == "claude_desktop":
                 return str(nonexistent)
-            # For all others, return a path whose parent exists
             return str(tmp_path / f"{key}_config.json")
 
         with patch(
@@ -34,12 +34,12 @@ class TestDetectMCPClients:
             clients = detect_mcp_clients(str(tmp_path))
             names = [c.name for c in clients]
 
-        assert "Cursor" not in names
+        assert "Claude Desktop" not in names
 
-    def test_detect_clients_includes_installed(self, tmp_path: Path) -> None:
-        cursor_dir = tmp_path / ".cursor"
-        cursor_dir.mkdir()
-        cursor_config = cursor_dir / "mcp.json"
+    def test_detect_clients_includes_cursor_without_dot_cursor_dir(self, tmp_path: Path) -> None:
+        """Cursor is project-scoped — offered even if .cursor/ doesn't exist yet."""
+        cursor_config = tmp_path / ".cursor" / "mcp.json"
+        assert not cursor_config.parent.exists()
 
         def fake_get_config_path(key: str, **kwargs: object) -> str:
             if key == "cursor":
