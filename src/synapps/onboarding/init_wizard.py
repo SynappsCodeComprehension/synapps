@@ -167,7 +167,16 @@ def _offer_mcp_config(console, project_path: str) -> list[str]:
     return configured
 
 
-def _print_summary(console, languages: list[str], report, mcp_clients: list[str], project_path: str, hook_agents: list[str] | None = None) -> None:
+def _offer_agent_instructions(console, project_path: str) -> list[str]:
+    """Offer to install agent instruction files and return list of written paths."""
+    from synapps.onboarding.agent_instructions import install_agent_instructions
+
+    if not typer.confirm("Install agent instruction files (CLAUDE.md, AGENTS.md, etc.)?", default=True):
+        return []
+    return install_agent_instructions(Path(project_path))
+
+
+def _print_summary(console, languages: list[str], report, mcp_clients: list[str], project_path: str, hook_agents: list[str] | None = None, agent_files: list[str] | None = None) -> None:
     """Print a Rich table summarizing all wizard actions."""
     from rich.table import Table
 
@@ -202,6 +211,9 @@ def _print_summary(console, languages: list[str], report, mcp_clients: list[str]
 
     if hook_agents:
         table.add_row("Agent hooks installed", ", ".join(hook_agents))
+
+    if agent_files:
+        table.add_row("Agent instructions", ", ".join(agent_files))
 
     console.print(table)
 
@@ -294,5 +306,9 @@ def run_init(project_path: str, verbose: bool = False) -> None:
     console.print("\n[bold]Agent hook configuration:[/bold]")
     hook_agents = _offer_hooks(console, project_path)
 
+    # Step 5c: Offer agent instruction files
+    console.print("\n[bold]Agent instruction files:[/bold]")
+    agent_files = _offer_agent_instructions(console, project_path)
+
     # Step 6: Summary
-    _print_summary(console, confirmed_languages, report, configured_clients, project_path, hook_agents)
+    _print_summary(console, confirmed_languages, report, configured_clients, project_path, hook_agents, agent_files)
