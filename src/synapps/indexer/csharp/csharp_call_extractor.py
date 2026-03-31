@@ -13,12 +13,15 @@ _CALLS_QUERY = """
     function: [
         (identifier) @name
         (member_access_expression name: (identifier) @name)
+        (generic_name (identifier) @name)
+        (member_access_expression name: (generic_name (identifier) @name))
     ]
 )
 (object_creation_expression
     type: [
         (identifier) @name
         (qualified_name name: (identifier) @name)
+        (generic_name (identifier) @name)
     ]
 )
 """

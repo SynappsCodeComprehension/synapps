@@ -50,4 +50,11 @@ public class TaskController : BaseController
     {
         return _taskService.CompleteTaskAsync(id);
     }
+
+    [HttpGet("{id}/convert")]
+    public object Convert(Guid id)
+    {
+        var task = new TaskItem { Id = id };
+        return _taskService.ConvertTask<object>(task);
+    }
 }

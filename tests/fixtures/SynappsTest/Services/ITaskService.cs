@@ -10,4 +10,5 @@ public interface ITaskService
     Task<TaskItem> UpdateTaskAsync(Guid id, string title);
     Task DeleteTaskAsync(Guid id);
     Task<TaskItem> CompleteTaskAsync(Guid id);
+    T ConvertTask<T>(TaskItem task) where T : class;
 }

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-03-31
+
+### Fixed
+- **C# generic method call extraction** — generic invocations like `_service.Method<T>()` and `new List<string>()` now correctly produce CALLS edges; previously the `generic_name` AST node in `invocation_expression` and `object_creation_expression` was not matched by the tree-sitter query, silently dropping all generic method calls from the graph
+
 ## [1.4.1] - 2026-03-30
 
 ### Fixed

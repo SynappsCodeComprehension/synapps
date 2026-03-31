@@ -445,6 +445,41 @@ def test_cross_file_calls_edge_exists(
 
 
 # ---------------------------------------------------------------------------
+# Generic method call CALLS edge verification
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_generic_method_call_creates_calls_edge(service: SynappsService) -> None:
+    """Generic invocations like _service.Method<T>() must produce CALLS edges."""
+    rows = service._conn.query(
+        "MATCH (src:Method {full_name: $caller})-[r:CALLS]->(dst:Method) "
+        "WHERE dst.full_name CONTAINS 'ConvertTask' "
+        "RETURN dst.full_name",
+        {"caller": "SynappsTest.Controllers.TaskController.Convert"},
+    )
+    assert rows, (
+        "Expected CALLS edge from TaskController.Convert to a ConvertTask method "
+        "(generic call _taskService.ConvertTask<object>(task)), but none found."
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_generic_method_call_via_find_callees(mcp_server: FastMCP) -> None:
+    """find_callees must return the target of a generic method invocation."""
+    result = run(mcp_server.call_tool("find_callees", {
+        "method_full_name": "SynappsTest.Controllers.TaskController.Convert"
+    }))
+    callees = result_json(result)
+    callee_names = [c.get("name", "") for c in (callees or [])]
+    assert any("ConvertTask" in n for n in callee_names), (
+        f"TaskController.Convert calls _taskService.ConvertTask<object>() "
+        f"but find_callees returned: {callee_names}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # DISPATCHES_TO edge verification
 # ---------------------------------------------------------------------------
 

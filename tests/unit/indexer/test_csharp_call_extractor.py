@@ -91,6 +91,44 @@ namespace MyNs {
     assert len(positions) == len(set(positions)), "Duplicate (line, col) entries found"
 
 
+def test_extracts_generic_method_call(extractor):
+    """Generic invocations like Method<T>() and _svc.Method<T>() must be captured."""
+    source = """\
+namespace MyNs {
+    class MyClass {
+        public void Run() {
+            Parse<string>();
+            _service.Execute<int>();
+            _service.Map<int, string>();
+        }
+    }
+}
+"""
+    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Run"}
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
+    callee_names = [callee for _, callee, *_ in results]
+    assert "Parse" in callee_names, "bare generic call not captured"
+    assert "Execute" in callee_names, "member-access generic call not captured"
+    assert "Map" in callee_names, "multi-type-arg generic call not captured"
+
+
+def test_extracts_generic_object_creation(extractor):
+    """new List<string>() must be captured via generic_name in object_creation_expression."""
+    source = """\
+namespace MyNs {
+    class MyClass {
+        public void Run() {
+            var x = new List<string>();
+        }
+    }
+}
+"""
+    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Run"}
+    results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
+    callee_names = [callee for _, callee, *_ in results]
+    assert "List" in callee_names, "generic object creation not captured"
+
+
 def test_skips_calls_with_no_enclosing_method(extractor):
     """Call sites that have no enclosing method in symbol_map must be silently dropped."""
     source = """\

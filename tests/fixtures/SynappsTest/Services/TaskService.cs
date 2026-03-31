@@ -42,4 +42,9 @@ public class TaskService : ITaskService
     {
         return Task.FromResult(new TaskItem { Id = id, IsComplete = true });
     }
+
+    public T ConvertTask<T>(TaskItem task) where T : class
+    {
+        return (task as T)!;
+    }
 }
