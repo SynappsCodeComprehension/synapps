@@ -22,8 +22,9 @@ from tests.integration.conftest import run, text, result_json, PYTHON_FIXTURE_PA
 def test_list_projects(python_mcp: FastMCP) -> None:
     """list_projects returns at least one project with language 'python'."""
     result = run(python_mcp.call_tool("list_projects", {}))
-    projects = result_json(result)
-    assert isinstance(projects, list)
+    data = result_json(result)
+    assert "synapps_mcp_version" in data
+    projects = data["projects"]
     assert len(projects) >= 1
     all_languages = [lang for p in projects for lang in p.get("languages", [])]
     assert "python" in all_languages, f"Expected 'python' in project languages, got: {all_languages}"
@@ -36,6 +37,7 @@ def test_get_index_status(python_mcp: FastMCP) -> None:
     result = run(python_mcp.call_tool("list_projects", {"path": PYTHON_FIXTURE_PATH}))
     status = result_json(result)
     assert status is not None
+    assert "synapps_mcp_version" in status
     assert status["file_count"] > 0
     assert status["symbol_count"] > 0
 

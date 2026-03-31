@@ -175,10 +175,15 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         path: if provided, returns detailed index status for that specific project
         (file count, symbol count, per-label breakdown) instead of the project list.
         """
+        from synapps import __version__
         if path:
             _auto_sync_check()
-            return service.get_index_status(path)
-        return service.list_projects()
+            result = service.get_index_status(path)
+            if result is not None:
+                result["synapps_mcp_version"] = __version__
+            return result
+        projects = service.list_projects()
+        return {"synapps_mcp_version": __version__, "projects": projects}
 
     @mcp.tool()
     def sync_project(path: str) -> str:

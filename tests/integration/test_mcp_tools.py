@@ -99,7 +99,9 @@ def test_find_type_impact_counts_test_refs(mcp_server: FastMCP) -> None:
 @pytest.mark.timeout(10)
 def test_list_projects(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("list_projects", {}))
-    projects = result_json(result)
+    data = result_json(result)
+    assert "synapps_mcp_version" in data
+    projects = data["projects"]
     paths = [p["path"] for p in projects]
     assert FIXTURE_PATH in paths
 
@@ -109,6 +111,7 @@ def test_list_projects(mcp_server: FastMCP) -> None:
 def test_get_index_status(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("list_projects", {"path": FIXTURE_PATH}))
     status = result_json(result)
+    assert "synapps_mcp_version" in status
     assert status["file_count"] > 0
     assert status["symbol_count"] > 0
 

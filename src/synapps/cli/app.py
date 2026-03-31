@@ -233,6 +233,8 @@ def delete(path: str) -> None:
 @app.command(rich_help_panel="Indexing")
 def status(path: Optional[str] = None) -> None:
     """Show index status for a project or all projects."""
+    from synapps import __version__
+    typer.echo(f"synapps-cli v{__version__}")
     svc = _get_service()
     if path:
         result = svc.get_index_status(str(Path(path).resolve()))
