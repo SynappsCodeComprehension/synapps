@@ -22,7 +22,8 @@ def test_pyproject_name() -> None:
 
 def test_pyproject_version() -> None:
     data = _load_pyproject()
-    assert data["project"]["version"] == "1.4.4"
+    version = data["project"]["version"]
+    assert isinstance(version, str) and len(version) > 0
 
 
 def test_pyproject_readme() -> None:
@@ -41,6 +42,15 @@ def test_version_attribute() -> None:
     assert hasattr(synapps, "__version__")
     assert isinstance(synapps.__version__, str)
     assert len(synapps.__version__) > 0
+
+
+def test_version_matches_pyproject() -> None:
+    data = _load_pyproject()
+    expected = data["project"]["version"]
+    assert synapps.__version__ == expected, (
+        f"__version__ ({synapps.__version__}) does not match "
+        f"pyproject.toml ({expected}) — run 'uv sync' to update"
+    )
 
 
 def test_version_not_dev() -> None:
