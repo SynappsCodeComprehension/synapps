@@ -536,3 +536,170 @@ public class DataService {
     assert len(result.client_calls) == 1
     assert result.client_calls[0].http_method == "GET"
     assert result.client_calls[0].route == "/api/data/export"
+
+
+# ---------------------------------------------------------------------------
+# FastEndpoints detection tests
+# ---------------------------------------------------------------------------
+
+
+def test_fastendpoints_generic_base() -> None:
+    """class Foo : Endpoint<Req, Res> with Configure() Post produces one endpoint."""
+    source = '''\
+public class TodoEndpoint : Endpoint<TodoRequest, TodoResponse> {
+    public override void Configure() {
+        Post("/api/todos");
+        AllowAnonymous();
+    }
+    public override async Task HandleAsync(TodoRequest req, CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "TodoEndpoint.HandleAsync", 6)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.endpoint_defs) == 1
+    ep = result.endpoint_defs[0]
+    assert ep.route == "/api/todos"
+    assert ep.http_method == "POST"
+    assert ep.handler_full_name == "TodoEndpoint.HandleAsync"
+
+
+def test_fastendpoints_plain_base() -> None:
+    """class Foo : EndpointWithoutRequest with Configure() Get produces one endpoint."""
+    source = '''\
+public class HealthEndpoint : EndpointWithoutRequest {
+    public override void Configure() {
+        Get("/api/health");
+    }
+    public override async Task HandleAsync(CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "HealthEndpoint.HandleAsync", 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.endpoint_defs) == 1
+    ep = result.endpoint_defs[0]
+    assert ep.route == "/api/health"
+    assert ep.http_method == "GET"
+
+
+def test_fastendpoints_mapper_base() -> None:
+    """class Foo : EndpointWithMapper<Req, Mapper> with Configure() Put produces one endpoint."""
+    source = '''\
+public class ItemEndpoint : EndpointWithMapper<ItemRequest, ItemMapper> {
+    public override void Configure() {
+        Put("/api/items");
+    }
+    public override async Task HandleAsync(ItemRequest req, CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "ItemEndpoint.HandleAsync", 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.endpoint_defs) == 1
+    ep = result.endpoint_defs[0]
+    assert ep.route == "/api/items"
+    assert ep.http_method == "PUT"
+
+
+def test_fastendpoints_handler_is_handle_async() -> None:
+    """handler_full_name must be the HandleAsync full_name (with namespace), not the class."""
+    source = '''\
+namespace MyNs {
+    public class TodoEndpoint : Endpoint<TodoRequest, TodoResponse> {
+        public override void Configure() {
+            Post("/api/todos");
+        }
+        public override async Task HandleAsync(TodoRequest req, CancellationToken ct) { }
+    }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "MyNs.TodoEndpoint.HandleAsync", 6)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.endpoint_defs) == 1
+    assert result.endpoint_defs[0].handler_full_name == "MyNs.TodoEndpoint.HandleAsync"
+
+
+def test_fastendpoints_mutual_exclusion_route_attr() -> None:
+    """Class with [Route] attribute AND Endpoint<T> base must produce exactly 1 endpoint (FastEndpoints wins)."""
+    source = '''\
+[Route("/api/swagger")]
+public class TodoEndpoint : Endpoint<TodoRequest, TodoResponse> {
+    public override void Configure() {
+        Post("/api/todos");
+    }
+    public override async Task HandleAsync(TodoRequest req, CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "TodoEndpoint.HandleAsync", 6)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    # Exactly 1 endpoint — FastEndpoints path wins, no duplicate from controller path
+    assert len(result.endpoint_defs) == 1
+    # Route comes from Configure(), not from [Route]
+    assert result.endpoint_defs[0].route == "/api/todos"
+
+
+def test_non_fastendpoints_post_not_detected() -> None:
+    """A plain class with a Post() method but no FastEndpoints base produces zero endpoints."""
+    source = '''\
+public class NotAnEndpoint {
+    public void Post() { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    result = extractor.extract("test.cs", _parse(source), [])
+    assert len(result.endpoint_defs) == 0
+
+
+def test_fastendpoints_configure_delete() -> None:
+    """Configure() with Delete produces verb=DELETE."""
+    source = '''\
+public class ItemDeleteEndpoint : Endpoint<DeleteRequest, DeleteResponse> {
+    public override void Configure() {
+        Delete("/api/items/{id}");
+    }
+    public override async Task HandleAsync(DeleteRequest req, CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "ItemDeleteEndpoint.HandleAsync", 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.endpoint_defs) == 1
+    assert result.endpoint_defs[0].route == "/api/items/{id}"
+    assert result.endpoint_defs[0].http_method == "DELETE"
+
+
+def test_fastendpoints_configure_patch() -> None:
+    """Configure() with Patch produces verb=PATCH."""
+    source = '''\
+public class ItemPatchEndpoint : Endpoint<PatchRequest, PatchResponse> {
+    public override void Configure() {
+        Patch("/api/items/{id}");
+    }
+    public override async Task HandleAsync(PatchRequest req, CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    syms = _symbols([("HandleAsync", "ItemPatchEndpoint.HandleAsync", 5)])
+    result = extractor.extract("test.cs", _parse(source), syms)
+    assert len(result.endpoint_defs) == 1
+    assert result.endpoint_defs[0].route == "/api/items/{id}"
+    assert result.endpoint_defs[0].http_method == "PATCH"
+
+
+def test_fastendpoints_handle_async_missing() -> None:
+    """FastEndpoints class with no HandleAsync in symbol_map produces 0 endpoints (graceful skip)."""
+    source = '''\
+public class TodoEndpoint : Endpoint<TodoRequest, TodoResponse> {
+    public override void Configure() {
+        Post("/api/todos");
+    }
+    public override async Task HandleAsync(TodoRequest req, CancellationToken ct) { }
+}
+'''
+    extractor = CSharpHttpExtractor()
+    # No symbols provided — HandleAsync cannot be resolved
+    result = extractor.extract("test.cs", _parse(source), [])
+    assert len(result.endpoint_defs) == 0
