@@ -149,8 +149,13 @@ def test_tests_phase_csharp_attribute_detection():
     phase.run()
     derivation_cypher = conn.execute.call_args_list[1].args[0]
     assert "caller.language = 'csharp'" in derivation_cypher
+    # xUnit
     assert '"Fact"' in derivation_cypher
     assert '"Theory"' in derivation_cypher
+    # NUnit
+    assert '"Test"' in derivation_cypher
+    assert '"TestCase"' in derivation_cypher
+    assert '"TestCaseSource"' in derivation_cypher
 
 
 def test_tests_phase_java_annotation_detection():

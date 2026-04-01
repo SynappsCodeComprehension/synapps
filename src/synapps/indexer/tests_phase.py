@@ -33,7 +33,7 @@ class TestsPhase:
         # Language-specific detection per D-06:
         #   Python:     test_ prefix + test file
         #   TypeScript: any method in test file (Jest test()/it() not Method nodes)
-        #   C#:         [Fact] or [Theory] attribute + test file
+        #   C#:         xUnit [Fact]/[Theory] or NUnit [Test]/[TestCase]/[TestCaseSource] + test file
         #   Java:       @Test annotation + test file
         # Attribute detection uses string CONTAINS on JSON (D-07, no APOC in Memgraph).
         self._conn.execute(
@@ -47,6 +47,9 @@ class TestsPhase:
             "  OR (caller.language = 'csharp' AND ("
             "    coalesce(caller.attributes, '[]') CONTAINS '\"Fact\"'"
             "    OR coalesce(caller.attributes, '[]') CONTAINS '\"Theory\"'"
+            "    OR coalesce(caller.attributes, '[]') CONTAINS '\"Test\"'"
+            "    OR coalesce(caller.attributes, '[]') CONTAINS '\"TestCase\"'"
+            "    OR coalesce(caller.attributes, '[]') CONTAINS '\"TestCaseSource\"'"
             "  ))"
             "  OR (caller.language = 'java' AND"
             "    coalesce(caller.attributes, '[]') CONTAINS '\"test\"')"
