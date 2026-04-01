@@ -634,6 +634,7 @@ class Indexer:
         # Lazily wire source_root into the extractor on first file processed.
         # Python uses detect_source_root to find the package boundary;
         # TypeScript uses the repository root directly.
+        # Java uses per-file source root detection (JI-04) — run every time.
         if hasattr(self._import_extractor, "_source_root") and not self._import_extractor._source_root:
             if self._language == "python":
                 from synapps.lsp.python import detect_source_root
@@ -642,8 +643,11 @@ class Indexer:
                 )
             elif self._language == "typescript":
                 self._import_extractor._source_root = self._root_path or ""
-            elif self._language == "java":
-                self._import_extractor._source_root = self._root_path or ""
+        if self._language == "java":
+            from synapps.lsp.java import _detect_java_source_root
+            self._import_extractor._source_root = _detect_java_source_root(
+                file_path, self._root_path or ""
+            )
 
         results = self._import_extractor.extract(file_path, tree)
         if not results:
@@ -659,6 +663,13 @@ class Indexer:
                 else:
                     # import X -> edge to module node
                     upsert_symbol_imports(self._conn, file_path, module_path)
+            elif self._language == "java":
+                if item.endswith(".*"):
+                    # Wildcard import: strip .* and match Package node (JI-02)
+                    upsert_imports(self._conn, file_path, item[:-2])
+                else:
+                    # Class import: match any node by full_name (JI-01)
+                    upsert_symbol_imports(self._conn, file_path, item)
             else:
                 # C#: plain string package name
                 # IMPORTS edges only write when the Package node exists; external namespaces

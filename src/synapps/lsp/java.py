@@ -34,23 +34,59 @@ _EXCLUDE_DIRS = frozenset({
 _JAVA_PACKAGE_PREFIXES = ("com.", "org.", "io.", "net.", "java.", "javax.", "dev.", "me.", "app.")
 
 
+_JAVA_SOURCE_DIR_MARKERS = ("main.", "test.", "src.")
+
+
 def _clean_java_full_name(full_name: str) -> str:
     """Strip directory-path prefix from a Java full_name if present.
 
     Detects patterns like '....core.src.main.java.com.graphhopper.Foo'
     and returns 'com.graphhopper.Foo'.
 
-    When multiple known prefixes match (e.g. 'java.' appears as a directory
-    segment before 'dev.'), we pick the rightmost match so the actual package
-    root wins over directory-segment false positives.
+    Special case (JI-03): 'java.' can appear as a directory segment (from
+    src/main/java/) before a non-standard package prefix like 'order.' that is
+    NOT in the known-prefix list. When 'java.' is preceded by a source-dir
+    marker (main., test., src.), it is a path segment, not the java.* standard
+    library prefix; in that case we strip everything up to and including 'java.'
+    and return the remainder as the real package name.
+
+    Algorithm:
+    1. Collect all (idx, prefix) candidates where a known package prefix starts.
+    2. Pick the rightmost non-'java.' candidate — it wins over any 'java.' match.
+    3. If only 'java.' candidates remain, check whether 'java.' is preceded by a
+       source-dir marker (main./test./src.). If so, it is a directory segment —
+       return the text after 'java.' (the actual package root). Otherwise treat
+       'java.' as the genuine standard-library prefix.
     """
-    best_idx = -1
+    candidates: list[tuple[int, str]] = []
     for prefix in _JAVA_PACKAGE_PREFIXES:
         idx = full_name.find(prefix)
-        if idx > 0 and idx > best_idx:
-            best_idx = idx
-    if best_idx > 0:
+        if idx > 0:
+            candidates.append((idx, prefix))
+
+    if not candidates:
+        return full_name
+
+    non_java = [(idx, p) for idx, p in candidates if p != "java."]
+    java_cands = [(idx, p) for idx, p in candidates if p == "java."]
+
+    # Prefer the rightmost non-java. match (e.g. com., org., io., net., dev.)
+    if non_java:
+        best_idx = max(idx for idx, _ in non_java)
         return full_name[best_idx:]
+
+    # Only java. candidates remain.
+    for java_idx, _ in java_cands:
+        # Check if the text immediately before 'java.' is a source-dir marker,
+        # which would mean 'java.' is the Maven/Gradle source directory, not a package.
+        preceding = full_name[:java_idx]
+        is_dir_segment = any(preceding.endswith(marker) for marker in _JAVA_SOURCE_DIR_MARKERS)
+        if is_dir_segment:
+            # Strip the 'java.' directory segment and return the real package/class name
+            return full_name[java_idx + len("java."):]
+        # Not preceded by source-dir marker: 'java.' is the genuine package prefix
+        return full_name[java_idx:]
+
     return full_name
 
 
@@ -192,9 +228,10 @@ class JavaLSPAdapter:
 
     def get_document_symbols(self, file_path: str) -> list[IndexSymbol]:
         try:
-            # Lazily detect source root on first call
-            if self._source_root is None:
-                self._source_root = _detect_java_source_root(file_path, self._root_path)
+            # Detect source root per-file — supports multi-module monorepos where different
+            # modules have different source roots (JI-04). Do not cache on self._source_root
+            # to avoid stale roots when indexing files from different modules.
+            source_root = _detect_java_source_root(file_path, self._root_path)
 
             t0 = time.monotonic()
             raw = self._ls.request_document_symbols(file_path)
@@ -203,7 +240,7 @@ class JavaLSPAdapter:
                 return []
             result: list[IndexSymbol] = []
             for root in raw.root_symbols:
-                self._traverse(root, file_path, parent_full_name=None, result=result)
+                self._traverse(root, file_path, parent_full_name=None, result=result, source_root=source_root)
             if elapsed > 2.0:
                 log.info(
                     "Slow document symbols: %s took %.1fs (%d symbols)",
@@ -220,17 +257,18 @@ class JavaLSPAdapter:
         file_path: str,
         parent_full_name: str | None,
         result: list[IndexSymbol],
+        source_root: str | None = None,
     ) -> None:
-        sym = self._convert(raw, file_path, parent_full_name)
+        sym = self._convert(raw, file_path, parent_full_name, source_root=source_root)
         # JC-02: Skip anonymous class expressions — JDT LS names them "new Foo() {...}".
         # These create spurious Class nodes; their internals are not useful for the graph.
         if sym.kind == SymbolKind.CLASS and sym.name.startswith("new "):
             return
         result.append(sym)
         for child in raw.get("children", []):
-            self._traverse(child, file_path, parent_full_name=sym.full_name, result=result)
+            self._traverse(child, file_path, parent_full_name=sym.full_name, result=result, source_root=source_root)
 
-    def _convert(self, raw: dict, file_path: str, parent_full_name: str | None) -> IndexSymbol:
+    def _convert(self, raw: dict, file_path: str, parent_full_name: str | None, source_root: str | None = None) -> IndexSymbol:
         kind_int = raw.get("kind", 0)
         kind = _LSP_KIND_MAP.get(kind_int)
         if kind is None:
@@ -241,8 +279,10 @@ class JavaLSPAdapter:
             kind = SymbolKind.CLASS
 
         name = raw.get("name", "")
-        source_root = self._source_root or self._root_path
-        full_name = _build_java_full_name(raw, file_path, source_root)
+        # Use the provided per-file source_root; fall back to the cached _source_root for
+        # backward-compat with callers that set it directly (e.g. tests using _make_adapter).
+        effective_source_root = source_root or self._source_root or self._root_path
+        full_name = _build_java_full_name(raw, file_path, effective_source_root)
 
         range_obj = raw.get("location", {}).get("range", {})
         # Use selectionRange.start.line when available — JDT LS sets location.range to include the
