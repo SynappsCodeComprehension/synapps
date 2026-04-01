@@ -370,9 +370,9 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         - None (default): full context — source, all members, interfaces, callees, dependencies, summaries
         - "structure": type overview — constructor, member signatures, interfaces, summaries (no method bodies)
         - "method": focused method context — source, interface contract, callees, dependencies, summaries
-        - "edit": task-oriented edit context — source, interface contract, direct callers with call-site
-          lines, constructor dependencies relevant to the symbol, test coverage, summaries.
-          Works for methods (filtered deps) and classes/interfaces (all deps, callers grouped by method).
+        - "edit": task-oriented edit context — source, interface contract, HTTP endpoint (if applicable),
+          direct callers with call-site lines, constructor dependencies relevant to the symbol, test coverage,
+          summaries. Works for methods (filtered deps) and classes/interfaces (all deps, callers grouped by method).
         - "impact": change impact analysis — direct callers, transitive callers (2-4 hops),
           test coverage, and direct callees. Answers: "if I change this, what breaks?"
 
@@ -455,6 +455,7 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
     def find_dead_code(
         path: str,
         exclude_pattern: str = "",
+        limit: int = 50,
     ) -> dict:
         """[Experimental] Find methods with zero inbound callers (dead code candidates) in an indexed project.
 
@@ -473,10 +474,11 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
           (e.g. 'MyApp\\.Generated\\..*' excludes generated code namespaces).
           Use alternation for multiple patterns: 'pattern1|pattern2'.
           Empty string means no additional filtering.
+        limit: maximum number of methods to return (default 50). Stats always reflect the full count.
         Returns {methods: [{full_name, file_path, line, inbound_call_count}], stats: {total_methods, dead_count, dead_ratio}}.
         """
         _auto_sync_check()
-        return service.find_dead_code(exclude_pattern=exclude_pattern)
+        return service.find_dead_code(exclude_pattern=exclude_pattern, limit=limit)
 
     @mcp.tool()
     def find_tests_for(
@@ -500,6 +502,7 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
     def find_untested(
         path: str,
         exclude_pattern: str = "",
+        limit: int = 50,
     ) -> dict:
         """[Experimental] Find production methods with no inbound TESTS edges (not directly covered by any test).
 
@@ -518,9 +521,10 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
           (e.g. 'MyApp\\.Generated\\..*' excludes generated code namespaces).
           Use alternation for multiple patterns: 'pattern1|pattern2'.
           Empty string means no additional filtering.
+        limit: maximum number of methods to return (default 50). Stats always reflect the full count.
         Returns {methods: [{full_name, file_path, line}], stats: {total_methods, untested_count, untested_ratio}}.
         """
         _auto_sync_check()
-        return service.find_untested(exclude_pattern=exclude_pattern)
+        return service.find_untested(exclude_pattern=exclude_pattern, limit=limit)
 
 

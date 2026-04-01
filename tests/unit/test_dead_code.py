@@ -20,7 +20,7 @@ def _conn_with_side_effects(*query_results):
 def test_returns_methods_and_stats_keys():
     conn = _conn_with_side_effects([], [(0,)])
     result = find_dead_code(conn)
-    assert set(result.keys()) == {"methods", "stats"}
+    assert {"methods", "stats"} <= set(result.keys())
     assert set(result["stats"].keys()) == {"total_methods", "dead_count", "dead_ratio"}
 
 
@@ -267,3 +267,30 @@ def test_total_methods_query_has_same_exclusions():
     cypher = conn.query.call_args_list[1].args[0]
     assert "NOT m.file_path =~ $test_pattern" in cypher
     assert "count(m)" in cypher
+
+
+# ---------------------------------------------------------------------------
+# Test 18: limit parameter truncates methods list and sets _truncated flag
+# ---------------------------------------------------------------------------
+
+def test_limit_truncates_methods_and_sets_flag():
+    rows = [(f"Ns.Foo.M{i}", f"/src/Foo.cs", i) for i in range(5)]
+    conn = _conn_with_side_effects(rows, [(10,)])
+    result = find_dead_code(conn, limit=3)
+    assert len(result["methods"]) == 3
+    assert result["_truncated"] is True
+    assert result["_limit"] == 3
+    # stats still reflect the full count
+    assert result["stats"]["dead_count"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Test 19: limit not exceeded — no _truncated key
+# ---------------------------------------------------------------------------
+
+def test_limit_not_exceeded_no_truncated_key():
+    rows = [("Ns.Foo.M1", "/src/Foo.cs", 1)]
+    conn = _conn_with_side_effects(rows, [(5,)])
+    result = find_dead_code(conn, limit=50)
+    assert len(result["methods"]) == 1
+    assert "_truncated" not in result

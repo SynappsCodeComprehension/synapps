@@ -560,6 +560,28 @@ def find_tests_for(conn: GraphConnection, method_full_name: str) -> list[dict]:
     return [{"full_name": r[0], "file_path": r[1], "line": r[2]} for r in rows]
 
 
+def get_served_endpoint(conn: GraphConnection, method_full_name: str) -> dict | None:
+    """Return the HTTP endpoint this method serves, if any."""
+    rows = conn.query(
+        "MATCH (m:Method {full_name: $fn})-[:SERVES]->(ep) "
+        "RETURN ep.http_method, ep.route",
+        {"fn": method_full_name},
+    )
+    if not rows:
+        return None
+    return {"http_method": rows[0][0], "route": rows[0][1]}
+
+
+def find_http_callers(conn: GraphConnection, method_full_name: str) -> list[dict]:
+    """Find methods that make HTTP calls to the endpoint this method serves."""
+    rows = conn.query(
+        "MATCH (caller:Method)-[r:HTTP_CALLS]->(ep)<-[:SERVES]-(m:Method {full_name: $fn}) "
+        "RETURN caller.full_name, caller.file_path, ep.route",
+        {"fn": method_full_name},
+    )
+    return [{"full_name": r[0], "file_path": r[1], "route": r[2]} for r in rows]
+
+
 def find_http_endpoints(
     conn: GraphConnection,
     route: str | None = None,
