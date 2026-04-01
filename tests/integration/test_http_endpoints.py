@@ -166,3 +166,43 @@ def test_non_endpoint_class_produces_zero_endpoints(http_service) -> None:
     )
     cnt2 = result2[0][0] if result2 else 0
     assert cnt2 == 0
+
+
+# Minimal API integration tests (Phase 29 / MA-01..MA-03)
+
+
+@pytest.mark.timeout(10)
+def test_minimal_api_endpoint_nodes(http_service) -> None:
+    """Standalone MapGet/MapPost/MapDelete calls produce Endpoint nodes with SERVES edges. (MA-01)"""
+    _svc, conn = http_service
+    result = conn.query(
+        "MATCH (m:Method)-[:SERVES]->(ep:Endpoint) "
+        "WHERE m.full_name STARTS WITH 'SynappsTest.Endpoints.MinimalApiEndpoints' "
+        "RETURN m.full_name, ep.route, ep.http_method ORDER BY ep.route, ep.http_method"
+    )
+    assert len(result) >= 3, f"Expected at least 3 endpoints, got {len(result)}: {result}"
+    routes = [(r[1], r[2]) for r in result]
+    # MA-02: method ref handler resolves to GetAllItems
+    assert ("/minimal/items", "GET") in routes
+    get_row = next(r for r in result if r[1] == "/minimal/items" and r[2] == "GET")
+    assert "GetAllItems" in get_row[0], f"Expected GetAllItems in handler: {get_row[0]}"
+    # MA-03: lambda handler produces endpoint (handler resolves to enclosing method)
+    assert ("/minimal/items", "POST") in routes
+    # MA-02: method ref handler resolves to DeleteItem
+    assert ("/minimal/items/{id}", "DELETE") in routes
+    delete_row = next(r for r in result if r[1] == "/minimal/items/{id}" and r[2] == "DELETE")
+    assert "DeleteItem" in delete_row[0], f"Expected DeleteItem in handler: {delete_row[0]}"
+
+
+@pytest.mark.timeout(10)
+def test_minimal_api_no_iendpointgroup_duplicate(http_service) -> None:
+    """TodoItems IEndpointGroup endpoints are not duplicated by Minimal API detection."""
+    _svc, conn = http_service
+    result = conn.query(
+        "MATCH (ep:Endpoint) WHERE ep.route IN ['/', '/items/{id}'] "
+        "RETURN ep.route, ep.http_method, count(ep) AS cnt "
+        "ORDER BY ep.route, ep.http_method"
+    )
+    # Each route+method combination must appear exactly once (no duplicates)
+    for row in result:
+        assert row[2] == 1, f"Duplicate endpoint detected: route={row[0]} method={row[1]} count={row[2]}"
