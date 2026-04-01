@@ -1,5 +1,7 @@
 package com.synappstest;
 
+import com.synappstest.Animal;
+
 public class Cat extends Animal {
     private final boolean indoor;
 

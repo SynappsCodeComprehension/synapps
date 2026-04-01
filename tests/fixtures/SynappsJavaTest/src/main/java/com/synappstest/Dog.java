@@ -1,5 +1,7 @@
 package com.synappstest;
 
+import com.synappstest.Formatter;
+
 /**
  * Concrete animal that extends Animal.
  * Verifies INHERITS edge with Javadoc-shifted line numbers.

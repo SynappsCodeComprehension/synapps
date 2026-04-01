@@ -531,3 +531,40 @@ def test_java_no_anonymous_class_nodes(java_mcp: FastMCP) -> None:
     }))
     data = result_json(result)
     assert len(data) == 0, f"Expected 0 anonymous class nodes, got: {data}"
+
+
+# ---------------------------------------------------------------------------
+# IMPORTS edge tests (JI-01, JI-02)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_java_imports_edges(java_mcp: FastMCP) -> None:
+    """Java class-level imports produce IMPORTS edges in the graph (JI-01).
+
+    Dog.java imports com.synappstest.Formatter and Cat.java imports
+    com.synappstest.Animal — both should create IMPORTS edges from the File node
+    to the corresponding Class node (not just a Package node).
+    """
+    result = run(java_mcp.call_tool("execute_query", {
+        "cypher": (
+            "MATCH (f:File)-[:IMPORTS]->(target) "
+            "WHERE f.path CONTAINS 'SynappsJavaTest' "
+            "RETURN f.path AS file, target.full_name AS imported, labels(target) AS labels"
+        ),
+    }))
+    data = result_json(result)
+    assert isinstance(data, list), f"Expected list, got: {type(data)}"
+    assert len(data) >= 1, f"Expected at least 1 IMPORTS edge for Java fixtures, got: {data}"
+
+    imported_names = [row["row"][1] for row in data]
+
+    # At least one import must resolve to a class-level node (full_name ending in PascalCase)
+    has_class_import = any(
+        name and "." in name and name.rsplit(".", 1)[-1][0].isupper()
+        for name in imported_names
+    )
+    assert has_class_import, (
+        f"Expected at least one class-level IMPORTS edge (e.g. to Formatter or Animal), "
+        f"got imported names: {imported_names}"
+    )
