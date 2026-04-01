@@ -258,6 +258,26 @@ class JavaHttpExtractor:
                             col=col_0,
                         ))
 
+        # RestTemplate exchange() pattern: restTemplate.exchange(url, HttpMethod.X, ...)
+        elif method_name == "exchange":
+            http_method = _extract_exchange_verb(node)
+            if http_method is not None:
+                arg_list = _find_child_by_type(node, "argument_list")
+                first_arg = _first_non_paren_child(arg_list) if arg_list else None
+                url = _resolve_url_arg(first_arg) if first_arg else None
+                if url and (url == "{dynamic}" or "/" in url):
+                    line_0 = node.start_point[0]
+                    col_0 = node.start_point[1]
+                    caller = _find_enclosing_symbol(line_0, sorted_symbols)
+                    if caller is not None:
+                        client_calls.append(HttpClientCall(
+                            route=url,
+                            http_method=http_method,
+                            caller_full_name=caller,
+                            line=line_0 + 1,
+                            col=col_0,
+                        ))
+
         # java.net.http pattern: URI.create("/url") within builder chain with .GET()
         elif method_name == "create":
             if _is_uri_create_call(node):
@@ -413,6 +433,88 @@ def _extract_first_string_arg(method_invocation_node) -> str | None:
         if child.type == "string_literal":
             return _extract_java_string(child)
     return None
+
+
+def _first_non_paren_child(arg_list_node):
+    """Return the first child of argument_list that is not a parenthesis or comma."""
+    for child in arg_list_node.children:
+        if child.type not in ("(", ")", ","):
+            return child
+    return None
+
+
+def _second_non_paren_child(arg_list_node):
+    """Return the second child of argument_list that is not a parenthesis or comma."""
+    count = 0
+    for child in arg_list_node.children:
+        if child.type not in ("(", ")", ","):
+            count += 1
+            if count == 2:
+                return child
+    return None
+
+
+def _resolve_url_arg(arg_node) -> str | None:
+    """Resolve a URL argument node to a route string.
+
+    - string_literal -> inner text
+    - binary_expression -> concatenate fragments; identifier/field_access/method_invocation -> {param}; return None if no "/" in result
+    - identifier -> "{dynamic}"
+    - otherwise -> None
+    """
+    if arg_node is None:
+        return None
+    if arg_node.type == "string_literal":
+        return _extract_java_string(arg_node)
+    if arg_node.type == "binary_expression":
+        return _resolve_binary_expression_url(arg_node)
+    if arg_node.type == "identifier":
+        return "{dynamic}"
+    return None
+
+
+def _resolve_binary_expression_url(node) -> str | None:
+    """Recursively walk a binary_expression to build a route string.
+
+    String literal parts are preserved; identifier, field_access, and
+    method_invocation parts are replaced with {param}. Returns None if the
+    result contains no "/" (i.e., not a URL path).
+    """
+    parts: list[str] = []
+    _collect_binary_parts(node, parts)
+    result = "".join(parts)
+    return result if "/" in result else None
+
+
+def _collect_binary_parts(node, parts: list[str]) -> None:
+    """Recursively collect string fragments from a binary_expression tree."""
+    if node.type == "binary_expression":
+        for child in node.children:
+            if child.type in ("+",):
+                continue
+            _collect_binary_parts(child, parts)
+    elif node.type == "string_literal":
+        text = _extract_java_string(node)
+        if text is not None:
+            parts.append(text)
+    elif node.type in ("identifier", "field_access", "method_invocation"):
+        parts.append("{param}")
+
+
+def _extract_exchange_verb(node) -> str | None:
+    """Extract the HTTP verb from restTemplate.exchange()'s second argument (HttpMethod.X).
+
+    The second positional argument in the argument_list should be a field_access
+    like HttpMethod.GET. Reuses _REQUEST_METHOD_MAP since HttpMethod.GET has the
+    same AST shape as RequestMethod.GET.
+    """
+    arg_list = _find_child_by_type(node, "argument_list")
+    if arg_list is None:
+        return None
+    second_arg = _second_non_paren_child(arg_list)
+    if second_arg is None:
+        return None
+    return _extract_request_method_verb(second_arg)
 
 
 def _find_webclient_verb(uri_invocation_node) -> str | None:
