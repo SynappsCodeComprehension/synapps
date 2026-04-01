@@ -881,6 +881,8 @@ def test_get_context_for_scope_edit_method_includes_all_sections(tmp_path):
             "contract_method": "Ns.ISvc.DoWork",
             "sibling_implementations": [],
         }),
+        get_served_endpoint=MagicMock(return_value=None),
+        find_http_callers=MagicMock(return_value=[]),
         find_callers_with_sites=MagicMock(return_value=[
             {"caller": caller, "call_sites": [[32, 5]]},
         ]),
@@ -910,7 +912,8 @@ def test_get_context_for_scope_edit_method_includes_all_sections(tmp_path):
     assert "Ns.Tests.SvcTests.TestDoWork" in result
 
 
-def test_get_context_for_scope_edit_method_omits_empty_sections(tmp_path):
+def test_get_context_for_scope_edit_method_shows_empty_state(tmp_path):
+    """scope='edit' always shows callers/test sections with empty-state messages."""
     source_file = tmp_path / "Foo.cs"
     source_file.write_text("class Foo { void Simple() {} }\n")
 
@@ -927,6 +930,8 @@ def test_get_context_for_scope_edit_method_omits_empty_sections(tmp_path):
             "method": "Ns.Foo.Simple", "interface": None,
             "contract_method": None, "sibling_implementations": [],
         }),
+        get_served_endpoint=MagicMock(return_value=None),
+        find_http_callers=MagicMock(return_value=[]),
         find_callers_with_sites=MagicMock(return_value=[]),
         get_containing_type=MagicMock(return_value=None),
         find_test_coverage=MagicMock(return_value=[]),
@@ -936,9 +941,46 @@ def test_get_context_for_scope_edit_method_omits_empty_sections(tmp_path):
 
     assert "## Target:" in result
     assert "## Interface Contract" not in result
-    assert "## Direct Callers" not in result
+    assert "## Direct Callers" in result
+    assert "No callers found" in result
     assert "## Constructor Dependencies" not in result
-    assert "## Test Coverage" not in result
+    assert "## Test Coverage" in result
+    assert "No tests found" in result
+
+
+def test_get_context_for_scope_edit_method_includes_http_endpoint(tmp_path):
+    """scope='edit' shows HTTP endpoint info when the method serves one."""
+    source_file = tmp_path / "Api.cs"
+    source_file.write_text("class Api { void GetItem() {} }\n")
+
+    svc = _service()
+    symbol = _node(["Method"], {"full_name": "Ns.Api.GetItem", "name": "GetItem", "kind": "method"})
+
+    with patch.multiple(
+        "synapps.service.context",
+        get_symbol=MagicMock(return_value=symbol),
+        get_symbol_source_info=MagicMock(return_value={
+            "file_path": str(source_file), "line": 0, "end_line": 0,
+        }),
+        find_interface_contract=MagicMock(return_value={
+            "method": "Ns.Api.GetItem", "interface": None,
+            "contract_method": None, "sibling_implementations": [],
+        }),
+        get_served_endpoint=MagicMock(return_value={"http_method": "GET", "route": "/items/{id}"}),
+        find_http_callers=MagicMock(return_value=[
+            {"full_name": "Ns.Client.FetchItem", "file_path": "/src/Client.cs", "route": "/items/{id}"},
+        ]),
+        find_callers_with_sites=MagicMock(return_value=[]),
+        get_containing_type=MagicMock(return_value=None),
+        find_test_coverage=MagicMock(return_value=[]),
+        get_summary=MagicMock(return_value=None),
+    ):
+        result = svc.get_context_for("Ns.Api.GetItem", scope="edit")
+
+    assert "## HTTP Endpoint" in result
+    assert "GET /items/{id}" in result
+    assert "Client call sites" in result
+    assert "Ns.Client.FetchItem" in result
 
 
 def test_get_context_for_scope_edit_rejects_property():

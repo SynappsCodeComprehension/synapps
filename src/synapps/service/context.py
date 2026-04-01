@@ -12,7 +12,7 @@ from synapps.graph.lookups import (
     get_constructor, get_summary,
     find_callers_with_sites, find_callees,
     find_relevant_deps, find_all_deps, find_test_coverage,
-    get_called_members,
+    get_called_members, get_served_endpoint, find_http_callers,
     find_dependencies as query_find_dependencies,
 )
 from synapps.graph.analysis import find_interface_contract
@@ -133,6 +133,18 @@ class ContextBuilder:
             )
             lines.append(f"Other implementations: {siblings}")
         return "## Interface Contract\n\n" + "\n".join(lines)
+
+    def _endpoint_section(self, full_name: str) -> str | None:
+        ep = get_served_endpoint(self._conn, full_name)
+        if not ep:
+            return None
+        lines = [f"## HTTP Endpoint\n\n`{ep['http_method']} {ep['route']}`"]
+        http_callers = find_http_callers(self._conn, full_name)
+        if http_callers:
+            lines.append("\n**Client call sites:**")
+            for c in http_callers:
+                lines.append(f"- `{c['full_name']}` — {c['file_path']}")
+        return "\n".join(lines)
 
     def _callers_section(self, full_name: str, limit: int = _CALLER_LIMIT) -> str | None:
         results = find_callers_with_sites(self._conn, full_name)
@@ -339,10 +351,14 @@ class ContextBuilder:
         if contract_section:
             sections.append(contract_section)
 
-        # Direct callers
+        # HTTP endpoint (if this method serves one)
+        endpoint_section = self._endpoint_section(full_name)
+        if endpoint_section:
+            sections.append(endpoint_section)
+
+        # Direct callers (always show section so users know it was checked)
         callers_section = self._callers_section(full_name)
-        if callers_section:
-            sections.append(callers_section)
+        sections.append(callers_section or "## Direct Callers\n\nNo callers found.")
 
         # Relevant constructor deps
         parent = get_containing_type(self._conn, full_name)
@@ -352,10 +368,9 @@ class ContextBuilder:
             if deps_section:
                 sections.append(deps_section)
 
-        # Test coverage
+        # Test coverage (always show section so users know it was checked)
         test_section = self._test_coverage_section(full_name)
-        if test_section:
-            sections.append(test_section)
+        sections.append(test_section or "## Test Coverage\n\nNo tests found.")
 
         # Summaries
         summary_fns = [full_name]
@@ -421,7 +436,7 @@ class ContextBuilder:
                 header += f"\n\n(showing top {self._TYPE_METHOD_LIMIT} methods by caller count; {omitted_methods} more omitted)"
             sections.append(header + "\n\n" + "\n\n".join(callers_parts))
         elif methods:
-            pass  # methods exist but none have callers — omit section
+            sections.append("## Callers of Public Methods\n\nNo callers found for any public method.")
         else:
             sections.append("## Callers of Public Methods\n\nNo public methods found.")
 
@@ -447,6 +462,8 @@ class ContextBuilder:
         if all_tests:
             test_lines = [f"- `{t['full_name']}` — {t['file_path']}" for t in all_tests]
             sections.append("## Test Coverage\n\n" + "\n".join(test_lines))
+        elif methods:
+            sections.append("## Test Coverage\n\nNo tests found.")
 
         # Summaries
         interfaces = get_implemented_interfaces(self._conn, full_name)

@@ -198,7 +198,7 @@ def _ensure_full_match_regex(pattern: str) -> str:
     return pattern
 
 
-def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
+def find_dead_code(conn: GraphConnection, exclude_pattern: str = "", limit: int = 50) -> dict:
     """Query for methods with zero inbound CALLS, excluding test/framework/infra methods."""
     exclude_pattern = _ensure_full_match_regex(exclude_pattern)
     dead_rows = conn.query(
@@ -247,23 +247,25 @@ def find_dead_code(conn: GraphConnection, exclude_pattern: str = "") -> dict:
         "RETURN count(m)",
         {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern},
     )
-    methods = [
+    all_methods = [
         {"full_name": r[0], "file_path": r[1], "line": r[2], "inbound_call_count": 0}
         for r in dead_rows
     ]
     total_methods = total_rows[0][0] if total_rows else 0
-    dead_count = len(methods)
+    dead_count = len(all_methods)
+    truncated = dead_count > limit
     return {
-        "methods": methods,
+        "methods": all_methods[:limit],
         "stats": {
             "total_methods": total_methods,
             "dead_count": dead_count,
             "dead_ratio": round(dead_count / total_methods, 4) if total_methods else 0.0,
         },
+        **({"_truncated": True, "_limit": limit} if truncated else {}),
     }
 
 
-def find_untested(conn: GraphConnection, exclude_pattern: str = "") -> dict:
+def find_untested(conn: GraphConnection, exclude_pattern: str = "", limit: int = 50) -> dict:
     """Query for production methods with no inbound TESTS edges."""
     exclude_pattern = _ensure_full_match_regex(exclude_pattern)
     untested_rows = conn.query(
@@ -312,19 +314,21 @@ def find_untested(conn: GraphConnection, exclude_pattern: str = "") -> dict:
         "RETURN count(m)",
         {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern},
     )
-    methods = [
+    all_methods = [
         {"full_name": r[0], "file_path": r[1], "line": r[2]}
         for r in untested_rows
     ]
     total_methods = total_rows[0][0] if total_rows else 0
-    untested_count = len(methods)
+    untested_count = len(all_methods)
+    truncated = untested_count > limit
     return {
-        "methods": methods,
+        "methods": all_methods[:limit],
         "stats": {
             "total_methods": total_methods,
             "untested_count": untested_count,
             "untested_ratio": round(untested_count / total_methods, 4) if total_methods else 0.0,
         },
+        **({"_truncated": True, "_limit": limit} if truncated else {}),
     }
 
 
