@@ -1,5 +1,9 @@
 package com.synappstest;
 
+/**
+ * Base class for all animals.
+ * Used to verify Javadoc does not break INHERITS/IMPLEMENTS resolution.
+ */
 public abstract class Animal implements IAnimal {
     private final String name;
 
