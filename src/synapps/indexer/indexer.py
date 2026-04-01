@@ -745,13 +745,24 @@ class Indexer:
                 qual_key = f"{parent_simple}.{sym.name}"
                 qualified_to_full.setdefault(qual_key, []).append(sym.full_name)
 
+        resolved = 0
         for result_name, attrs in results:
             # Try qualified lookup first (e.g., "IAnimal.speak"), fall back to simple
             full_names = qualified_to_full.get(result_name) or name_to_full.get(result_name, [])
+            if not full_names:
+                log.debug(
+                    "Attribute name '%s' not found in %d file symbols for %s",
+                    result_name, len(symbols), file_path,
+                )
             for fn in full_names:
                 set_attributes(self._conn, fn, attrs)
                 if self._language in ("python", "typescript", "java", "csharp"):
                     set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
+                resolved += 1
+        log.debug(
+            "Attribute extraction: %d extractor results, %d graph writes for %s",
+            len(results), resolved, file_path,
+        )
 
     def _index_attributes_from_results(
         self,
@@ -769,12 +780,23 @@ class Indexer:
                 qual_key = f"{parent_simple}.{sym.name}"
                 qualified_to_full.setdefault(qual_key, []).append(sym.full_name)
 
+        resolved = 0
         for result_name, attrs in results:
             full_names = qualified_to_full.get(result_name) or name_to_full.get(result_name, [])
+            if not full_names:
+                log.debug(
+                    "Attribute name '%s' not found in %d file symbols for %s",
+                    result_name, len(symbols), file_path,
+                )
             for fn in full_names:
                 set_attributes(self._conn, fn, attrs)
                 if self._language in ("python", "typescript", "java", "csharp"):
                     set_metadata_flags(self._conn, fn, _attrs_to_flags(attrs))
+                resolved += 1
+        log.debug(
+            "Attribute extraction: %d extractor results, %d graph writes for %s",
+            len(results), resolved, file_path,
+        )
 
     def _index_base_types(
         self,
