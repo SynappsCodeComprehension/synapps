@@ -83,6 +83,24 @@ class TestCleanJavaFullName:
     def test_preserves_dev_prefix(self) -> None:
         assert _clean_java_full_name("src.main.java.dev.example.Foo") == "dev.example.Foo"
 
+    def test_java_dir_segment_not_confused_as_prefix(self) -> None:
+        """JI-03: 'java.' from a src/main/java/ directory path segment must not be treated as
+        the java.* package prefix when a non-standard package prefix follows it.
+
+        '....order-service.src.main.java.order.entity.Order' should return 'order.entity.Order'
+        not 'java.order.entity.Order'.
+        """
+        result = _clean_java_full_name("....order-service.src.main.java.order.entity.Order")
+        assert result == "order.entity.Order", (
+            f"Expected 'order.entity.Order' but got '{result}' — "
+            "java. directory segment incorrectly treated as package prefix"
+        )
+
+    def test_java_dir_with_known_prefix_after(self) -> None:
+        """JI-03: When java/ directory is followed by a known prefix (com.), the known prefix wins."""
+        result = _clean_java_full_name("....src.main.java.com.example.Foo")
+        assert result == "com.example.Foo"
+
 
 # ---------------------------------------------------------------------------
 # _detect_java_source_root tests
@@ -135,6 +153,28 @@ class TestDetectJavaSourceRoot:
             "/proj/module/src/test/com/example/FooTest.java", "/proj"
         )
         assert result == "/proj/module/src/test"
+
+    def test_multi_module_different_roots(self) -> None:
+        """JI-04: Files in different modules return different source roots per-file.
+
+        A multi-module monorepo like:
+            /proj/order-service/src/main/java/...
+            /proj/user-service/src/main/java/...
+        must return the correct source root for each file independently.
+        """
+        root_order = _detect_java_source_root(
+            "/proj/order-service/src/main/java/com/example/Order.java", "/proj"
+        )
+        root_user = _detect_java_source_root(
+            "/proj/user-service/src/main/java/com/example/User.java", "/proj"
+        )
+        assert root_order == "/proj/order-service/src/main/java", (
+            f"Expected order-service source root, got: {root_order}"
+        )
+        assert root_user == "/proj/user-service/src/main/java", (
+            f"Expected user-service source root, got: {root_user}"
+        )
+        assert root_order != root_user, "Multi-module files must have different source roots"
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +512,50 @@ class TestGetDocumentSymbols:
         symbols = adapter.get_document_symbols("/proj/Broken.java")
 
         assert symbols == []
+
+    def test_per_file_source_root_not_cached(self) -> None:
+        """JI-04: get_document_symbols detects source root per-file, not cached from first call.
+
+        When two files from different modules are processed, each should use its own
+        source root so full_names are derived correctly for both.
+        """
+        # Module A: /proj/order-service/src/main/java/com/example/Order.java
+        # Module B: /proj/user-service/src/main/java/com/example/User.java
+        raw_order = _make_raw("Order", 5, start_line=0, end_line=10)
+        raw_order["children"] = []
+        raw_user = _make_raw("User", 5, start_line=0, end_line=10)
+        raw_user["children"] = []
+
+        def side_effect(file_path: str):
+            result = MagicMock()
+            if "order-service" in file_path:
+                result.root_symbols = [raw_order]
+            else:
+                result.root_symbols = [raw_user]
+            return result
+
+        mock_ls = MagicMock()
+        mock_ls.request_document_symbols.side_effect = side_effect
+
+        adapter = JavaLSPAdapter(mock_ls, "/proj")
+        # Do NOT pre-set _source_root — adapter must detect per-file
+
+        syms_order = adapter.get_document_symbols(
+            "/proj/order-service/src/main/java/com/example/Order.java"
+        )
+        syms_user = adapter.get_document_symbols(
+            "/proj/user-service/src/main/java/com/example/User.java"
+        )
+
+        assert len(syms_order) == 1
+        assert len(syms_user) == 1
+        # Both should resolve to com.example.<Class> using their respective source roots
+        assert syms_order[0].full_name == "com.example.Order", (
+            f"Expected com.example.Order, got {syms_order[0].full_name}"
+        )
+        assert syms_user[0].full_name == "com.example.User", (
+            f"Expected com.example.User, got {syms_user[0].full_name}"
+        )
 
 
 # ---------------------------------------------------------------------------
