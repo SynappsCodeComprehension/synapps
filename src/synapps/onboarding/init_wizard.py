@@ -131,26 +131,17 @@ def _prompt_multiselect(
     pre_checked: set[str],
     prompt_label: str,
 ) -> list[str]:
-    """Show a numbered checklist with pre-checked defaults; return selected names.
+    """Show a numbered checklist with pre-checked defaults; return selected names."""
+    console.print(f"\n[bold]{prompt_label}[/bold]")
+    for i, (name, display) in enumerate(items, 1):
+        marker = "[x]" if name in pre_checked else "[ ]"
+        console.print(f"  {i}. {marker} {display}")
+    console.print("  Enter numbers to toggle, or press Enter to accept defaults")
+    console.print("  (e.g. '1 3' to toggle items 1 and 3)")
 
-    Uses escape sequences for Rich markup so square brackets render literally.
-    Re-displays the list after each toggle so the user can see the current state.
-    """
+    raw = typer.prompt("Selection", default="")
     selected = set(pre_checked)
-
-    def _display() -> None:
-        console.print(f"\n[bold]{prompt_label}[/bold]")
-        for i, (name, display) in enumerate(items, 1):
-            marker = "x" if name in selected else " "
-            console.print(f"  {i}. \\[{marker}] {display}")
-        console.print("  Enter numbers to toggle, or press Enter to accept")
-        console.print("  (e.g. '1 3' to toggle items 1 and 3)")
-
-    _display()
-    while True:
-        raw = typer.prompt("Selection", default="")
-        if not raw.strip():
-            break
+    if raw.strip():
         for token in raw.replace(",", " ").split():
             try:
                 idx = int(token) - 1
@@ -162,8 +153,6 @@ def _prompt_multiselect(
                         selected.add(name)
             except (ValueError, IndexError):
                 pass
-        _display()
-
     return [name for name, _ in items if name in selected]
 
 
