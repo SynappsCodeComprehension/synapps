@@ -187,6 +187,7 @@ class IndexingService:
         path: str,
         language: str = "csharp",
         on_progress: Callable[[str], None] | None = None,
+        allowed_languages: list[str] | None = None,
     ) -> str:
         """Unified index entry point (D-04).
 
@@ -197,6 +198,8 @@ class IndexingService:
         path = path.rstrip("/")
 
         plugin_files = self._registry.detect_with_files(path)
+        if allowed_languages is not None:
+            plugin_files = [(p, f) for p, f in plugin_files if p.name in allowed_languages]
 
         stored_sha = get_last_indexed_commit(self._conn, path)
         repo_rows = self._conn.query(
