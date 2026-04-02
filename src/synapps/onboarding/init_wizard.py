@@ -134,7 +134,7 @@ def _prompt_multiselect(
     """Show a numbered checklist with pre-checked defaults; return selected names."""
     console.print(f"\n[bold]{prompt_label}[/bold]")
     for i, (name, display) in enumerate(items, 1):
-        marker = "[x]" if name in pre_checked else "[ ]"
+        marker = "\\[x]" if name in pre_checked else "\\[ ]"
         console.print(f"  {i}. {marker} {display}")
     console.print("  Enter numbers to toggle, or press Enter to accept defaults")
     console.print("  (e.g. '1 3' to toggle items 1 and 3)")
