@@ -619,8 +619,7 @@ def test_harness_multiselect_toggle():
     console = MagicMock()
 
     # Pre-check claude (index 1), toggle "1 3" -> toggles claude off, copilot on
-    # First prompt returns toggles, second returns "" to accept
-    with patch("typer.prompt", side_effect=["1 3", ""]):
+    with patch("typer.prompt", return_value="1 3"):
         result = _prompt_multiselect(console, _ALL_HARNESSES, {"claude"}, "AI agent harnesses:")
     assert result == ["copilot"]
 
