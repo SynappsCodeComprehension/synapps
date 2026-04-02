@@ -28,6 +28,12 @@ _LANGUAGE_TO_GROUP: dict[str, str] = {
     "java": "java",
 }
 
+_ALL_HARNESSES: list[tuple[str, str]] = [
+    ("claude", "Claude Code"),
+    ("cursor", "Cursor"),
+    ("copilot", "GitHub Copilot"),
+]
+
 
 def _checks_for_languages(languages: list[str]) -> list:
     """Return doctor check instances for the given languages only.
@@ -119,8 +125,42 @@ def _prompt_db_mode(console, project_path: str) -> None:
         console.print("[dim]This project will share the global Memgraph instance.[/dim]")
 
 
-def _offer_hooks(console, project_path: str) -> list[str]:
-    """Detect agents and offer to install hooks for each."""
+def _prompt_multiselect(
+    console,
+    items: list[tuple[str, str]],
+    pre_checked: set[str],
+    prompt_label: str,
+) -> list[str]:
+    """Show a numbered checklist with pre-checked defaults; return selected names."""
+    console.print(f"\n[bold]{prompt_label}[/bold]")
+    for i, (name, display) in enumerate(items, 1):
+        marker = "[x]" if name in pre_checked else "[ ]"
+        console.print(f"  {i}. {marker} {display}")
+    console.print("  Enter numbers to toggle, or press Enter to accept defaults")
+    console.print("  (e.g. '1 3' to toggle items 1 and 3)")
+
+    raw = typer.prompt("Selection", default="")
+    selected = set(pre_checked)
+    if raw.strip():
+        for token in raw.replace(",", " ").split():
+            try:
+                idx = int(token) - 1
+                if 0 <= idx < len(items):
+                    name = items[idx][0]
+                    if name in selected:
+                        selected.discard(name)
+                    else:
+                        selected.add(name)
+            except (ValueError, IndexError):
+                pass
+    return [name for name, _ in items if name in selected]
+
+
+def _configure_agents(console, project_path: str) -> tuple[list[str], list[str], list[str]]:
+    """Unified agent configuration: harness selection + global install options.
+
+    Returns (configured_mcp_clients, hook_agents, agent_files).
+    """
     from synapps.hooks.detector import detect_agents
     from synapps.hooks.installer import install_scripts
     from synapps.hooks.config_upsert import (
@@ -128,12 +168,35 @@ def _offer_hooks(console, project_path: str) -> list[str]:
         upsert_cursor_hook,
         upsert_copilot_hook,
     )
+    from synapps.onboarding.agent_instructions import install_agent_instructions
 
-    hooks_dir = Path.home() / ".synapps" / "hooks"
     agents = detect_agents(project_path=Path(project_path))
+    detected_names = {a.name for a in agents}
+    agent_by_name = {a.name: a for a in agents}
 
-    if not agents:
-        return []
+    clients = detect_mcp_clients(project_path)
+    client_by_name: dict[str, object] = {}
+    for c in clients:
+        lower = c.name.lower()
+        if "claude" in lower:
+            client_by_name["claude"] = c
+        elif "cursor" in lower:
+            client_by_name["cursor"] = c
+        elif "copilot" in lower:
+            client_by_name["copilot"] = c
+
+    pre_checked = detected_names | set(client_by_name.keys())
+    selected_harnesses = _prompt_multiselect(
+        console, _ALL_HARNESSES, pre_checked, "AI agent harnesses:"
+    )
+
+    if not selected_harnesses:
+        return [], [], []
+
+    console.print("\n[bold]What to install for selected harnesses:[/bold]")
+    install_mcp = typer.confirm("  MCP configuration?", default=True)
+    install_hooks = typer.confirm("  Pre-tool hooks?", default=True)
+    install_instructions = typer.confirm("  Agent instruction files?", default=True)
 
     _UPSERT = {
         "claude": upsert_claude_hook,
@@ -146,34 +209,28 @@ def _offer_hooks(console, project_path: str) -> list[str]:
         "copilot": "copilot-gate.sh",
     }
 
-    installed: list[str] = []
-    for a in agents:
-        if typer.confirm(f"Install pre-tool hooks for {a.display_name}?", default=True):
-            install_scripts(hooks_dir)
-            script_path = f"~/.synapps/hooks/{_SCRIPT_NAME[a.name]}"
-            _UPSERT[a.name](a.config_path, script_path)
-            installed.append(a.display_name)
-    return installed
+    hooks_dir = Path.home() / ".synapps" / "hooks"
+    configured_clients: list[str] = []
+    hook_agents: list[str] = []
 
-
-def _offer_mcp_config(console, project_path: str) -> list[str]:
-    """Detect MCP clients and offer to write config for each. Returns configured client names."""
-    clients = detect_mcp_clients(project_path)
-    configured: list[str] = []
-    for client in clients:
-        if typer.confirm(f"Configure {client.name}?", default=True):
+    for harness_name in selected_harnesses:
+        if install_mcp and harness_name in client_by_name:
+            client = client_by_name[harness_name]
             write_mcp_config(client.config_path, client.servers_key)
-            configured.append(client.name)
-    return configured
+            configured_clients.append(client.name)
 
+        if install_hooks and harness_name in agent_by_name and harness_name in _UPSERT:
+            agent = agent_by_name[harness_name]
+            install_scripts(hooks_dir)
+            script_path = f"~/.synapps/hooks/{_SCRIPT_NAME[harness_name]}"
+            _UPSERT[harness_name](agent.config_path, script_path)
+            hook_agents.append(agent.display_name)
 
-def _offer_agent_instructions(console, project_path: str) -> list[str]:
-    """Offer to install agent instruction files and return list of written paths."""
-    from synapps.onboarding.agent_instructions import install_agent_instructions
+    agent_files: list[str] = []
+    if install_instructions:
+        agent_files = install_agent_instructions(Path(project_path), harnesses=selected_harnesses)
 
-    if not typer.confirm("Install agent instruction files (CLAUDE.md, AGENTS.md, etc.)?", default=True):
-        return []
-    return install_agent_instructions(Path(project_path))
+    return configured_clients, hook_agents, agent_files
 
 
 def _print_summary(console, languages: list[str], report, mcp_clients: list[str], project_path: str, hook_agents: list[str] | None = None, agent_files: list[str] | None = None, indexed: bool = True) -> None:
@@ -256,12 +313,8 @@ def run_init(project_path: str, verbose: bool = False) -> None:
         if not _has_existing_db_config(project_path):
             _prompt_db_mode(console, project_path)
         # Skip to agent configuration
-        console.print("\n[bold]MCP client configuration:[/bold]")
-        configured_clients = _offer_mcp_config(console, project_path)
-        console.print("\n[bold]Agent hook configuration:[/bold]")
-        hook_agents = _offer_hooks(console, project_path)
-        console.print("\n[bold]Agent instruction files:[/bold]")
-        agent_files = _offer_agent_instructions(console, project_path)
+        console.print("\n[bold]Agent configuration:[/bold]")
+        configured_clients, hook_agents, agent_files = _configure_agents(console, project_path)
         _print_summary(console, [], None, configured_clients, project_path, hook_agents, agent_files, indexed=False)
         return
 
@@ -319,17 +372,9 @@ def run_init(project_path: str, verbose: bool = False) -> None:
 
     console.print(f"[green]Indexing complete:[/green] {index_result}")
 
-    # Step 5: Configure MCP clients
-    console.print("\n[bold]MCP client configuration:[/bold]")
-    configured_clients = _offer_mcp_config(console, project_path)
-
-    # Step 5b: Offer hook installation
-    console.print("\n[bold]Agent hook configuration:[/bold]")
-    hook_agents = _offer_hooks(console, project_path)
-
-    # Step 5c: Offer agent instruction files
-    console.print("\n[bold]Agent instruction files:[/bold]")
-    agent_files = _offer_agent_instructions(console, project_path)
+    # Step 5: Unified agent configuration
+    console.print("\n[bold]Agent configuration:[/bold]")
+    configured_clients, hook_agents, agent_files = _configure_agents(console, project_path)
 
     # Step 6: Summary
     _print_summary(console, confirmed_languages, report, configured_clients, project_path, hook_agents, agent_files)
