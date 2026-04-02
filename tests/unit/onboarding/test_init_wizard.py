@@ -393,6 +393,90 @@ def test_write_db_config_preserves_existing_keys(tmp_path):
     assert config["existing_key"] == "value"
 
 
+# ---------------------------------------------------------------------------
+# smart_index allowed_languages filtering
+# ---------------------------------------------------------------------------
+
+def test_smart_index_respects_allowed_languages():
+    """smart_index with allowed_languages=["python"] must pass only the python plugin to index_project."""
+    from unittest.mock import MagicMock, patch
+    from synapps.service.indexing import IndexingService
+
+    mock_python_plugin = MagicMock()
+    mock_python_plugin.name = "python"
+    mock_typescript_plugin = MagicMock()
+    mock_typescript_plugin.name = "typescript"
+
+    mock_conn = MagicMock()
+    mock_conn.query.return_value = []  # no existing Repository -> full-index path
+
+    mock_registry = MagicMock()
+    mock_registry.detect_with_files.return_value = [
+        (mock_python_plugin, ["/a.py"]),
+        (mock_typescript_plugin, ["/b.ts"]),
+    ]
+
+    svc = IndexingService(conn=mock_conn, registry=mock_registry)
+
+    captured_plugin_files: list = []
+
+    def fake_index_project(path, language="csharp", on_progress=None, plugin_files=None):
+        if plugin_files is not None:
+            captured_plugin_files.extend(plugin_files)
+
+    svc.index_project = fake_index_project  # type: ignore[method-assign]
+
+    with (
+        patch("synapps.service.indexing.get_last_indexed_commit", return_value=None),
+        patch("synapps.service.indexing.is_git_repo", return_value=False),
+    ):
+        svc.smart_index("/proj", allowed_languages=["python"])
+
+    passed_names = [p.name for p, _ in captured_plugin_files]
+    assert "python" in passed_names
+    assert "typescript" not in passed_names
+
+
+def test_smart_index_allowed_languages_none_passes_all():
+    """smart_index without allowed_languages must pass all detected plugins (backward compat)."""
+    from unittest.mock import MagicMock, patch
+    from synapps.service.indexing import IndexingService
+
+    mock_python_plugin = MagicMock()
+    mock_python_plugin.name = "python"
+    mock_typescript_plugin = MagicMock()
+    mock_typescript_plugin.name = "typescript"
+
+    mock_conn = MagicMock()
+    mock_conn.query.return_value = []
+
+    mock_registry = MagicMock()
+    mock_registry.detect_with_files.return_value = [
+        (mock_python_plugin, ["/a.py"]),
+        (mock_typescript_plugin, ["/b.ts"]),
+    ]
+
+    svc = IndexingService(conn=mock_conn, registry=mock_registry)
+
+    captured_plugin_files: list = []
+
+    def fake_index_project(path, language="csharp", on_progress=None, plugin_files=None):
+        if plugin_files is not None:
+            captured_plugin_files.extend(plugin_files)
+
+    svc.index_project = fake_index_project  # type: ignore[method-assign]
+
+    with (
+        patch("synapps.service.indexing.get_last_indexed_commit", return_value=None),
+        patch("synapps.service.indexing.is_git_repo", return_value=False),
+    ):
+        svc.smart_index("/proj")
+
+    passed_names = [p.name for p, _ in captured_plugin_files]
+    assert "python" in passed_names
+    assert "typescript" in passed_names
+
+
 class TestInitWizardHookOffer:
     def test_init_offers_hook_installation(self, tmp_path: Path) -> None:
         """Verify the wizard calls _offer_hooks after MCP config."""
