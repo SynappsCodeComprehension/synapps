@@ -142,8 +142,7 @@ def _run_with_patches(project_path: str, opts: dict, *, has_existing_db_config: 
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=has_existing_db_config),
         patch("synapps.onboarding.init_wizard._write_db_config"),
-        patch("synapps.onboarding.init_wizard._offer_hooks", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_agent_instructions", return_value=[]),
+        patch("synapps.onboarding.init_wizard._configure_agents", return_value=([], [], [])),
         patch("typer.confirm", side_effect=opts["confirm_side_effect"]),
         patch("sys.stdin") as mock_stdin,
     ):
@@ -202,8 +201,7 @@ def test_wizard_shows_fix_on_failure(capsys):
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=True),
-        patch("synapps.onboarding.init_wizard._offer_hooks", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_agent_instructions", return_value=[]),
+        patch("synapps.onboarding.init_wizard._configure_agents", return_value=([], [], [])),
         patch("typer.confirm", side_effect=[True, True, True]),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture_print) as mock_console_print,
@@ -218,23 +216,49 @@ def test_wizard_shows_fix_on_failure(capsys):
     assert fix_text in all_output
 
 
-def test_wizard_offers_mcp_config():
+def test_wizard_offers_mcp_config(tmp_path):
+    """_configure_agents calls write_mcp_config when MCP install is confirmed."""
+    from synapps.hooks.detector import DetectedAgent
+
+    claude_agent = DetectedAgent(name="claude", display_name="Claude Code", config_path=tmp_path / "s.json")
     client = MCPClient("Claude Code", Path("/tmp/.config/mcp.json"), "mcpServers")
-    opts = _common_patches(
-        mcp_clients=[client],
-        confirm_side_effect=[True, True, True],  # want_index, language confirm, mcp confirm
-    )
-    mock_write, _, _ = _run_with_patches("/tmp/myproject", opts)
+    console = MagicMock()
+
+    with (
+        patch("synapps.hooks.detector.detect_agents", return_value=[claude_agent]),
+        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[client]),
+        patch("synapps.onboarding.init_wizard.write_mcp_config") as mock_write,
+        patch("synapps.onboarding.agent_instructions.install_agent_instructions", return_value=[]),
+        # multiselect accepts defaults, then MCP=yes, hooks=no, instructions=no
+        patch("typer.prompt", return_value=""),
+        patch("typer.confirm", side_effect=[True, False, False]),
+    ):
+        from synapps.onboarding.init_wizard import _configure_agents
+        _configure_agents(console, str(tmp_path))
+
     mock_write.assert_called_once()
 
 
-def test_wizard_skips_mcp_when_declined():
+def test_wizard_skips_mcp_when_declined(tmp_path):
+    """_configure_agents does not call write_mcp_config when MCP install is declined."""
+    from synapps.hooks.detector import DetectedAgent
+
+    claude_agent = DetectedAgent(name="claude", display_name="Claude Code", config_path=tmp_path / "s.json")
     client = MCPClient("Claude Code", Path("/tmp/.config/mcp.json"), "mcpServers")
-    opts = _common_patches(
-        mcp_clients=[client],
-        confirm_side_effect=[True, True, False],  # want_index, language confirm, decline mcp
-    )
-    mock_write, _, _ = _run_with_patches("/tmp/myproject", opts)
+    console = MagicMock()
+
+    with (
+        patch("synapps.hooks.detector.detect_agents", return_value=[claude_agent]),
+        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[client]),
+        patch("synapps.onboarding.init_wizard.write_mcp_config") as mock_write,
+        patch("synapps.onboarding.agent_instructions.install_agent_instructions", return_value=[]),
+        # multiselect accepts defaults, then MCP=no, hooks=no, instructions=no
+        patch("typer.prompt", return_value=""),
+        patch("typer.confirm", side_effect=[False, False, False]),
+    ):
+        from synapps.onboarding.init_wizard import _configure_agents
+        _configure_agents(console, str(tmp_path))
+
     mock_write.assert_not_called()
 
 
@@ -266,8 +290,7 @@ def test_summary_printed():
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=True),
-        patch("synapps.onboarding.init_wizard._offer_hooks", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_agent_instructions", return_value=[]),
+        patch("synapps.onboarding.init_wizard._configure_agents", return_value=([], [], [])),
         patch("typer.confirm", return_value=True),
         patch("sys.stdin") as mock_stdin,
         patch("rich.console.Console.print", side_effect=capture),
@@ -404,17 +427,13 @@ def test_wizard_skips_indexing_when_declined():
 
     with (
         patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
-        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[]),
-        patch("synapps.onboarding.init_wizard.write_mcp_config"),
         patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=True),
         patch("synapps.onboarding.init_wizard._write_db_config"),
-        patch("synapps.onboarding.init_wizard._offer_hooks", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_mcp_config", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_agent_instructions", return_value=[]),
+        patch("synapps.onboarding.init_wizard._configure_agents", return_value=([], [], [])),
         patch("typer.confirm", side_effect=[False]),  # decline indexing
         patch("sys.stdin") as mock_stdin,
     ):
@@ -436,17 +455,13 @@ def test_wizard_skips_indexing_persists_db_config():
 
     with (
         patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]),
-        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[]),
-        patch("synapps.onboarding.init_wizard.write_mcp_config"),
         patch("synapps.onboarding.init_wizard.ConnectionManager", mock_cm),
         patch("synapps.onboarding.init_wizard.ensure_schema"),
         patch("synapps.onboarding.init_wizard.SynappsService", mock_svc),
         patch("synapps.onboarding.init_wizard.docker") as mock_docker_mod,
         patch("synapps.onboarding.init_wizard._has_existing_db_config", return_value=False),
         patch("synapps.onboarding.init_wizard._write_db_config", mock_write_db_config),
-        patch("synapps.onboarding.init_wizard._offer_hooks", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_mcp_config", return_value=[]),
-        patch("synapps.onboarding.init_wizard._offer_agent_instructions", return_value=[]),
+        patch("synapps.onboarding.init_wizard._configure_agents", return_value=([], [], [])),
         patch("typer.confirm", side_effect=[False, True]),  # decline indexing, accept shared DB
         patch("sys.stdin") as mock_stdin,
     ):
@@ -546,12 +561,10 @@ def test_smart_index_allowed_languages_none_passes_all():
 
 class TestInitWizardHookOffer:
     def test_init_offers_hook_installation(self, tmp_path: Path) -> None:
-        """Verify the wizard calls _offer_hooks after MCP config."""
+        """Verify the wizard calls _configure_agents for unified agent configuration."""
         from unittest.mock import patch, MagicMock
 
-        with patch("synapps.onboarding.init_wizard._offer_hooks") as mock_hooks, \
-             patch("synapps.onboarding.init_wizard._offer_mcp_config", return_value=[]), \
-             patch("synapps.onboarding.init_wizard._offer_agent_instructions", return_value=[]), \
+        with patch("synapps.onboarding.init_wizard._configure_agents", return_value=([], [], [])) as mock_configure, \
              patch("synapps.onboarding.init_wizard.detect_languages", return_value=[("python", 10)]), \
              patch("synapps.onboarding.init_wizard._prompt_language_confirmation", return_value=["python"]), \
              patch("synapps.onboarding.init_wizard._checks_for_languages", return_value=[]), \
@@ -575,4 +588,82 @@ class TestInitWizardHookOffer:
             from synapps.onboarding.init_wizard import run_init
             run_init(str(tmp_path))
 
-        mock_hooks.assert_called_once()
+        mock_configure.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# _prompt_multiselect
+# ---------------------------------------------------------------------------
+
+def test_harness_multiselect_shows_all():
+    from unittest.mock import MagicMock, patch
+    from synapps.onboarding.init_wizard import _prompt_multiselect, _ALL_HARNESSES
+
+    console = MagicMock()
+
+    # Nothing pre-checked, accept defaults -> empty list
+    with patch("typer.prompt", return_value=""):
+        result = _prompt_multiselect(console, _ALL_HARNESSES, set(), "AI agent harnesses:")
+    assert result == []
+
+    # Pre-check claude and copilot, accept defaults -> those two returned
+    with patch("typer.prompt", return_value=""):
+        result = _prompt_multiselect(console, _ALL_HARNESSES, {"claude", "copilot"}, "AI agent harnesses:")
+    assert sorted(result) == ["claude", "copilot"]
+
+
+def test_harness_multiselect_toggle():
+    from unittest.mock import MagicMock, patch
+    from synapps.onboarding.init_wizard import _prompt_multiselect, _ALL_HARNESSES
+
+    console = MagicMock()
+
+    # Pre-check claude (index 1), toggle "1 3" -> toggles claude off, copilot on
+    with patch("typer.prompt", return_value="1 3"):
+        result = _prompt_multiselect(console, _ALL_HARNESSES, {"claude"}, "AI agent harnesses:")
+    assert result == ["copilot"]
+
+
+# ---------------------------------------------------------------------------
+# _configure_agents — global install options
+# ---------------------------------------------------------------------------
+
+def test_global_install_options_applied_to_all(tmp_path):
+    from unittest.mock import MagicMock, patch, call
+    from synapps.hooks.detector import DetectedAgent
+    from synapps.onboarding.mcp_configurator import MCPClient
+
+    claude_agent = DetectedAgent(name="claude", display_name="Claude Code", config_path=tmp_path / "claude.json")
+    cursor_agent = DetectedAgent(name="cursor", display_name="Cursor", config_path=tmp_path / "cursor.json")
+    claude_client = MCPClient(name="Claude Code", config_path=tmp_path / "claude.json", servers_key="mcpServers")
+    cursor_client = MCPClient(name="Cursor", config_path=tmp_path / "cursor.json", servers_key="mcpServers")
+
+    console = MagicMock()
+
+    with (
+        patch("synapps.hooks.detector.detect_agents", return_value=[claude_agent, cursor_agent]),
+        patch("synapps.onboarding.init_wizard.detect_mcp_clients", return_value=[claude_client, cursor_client]),
+        patch("synapps.onboarding.init_wizard.write_mcp_config") as mock_write_mcp,
+        patch("synapps.hooks.config_upsert.upsert_claude_hook"),
+        patch("synapps.hooks.config_upsert.upsert_cursor_hook"),
+        patch("synapps.onboarding.agent_instructions.install_agent_instructions") as mock_install_instr,
+        # multiselect accepts defaults (claude + cursor pre-checked), then MCP=yes, hooks=yes, instructions=no
+        patch("typer.prompt", return_value=""),
+        patch("typer.confirm", side_effect=[True, True, False]),
+    ):
+        from synapps.onboarding.init_wizard import _configure_agents
+        configured_clients, hook_agents, agent_files = _configure_agents(console, str(tmp_path))
+
+    assert mock_write_mcp.call_count == 2
+    mock_install_instr.assert_not_called()
+    assert agent_files == []
+
+
+def test_agent_instructions_filtered_by_harness(tmp_path):
+    from synapps.onboarding.agent_instructions import install_agent_instructions
+
+    written = install_agent_instructions(tmp_path, harnesses=["cursor"])
+
+    assert ".cursor/rules/synapps.mdc" in written
+    assert "CLAUDE.md" not in written
+    assert ".github/copilot-instructions.md" not in written

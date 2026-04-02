@@ -108,24 +108,27 @@ def _write_cursor_mdc(path: Path) -> None:
 
 # ── Public API ───────────────────────────────────────────────────────
 
-#: (relative path, writer callable)
-_AGENT_FILES: list[tuple[str, str]] = [
-    ("CLAUDE.md", "markdown"),
-    ("AGENTS.md", "markdown"),
-    (".cursor/rules/synapps.mdc", "cursor_mdc"),
-    (".github/copilot-instructions.md", "markdown"),
+#: (relative path, writer callable, harness name)
+_AGENT_FILES: list[tuple[str, str, str]] = [
+    ("CLAUDE.md", "markdown", "claude"),
+    ("AGENTS.md", "markdown", "claude"),
+    (".cursor/rules/synapps.mdc", "cursor_mdc", "cursor"),
+    (".github/copilot-instructions.md", "markdown", "copilot"),
 ]
 
 
-def install_agent_instructions(project_path: Path) -> list[str]:
-    """Write or update Synapps instruction sections for all known agents.
+def install_agent_instructions(project_path: Path, harnesses: list[str] | None = None) -> list[str]:
+    """Write or update Synapps instruction sections for the selected harnesses.
 
+    When harnesses is None all files are written (backward compat).
     Returns a list of relative paths that were written.
     """
     section = _markdown_section()
     written: list[str] = []
 
-    for rel_path, kind in _AGENT_FILES:
+    for rel_path, kind, harness in _AGENT_FILES:
+        if harnesses is not None and harness not in harnesses:
+            continue
         dest = project_path / rel_path
         try:
             if kind == "markdown":
