@@ -200,3 +200,18 @@ def test_stats_packages_shown_vs_total():
     result = get_architecture_overview(conn, max_packages=1)
     assert result["stats"]["total_packages"] == 5
     assert result["stats"]["packages_shown"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Regression: file_count derived from symbol file_path, not IMPORTS edges
+# ---------------------------------------------------------------------------
+
+def test_package_file_count_uses_symbol_file_path():
+    """Query 1 must count files via Class/Interface file_path, not IMPORTS edges."""
+    conn = _empty_conn()
+    get_architecture_overview(conn)
+    pkg_cypher = conn.query.call_args_list[0].args[0]
+    # Must NOT use the broken IMPORTS-based approach
+    assert "IMPORTS" not in pkg_cypher
+    # Must derive file_count from symbol file_path
+    assert "s.file_path" in pkg_cypher or "file_path" in pkg_cypher
