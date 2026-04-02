@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
-## [1.6.0] - 2026-04-02
+## [1.4.14] - 2026-04-02
 
 ### Added
 - **Indexing opt-out in init wizard** — users can skip Memgraph startup and indexing during `synapps init` while still persisting DB mode config
