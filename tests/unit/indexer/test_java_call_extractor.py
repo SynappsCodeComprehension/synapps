@@ -288,3 +288,84 @@ public class MyClass {
     results = extractor.extract("/proj/MyClass.java", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "forEach" in callees
+
+
+# ---------------------------------------------------------------------------
+# Control flow block coverage (if/for/try-catch/constructor)
+# ---------------------------------------------------------------------------
+
+
+def test_call_inside_if_block(extractor):
+    """Calls inside if-blocks must be captured as part of the enclosing method."""
+    source = """\
+public class OrderService {
+    private OrderRepository orderRepository;
+    public void createOrder(Order order) {
+        if (order.isValid()) {
+            orderRepository.save(order);
+        }
+    }
+}
+"""
+    symbol_map = {("/proj/OrderService.java", 2): "com.example.OrderService.createOrder"}
+    results = extractor.extract("/proj/OrderService.java", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "save" in callees
+    callers = [caller for caller, *_ in results if _ and _[0] == "save"]
+    # All save calls should be attributed to createOrder
+    save_entries = [(caller, callee) for caller, callee, *_ in results if callee == "save"]
+    assert all(caller == "com.example.OrderService.createOrder" for caller, _ in save_entries)
+
+
+def test_call_inside_for_loop(extractor):
+    """Calls inside for-loop bodies must be captured as part of the enclosing method."""
+    source = """\
+public class BatchProcessor {
+    private ItemService service;
+    public void processAll(List<Item> items) {
+        for (Item item : items) {
+            service.process(item);
+        }
+    }
+}
+"""
+    symbol_map = {("/proj/BatchProcessor.java", 2): "com.example.BatchProcessor.processAll"}
+    results = extractor.extract("/proj/BatchProcessor.java", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "process" in callees
+
+
+def test_call_inside_catch_block(extractor):
+    """Calls inside try-body and catch-block must both be captured."""
+    source = """\
+public class SafeRunner {
+    private Logger logger;
+    public void run() {
+        try {
+            doWork();
+        } catch (Exception e) {
+            logger.error("failed", e);
+        }
+    }
+}
+"""
+    symbol_map = {("/proj/SafeRunner.java", 2): "com.example.SafeRunner.run"}
+    results = extractor.extract("/proj/SafeRunner.java", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "doWork" in callees
+    assert "error" in callees
+
+
+def test_constructor_call_inside_method(extractor):
+    """object_creation_expression (new Foo()) inside a method must be captured."""
+    source = """\
+public class Factory {
+    public Widget create(String name) {
+        return new Widget(name);
+    }
+}
+"""
+    symbol_map = {("/proj/Factory.java", 1): "com.example.Factory.create"}
+    results = extractor.extract("/proj/Factory.java", _parse(source), symbol_map)
+    callees = [callee for _, callee, *_ in results]
+    assert "Widget" in callees
