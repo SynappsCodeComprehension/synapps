@@ -353,12 +353,13 @@ def get_architecture_overview(conn: GraphConnection, limit: int = 10, max_packag
     # Query 1: Package breakdown (limited)
     pkg_rows = conn.query(
         "MATCH (p:Package) "
-        "OPTIONAL MATCH (f:File)-[:IMPORTS]->(p) "
-        "WITH p, count(DISTINCT f) AS file_count "
         "OPTIONAL MATCH (s) "
-        "WHERE (s:Class OR s:Interface OR s:Method OR s:Property OR s:Field) "
-        "  AND s.full_name STARTS WITH (p.full_name + '.') "
-        "WITH p, file_count, count(DISTINCT s) AS symbol_count "
+        "WHERE (s:Class OR s:Interface) AND s.full_name STARTS WITH (p.full_name + '.') "
+        "WITH p, count(DISTINCT s.file_path) AS file_count "
+        "OPTIONAL MATCH (s2) "
+        "WHERE (s2:Class OR s2:Interface OR s2:Method OR s2:Property OR s2:Field) "
+        "  AND s2.full_name STARTS WITH (p.full_name + '.') "
+        "WITH p, file_count, count(DISTINCT s2) AS symbol_count "
         "RETURN p.name, file_count, symbol_count "
         "ORDER BY symbol_count DESC "
         "LIMIT $max_packages",
