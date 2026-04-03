@@ -6,14 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
-## [1.4.17] - 2026-04-03
-
-### Added
-- **`JavaFieldTypeExtractor`** — new extractor for Java field type pairs; handles simple, generic, array, and multi-declarator fields
-
-### Fixed
-- **Java field annotations silently dropped** — `JavaAttributeExtractor` now descends into `variable_declarator` for `field_declaration` nodes
-- **Generic C# types lose IMPLEMENTS/INHERITS edges** — classes with `<` in `full_name` (e.g. `IRepository<T>`) lost all structural outgoing edges because the base-type lookup key included generic parameters while tree-sitter returns bare identifiers; params are now stripped from the key
+### Changed
+- **Java field REFERENCES edges now originate from Field nodes** — `JavaTypeRefExtractor.extract()` accepts a new `field_symbol_map` keyword argument; when provided, `field_declaration` nodes use the Field node's `full_name` as the `REFERENCES` edge source instead of the enclosing class, enabling `find_dependencies` and `get_context_for` to traverse field-specific dependency chains (FILD-02)
+- **`SymbolResolver` passes `field_symbol_map` to Java type-ref extractor** — resolver now builds and forwards a per-file field symbol map so the extractor receives field `full_name` values without breaking existing C#/TypeScript/Python call sites
 
 ## [1.4.15] - 2026-04-02
 
