@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.4.15] - 2026-04-02
+
 ### Fixed
 - **Mutation guard false positives in `execute_query`** — `execute_readonly_query` now strips string literal content and dotted property access before checking for mutation keywords; queries like `WHERE m.name CONTAINS 'create'` or `WHERE n.set = 1` no longer raise a spurious `ValueError`
 - **Dead code false positive: `configure()` in Spring Security classes** — `find_dead_code` and `find_untested` now exclude `configure()` (lowercase) in classes ending with `Configurer` or `Adapter` in addition to `Configuration`; covers Spring Security `WebSecurityConfigurerAdapter` overrides (BUG-03)
