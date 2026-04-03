@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **`find_dependencies` returns `fields` section for Java classes** — when a class has typed `Field` nodes (e.g. `@Autowired` fields), `find_dependencies` now returns a dict with `"dependencies"` and `"fields"` keys; classes without typed fields continue to return a plain list (backward-compatible)
+
 ## [1.4.15] - 2026-04-02
 
 ### Fixed
