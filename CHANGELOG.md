@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Fixed
+- **Dead code false positives for lifecycle methods** — `_EXCLUDED_METHOD_NAMES` now includes `Dispose`, `DisposeAsync`, `Close`, `Finalize`, `OnNavigatedTo`, `OnInitialized`, and `OnInitializedAsync`; these are always framework-invoked and never have callers in the graph
+
+### Changed
+- **`find_callees` docstring** — documents the known graph boundary: calls to external framework types (Spring Data, JDK stdlib, .NET BCL, Entity Framework) are not indexed; agents should use `get_context_for` for call sites involving framework methods
+- **Server instructions** — added `KNOWN GRAPH BOUNDARIES` section so AI agents understand at session init that only project-defined symbols appear as CALLS edges
+
 ## [1.4.14] - 2026-04-02
 
 ### Added

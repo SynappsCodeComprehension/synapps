@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from synapps.graph.analysis import find_dead_code, _build_base_exclusion_where
+from synapps.graph.analysis import find_dead_code, _build_base_exclusion_where, _EXCLUDED_METHOD_NAMES
 from synapps.graph.lookups import _TEST_PATH_PATTERN
 
 
@@ -340,3 +340,41 @@ def test_framework_attributes_exclude_lowercase_java_annotations():
     assert '"scheduled"' in where
     # C# attributes — must remain PascalCase
     assert '"ApiController"' in where
+
+
+# ---------------------------------------------------------------------------
+# Regression: .NET / Java lifecycle methods excluded (D-04, D-05, D-06)
+# IDisposable.Dispose() and similar are always framework-invoked.
+# ---------------------------------------------------------------------------
+
+def test_contains_dispose() -> None:
+    assert "Dispose" in _EXCLUDED_METHOD_NAMES
+
+
+def test_contains_dispose_async() -> None:
+    assert "DisposeAsync" in _EXCLUDED_METHOD_NAMES
+
+
+def test_contains_close() -> None:
+    assert "Close" in _EXCLUDED_METHOD_NAMES
+
+
+def test_contains_finalize() -> None:
+    assert "Finalize" in _EXCLUDED_METHOD_NAMES
+
+
+def test_contains_on_navigated_to() -> None:
+    assert "OnNavigatedTo" in _EXCLUDED_METHOD_NAMES
+
+
+def test_contains_on_initialized() -> None:
+    assert "OnInitialized" in _EXCLUDED_METHOD_NAMES
+
+
+def test_contains_on_initialized_async() -> None:
+    assert "OnInitializedAsync" in _EXCLUDED_METHOD_NAMES
+
+
+def test_build_exclusion_where_excludes_dispose() -> None:
+    where = _build_base_exclusion_where()
+    assert "'Dispose'" in where
