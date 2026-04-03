@@ -888,6 +888,10 @@ class Indexer:
         for (sm_path, _), full_name in symbol_map.items():
             if sm_path == file_path:
                 simple = full_name.rsplit(".", 1)[-1]
+                # Strip generic type parameters so the key matches tree-sitter
+                # identifiers (e.g. "MyClass<T>" → "MyClass").
+                if "<" in simple:
+                    simple = simple[: simple.index("<")]
                 file_type_names.setdefault(simple, []).append(full_name)
 
         log.debug("file_type_names for %s: %s", file_path, dict(file_type_names))
