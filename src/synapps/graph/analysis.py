@@ -254,6 +254,7 @@ def _build_base_exclusion_where() -> str:
         "AND NOT (m)-[:OVERRIDES]->() "
         "AND NOT (m)<-[:CONTAINS]-(:Interface) "
         f"AND NOT m.name IN [{name_list}] "
+        "AND NOT m.name STARTS WITH 'main(' "
         "AND NOT EXISTS { MATCH (parent)-[:CONTAINS]->(m) "
         "WHERE (parent:Class OR parent:Interface) AND parent.name = m.name } "
         "AND NOT (m.name IN ['configure', 'Configure'] AND EXISTS { MATCH (cfg)-[:CONTAINS]->(m) "
