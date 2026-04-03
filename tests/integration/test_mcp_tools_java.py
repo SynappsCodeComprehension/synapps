@@ -737,3 +737,52 @@ def test_spring_data_stubs_excluded_from_dead_code(java_mcp: FastMCP) -> None:
     assert stub_methods == [], (
         f"find_dead_code returned stub methods that should be excluded: {stub_methods}"
     )
+
+
+# ---------------------------------------------------------------------------
+# EXTC: External framework call site recording
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_external_framework_stub_node_exists(java_service) -> None:
+    """EXTC-01/02: RestTemplate.getForObject stub Method node exists with stub=True."""
+    rows = java_service._conn.query(
+        "MATCH (m:Method) WHERE m.full_name CONTAINS 'restTemplate' "
+        "AND m.name = 'getForObject' RETURN m.full_name, m.stub LIMIT 1"
+    )
+    assert rows, "Expected a restTemplate.getForObject stub Method node in graph"
+    full_name, stub_flag = rows[0]
+    assert stub_flag is True, f"Expected stub=True on {full_name}, got: {stub_flag}"
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_external_framework_stub_excluded_from_dead_code(java_mcp: FastMCP) -> None:
+    """EXTC-02: External framework stubs do not appear in find_dead_code."""
+    result = run(java_mcp.call_tool("find_dead_code", {
+        "path": JAVA_FIXTURE_PATH,
+    }))
+    data = result_json(result)
+    dead_names = [m.get("full_name", "") for m in data.get("methods", [])]
+    resttemplate_stubs = [n for n in dead_names if "restTemplate" in n.lower() or "RestTemplate" in n]
+    assert not resttemplate_stubs, (
+        f"RestTemplate stub(s) appeared in find_dead_code: {resttemplate_stubs}"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_external_framework_callees_resolved(java_service) -> None:
+    """EXTC-03: CALLS edge exists from getAnimalFromService to the RestTemplate stub."""
+    rows = java_service._conn.query(
+        "MATCH (caller:Method)-[:CALLS]->(callee:Method) "
+        "WHERE caller.full_name CONTAINS 'getAnimalFromService' "
+        "AND callee.full_name CONTAINS 'restTemplate' "
+        "AND callee.name = 'getForObject' "
+        "RETURN caller.full_name, callee.full_name LIMIT 1"
+    )
+    assert rows, (
+        "Expected CALLS edge from OrderService.getAnimalFromService to "
+        "restTemplate.getForObject stub, but none found in graph"
+    )
