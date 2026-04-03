@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Fixed
+- **Dead code false positive: Java `main(String[])` entry point** — `find_dead_code` and `find_untested` now exclude methods whose name starts with `main(` in addition to the existing `'main'` IN-list check; covers JDT LS name storage variant `"main(String[])"` (DEAD-01, DEAD-02)
+
 ## [1.4.15] - 2026-04-02
 
 ### Fixed

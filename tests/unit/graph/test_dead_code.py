@@ -78,6 +78,17 @@ class TestBuildExclusionWhere:
         name_list_fragment = self.clause[name_list_start:name_list_end + 1]
         assert "'main'" in name_list_fragment
 
+    def test_build_exclusion_where_excludes_main_with_params(self) -> None:
+        # DEAD-01/02: JDT LS may store the method name as 'main(String[])' instead of 'main'.
+        # The WHERE clause must also filter names that start with 'main(' to cover this variant.
+        assert "m.name STARTS WITH 'main('" in self.clause
+
+    def test_main_exclusion_covers_both_name_variants(self) -> None:
+        # Belt-and-suspenders: both the IN-list check (for 'main') and the STARTS WITH check
+        # (for 'main(String[])') must be present so neither variant slips through.
+        assert "'main'" in self.clause
+        assert "m.name STARTS WITH 'main('" in self.clause
+
     # --- BUG-03: Spring configure() in Adapter/Configurer classes ---
 
     def test_build_exclusion_where_excludes_configure_in_configuration(self) -> None:
