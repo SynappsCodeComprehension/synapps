@@ -261,6 +261,7 @@ def _build_base_exclusion_where() -> str:
         "WHERE cfg:Class AND (cfg.name ENDS WITH 'Configuration' "
         "OR cfg.name ENDS WITH 'Configurer' OR cfg.name ENDS WITH 'Adapter') }) "
         f"AND NOT ({attr_checks}) "
+        "AND NOT coalesce(m.stub, false) "
         "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
     )
 
