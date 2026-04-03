@@ -172,6 +172,40 @@ def test_find_implementations_project_service(mcp_server: FastMCP) -> None:
     assert "SynappsTest.Services.ProjectService" in names
 
 
+# ---------------------------------------------------------------------------
+# Generic type IMPLEMENTS regression: classes with <T> in full_name must
+# still get IMPLEMENTS edges (bug: file_type_names key included generics
+# but tree-sitter extractor returns bare identifier).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_generic_class_implements_generic_interface(mcp_server: FastMCP) -> None:
+    """TaskRepository IMPLEMENTS IRepository<T> — generic full_names must not break edge creation."""
+    result = run(mcp_server.call_tool("find_implementations", {
+        "full_name": "SynappsTest.Services.IRepository<T>"
+    }))
+    impls = result_json(result)
+    names = [i["full_name"] for i in impls]
+    assert "SynappsTest.Services.TaskRepository" in names
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_generic_interface_dispatches_to_impl(service: SynappsService) -> None:
+    """Methods on generic interface must have DISPATCHES_TO edges to implementing class methods."""
+    rows = service._conn.query(
+        "MATCH (iface:Method)-[:DISPATCHES_TO]->(impl:Method) "
+        "WHERE iface.full_name STARTS WITH 'SynappsTest.Services.IRepository<T>.' "
+        "RETURN iface.name, impl.full_name "
+        "ORDER BY iface.name"
+    )
+    dispatched_names = {r[0] for r in rows}
+    assert "GetByIdAsync" in dispatched_names, (
+        f"Expected DISPATCHES_TO for GetByIdAsync, got: {dispatched_names}"
+    )
+
+
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_find_callees(mcp_server: FastMCP) -> None:
