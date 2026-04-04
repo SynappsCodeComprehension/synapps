@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "~/.synapps/hooks/copilot-gate.sh",
+        "comment": "Synapps: prefer graph tools for code discovery"
+      }
+    ]
+  }
+}
