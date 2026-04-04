@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Analysis routes required path param** — `get_architecture`, `find_dead_code`, and `find_untested` web routes now accept `path` as optional (`str | None = None`) so the SPA can call them without a vestigial path parameter
 - **Analysis routes missing subdirectory param** — all three analysis routes now accept an optional `subdirectory` query parameter for future directory-scoped analysis
 - **find_usages web route returned markdown** — web route now passes `structured=True` to the service method, returning a JSON list of `{full_name, kind, file_path, line}` dicts suitable for graph rendering
+- **Svelte effect_update_depth_exceeded on find_usages** — `graphKey` mutation inside `$effect` caused infinite reactive loop; wrapped in `untrack()` to break the dependency cycle
 
 ### Changed
 - **Unit test cleanup** — removed ~19 redundant, tautological, and brittle tests; merged duplicate doctor pass/fix assertions; replaced fragile Cypher brace-counting parser and exact-count schema assertions; renamed 5 misleading test names
