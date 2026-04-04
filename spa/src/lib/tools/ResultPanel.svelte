@@ -1,7 +1,65 @@
 <script>
   import DataTable from '../ui/DataTable.svelte';
+  import CytoscapeGraph from '../graph/CytoscapeGraph.svelte';
+  import { calleesToElements, hierarchyToElements, cypherToElements, isGraphResult } from '../graph/transforms.js';
+  import { apiCall } from '../api.js';
 
-  const { result = null, resultType = 'table', error = null, loading = false, onSymbolClick } = $props();
+  const { result = null, resultType = 'table', error = null, loading = false, onSymbolClick, activeTool = '' } = $props();
+
+  // Accumulated graph elements — persists across node expansions.
+  // Reset when a new top-level query result arrives (via $effect on result).
+  let accumulatedGraphElements = $state({ nodes: [], edges: [] });
+
+  // When a new result arrives, compute the initial graph elements and reset accumulator
+  $effect(() => {
+    if (!result || resultType !== 'graph') {
+      accumulatedGraphElements = { nodes: [], edges: [] };
+      return;
+    }
+    let initial;
+    if (activeTool === 'find_callees') {
+      const rootName = result?.root || '';
+      initial = calleesToElements(result, rootName);
+    } else if (activeTool === 'get_hierarchy') {
+      initial = hierarchyToElements(result);
+    } else {
+      initial = { nodes: [], edges: [] };
+    }
+    accumulatedGraphElements = initial;
+  });
+
+  const viewType = $derived(
+    activeTool === 'find_callees' ? 'callees' :
+    activeTool === 'get_hierarchy' ? 'hierarchy' :
+    'cypher'
+  );
+
+  // Handle node click — expand callees and MERGE new elements into accumulated state
+  async function handleNodeClick(nodeData) {
+    if (activeTool === 'find_callees' && nodeData.full_name) {
+      try {
+        const callees = await apiCall('find_callees', { full_name: nodeData.full_name, limit: 20 });
+        const newElements = calleesToElements(callees, nodeData.full_name);
+
+        // Merge new nodes and edges into accumulated state (deduplicate by id)
+        const existingNodeIds = new Set(accumulatedGraphElements.nodes.map(n => n.data.id));
+        const existingEdgeIds = new Set(accumulatedGraphElements.edges.map(e => e.data.id));
+
+        const mergedNodes = [
+          ...accumulatedGraphElements.nodes,
+          ...newElements.nodes.filter(n => !existingNodeIds.has(n.data.id)),
+        ];
+        const mergedEdges = [
+          ...accumulatedGraphElements.edges,
+          ...newElements.edges.filter(e => !existingEdgeIds.has(e.data.id)),
+        ];
+
+        accumulatedGraphElements = { nodes: mergedNodes, edges: mergedEdges };
+      } catch (err) {
+        console.warn('Failed to expand node:', err.message);
+      }
+    }
+  }
 
   // Derive table columns from first row of result data
   function deriveColumns(data) {
@@ -88,13 +146,32 @@
       />
     {/if}
   {:else if resultType === 'graph'}
-    <!-- Graph rendering handled by Plan 05; show raw data as fallback -->
-    <div class="graph-placeholder">
-      <p class="text-secondary">Graph visualization loading...</p>
-      <pre class="text-result">{JSON.stringify(result, null, 2)}</pre>
-    </div>
+    {#if accumulatedGraphElements.nodes.length === 0}
+      <div class="empty-state">
+        <p class="heading">Nothing to show yet.</p>
+        <p class="text-secondary">Run a query to build the graph.</p>
+      </div>
+    {:else}
+      <CytoscapeGraph
+        elements={accumulatedGraphElements}
+        {viewType}
+        onNodeClick={handleNodeClick}
+      />
+    {/if}
   {:else if resultType === 'raw'}
-    <pre class="text-result">{JSON.stringify(result, null, 2)}</pre>
+    {#if isGraphResult(result)}
+      <CytoscapeGraph
+        elements={cypherToElements(result)}
+        viewType="cypher"
+        onNodeClick={handleNodeClick}
+      />
+      <details style="margin-top: 16px;">
+        <summary class="text-secondary">Raw JSON</summary>
+        <pre class="text-result">{JSON.stringify(result, null, 2)}</pre>
+      </details>
+    {:else}
+      <pre class="text-result">{JSON.stringify(result, null, 2)}</pre>
+    {/if}
   {/if}
 </div>
 
@@ -157,8 +234,5 @@
   }
   .stat-label {
     margin-top: 4px;
-  }
-  .graph-placeholder {
-    padding: 16px;
   }
 </style>

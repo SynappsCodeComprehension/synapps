@@ -76,6 +76,7 @@
             {error}
             {loading}
             onSymbolClick={handleSymbolClick}
+            {activeTool}
           />
         </div>
       {/if}
