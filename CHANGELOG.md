@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Changed
+- **Unit test cleanup** — removed ~19 redundant, tautological, and brittle tests; merged duplicate doctor pass/fix assertions; replaced fragile Cypher brace-counting parser and exact-count schema assertions; renamed 5 misleading test names
+
 ## [1.5.1] - 2026-04-03
 
 ### Fixed
