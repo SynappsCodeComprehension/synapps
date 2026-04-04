@@ -22,7 +22,33 @@ def test_find_usages_basic():
     response = client.get("/api/find_usages?full_name=A.B")
     assert response.status_code == 200
     assert response.json() == "Found 3 usages"
-    svc.find_usages.assert_called_once_with("A.B", True, limit=20)
+    svc.find_usages.assert_called_once_with("A.B", True, limit=20, structured=True)
+
+
+def test_find_usages_returns_structured_json():
+    """D-02: Web route passes structured=True, returns list of dicts."""
+    client, svc = _make_client()
+    svc.find_usages.return_value = [
+        {"full_name": "A.Caller1", "kind": "Method", "file_path": "/src/a.cs", "line": 10},
+        {"full_name": "B.Caller2", "kind": "Method", "file_path": "/src/b.cs", "line": 20},
+    ]
+    response = client.get("/api/find_usages?full_name=A.B")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert data[0]["full_name"] == "A.Caller1"
+    svc.find_usages.assert_called_once_with("A.B", True, limit=20, structured=True)
+
+
+def test_find_usages_structured_empty_list():
+    """D-02: Structured mode returns empty list for symbols with no callers."""
+    client, svc = _make_client()
+    svc.find_usages.return_value = []
+    response = client.get("/api/find_usages?full_name=A.B")
+    assert response.status_code == 200
+    assert response.json() == []
+    svc.find_usages.assert_called_once_with("A.B", True, limit=20, structured=True)
 
 
 def test_find_callees_basic():

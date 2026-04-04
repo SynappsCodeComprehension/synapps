@@ -65,3 +65,30 @@ def test_find_dead_code_value_error_returns_400():
     response = client.get("/api/find_dead_code?path=/foo")
     assert response.status_code == 400
     assert response.json()["detail"] == "Not indexed"
+
+
+def test_get_architecture_no_path():
+    """D-07: path is now optional — request without path returns 200."""
+    client, svc = _make_client()
+    svc.get_architecture_overview.return_value = {"packages": [], "stats": {}}
+    response = client.get("/api/get_architecture")
+    assert response.status_code == 200
+    svc.get_architecture_overview.assert_called_once_with(limit=10)
+
+
+def test_find_dead_code_no_path():
+    """D-07: path is now optional."""
+    client, svc = _make_client()
+    svc.find_dead_code.return_value = {"methods": [], "total": 0}
+    response = client.get("/api/find_dead_code")
+    assert response.status_code == 200
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0)
+
+
+def test_find_dead_code_with_subdirectory():
+    """D-08: subdirectory param is accepted without error."""
+    client, svc = _make_client()
+    svc.find_dead_code.return_value = {"methods": [], "total": 0}
+    response = client.get("/api/find_dead_code?subdirectory=src/api")
+    assert response.status_code == 200
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0)
