@@ -1,185 +1,169 @@
 /**
- * Graph data transforms: convert API response shapes into Cytoscape elements.
- * All functions return { nodes: [...], edges: [...] }.
- *
- * Node data shape: { id, label, kind, full_name, file_path, line }
- * Edge data shape: { id, source, target, label }
+ * Transform API response data into Cytoscape.js elements format.
+ * Cytoscape expects: { nodes: [{data: {id, label, ...}}], edges: [{data: {source, target, ...}}] }
  */
 
 /**
- * Converts find_callees API response to Cytoscape elements.
- * Accepts either a flat array of callees or a depth-tree { root, callees, depth_limit }.
+ * Transform find_callees response (flat list or depth tree) to graph elements.
+ * rootName: the queried method's full_name.
  */
-export function calleesToElements(data, rootFullName) {
+export function calleesToElements(data, rootName) {
   const nodes = new Map();
   const edges = [];
 
-  const addNode = (fullName, name, kind = 'method', filePath = '', line = 0) => {
-    if (!nodes.has(fullName)) {
-      nodes.set(fullName, {
-        data: {
-          id: fullName,
-          label: name || _shortName(fullName),
-          kind,
-          full_name: fullName,
-          file_path: filePath,
-          line,
-        },
-      });
-    }
-  };
-
-  // Root node
-  addNode(rootFullName, _shortName(rootFullName), 'method', '', 0);
-
-  if (Array.isArray(data)) {
-    // Flat array: each item is a direct callee
-    for (const item of data) {
-      const id = item.full_name || item.name;
-      if (!id) continue;
-      addNode(id, item.name || _shortName(id), item.kind || 'method', item.file_path || '', item.line || 0);
-      edges.push({
-        data: {
-          id: `${rootFullName}->${id}`,
-          source: rootFullName,
-          target: id,
-          label: 'CALLS',
-        },
-      });
-    }
-  } else if (data && Array.isArray(data.callees)) {
-    // Depth tree: { root, callees: [{ full_name, depth, ... }], depth_limit }
-    const root = data.root || rootFullName;
-    if (root !== rootFullName) {
-      addNode(root, _shortName(root), 'method', '', 0);
-      edges.push({ data: { id: `${rootFullName}->${root}`, source: rootFullName, target: root, label: 'CALLS' } });
-    }
-    for (const item of data.callees) {
-      const id = item.full_name || item.name;
-      if (!id) continue;
-      addNode(id, item.name || _shortName(id), item.kind || 'method', item.file_path || '', item.line || 0);
-      // Connect depth-1 items to root; deeper items to their parent (approximated here)
-      const src = item.depth === 1 ? root : root;
-      edges.push({
-        data: {
-          id: `${src}->${id}-${item.depth}`,
-          source: src,
-          target: id,
-          label: 'CALLS',
-        },
-      });
-    }
+  // Add root node
+  if (rootName) {
+    const shortName = rootName.split('.').pop();
+    nodes.set(rootName, {
+      data: { id: rootName, label: shortName, kind: 'Method', full_name: rootName },
+    });
   }
 
-  return { nodes: Array.from(nodes.values()), edges };
+  // data may be array (flat) or {root, callees} (depth tree)
+  const callees = Array.isArray(data) ? data : (data?.callees || []);
+  const root = Array.isArray(data) ? rootName : (data?.root || rootName);
+
+  for (const item of callees) {
+    const fn = item.full_name;
+    if (!fn) continue;
+    const shortName = fn.split('.').pop();
+    const kind = item.kind || 'Method';
+
+    if (!nodes.has(fn)) {
+      nodes.set(fn, {
+        data: {
+          id: fn,
+          label: shortName.length > 16 ? shortName.slice(0, 14) + '..' : shortName,
+          kind,
+          full_name: fn,
+          file_path: item.file_path || '',
+          line: item.line || 0,
+        },
+      });
+    }
+
+    // Edge from root (or parent at previous depth) to this callee
+    const source = item.depth === 1 || !item.depth ? root : (item._parent || root);
+    edges.push({
+      data: {
+        id: `e-${source}-${fn}`,
+        source,
+        target: fn,
+        label: 'CALLS',
+      },
+    });
+  }
+
+  return { nodes: [...nodes.values()], edges };
 }
 
 /**
- * Converts get_hierarchy API response to Cytoscape elements.
- * Accepts { target, parents: [...], children: [...] }.
+ * Transform get_hierarchy response to graph elements.
  */
 export function hierarchyToElements(data) {
-  const nodes = [];
+  const nodes = new Map();
   const edges = [];
-  const seen = new Set();
-
-  const addNode = (fullName, kind = 'class') => {
-    if (seen.has(fullName)) return;
-    seen.add(fullName);
-    nodes.push({
-      data: {
-        id: fullName,
-        label: _shortName(fullName),
-        kind,
-        full_name: fullName,
-      },
-    });
-  };
-
   const target = data.target || '';
-  addNode(target, 'class');
 
+  // Target node (the queried class)
+  if (target) {
+    const shortName = target.split('.').pop();
+    nodes.set(target, {
+      data: { id: target, label: shortName, kind: 'Class', full_name: target },
+    });
+  }
+
+  // Parents (classes/interfaces this inherits from)
   for (const parent of data.parents || []) {
-    const id = parent.full_name || parent;
-    addNode(id, parent.kind || 'class');
-    // Parent inherits: parent -> target
-    edges.push({
-      data: {
-        id: `${id}->INHERITS->${target}`,
-        source: id,
-        target,
-        label: 'INHERITS',
-      },
-    });
+    const fn = parent.full_name;
+    if (!fn) continue;
+    const shortName = fn.split('.').pop();
+    if (!nodes.has(fn)) {
+      nodes.set(fn, {
+        data: {
+          id: fn,
+          label: shortName,
+          kind: parent.kind || 'Class',
+          full_name: fn,
+          file_path: parent.file_path || '',
+          line: parent.line || 0,
+        },
+      });
+    }
+    edges.push({ data: { id: `e-${target}-${fn}`, source: target, target: fn, label: 'INHERITS' } });
   }
 
+  // Children (classes that extend this)
   for (const child of data.children || []) {
-    const id = child.full_name || child;
-    addNode(id, child.kind || 'class');
-    // Child inherits from target: target -> child
-    edges.push({
-      data: {
-        id: `${target}->INHERITS->${id}`,
-        source: target,
-        target: id,
-        label: 'INHERITS',
-      },
-    });
+    const fn = child.full_name;
+    if (!fn) continue;
+    const shortName = fn.split('.').pop();
+    if (!nodes.has(fn)) {
+      nodes.set(fn, {
+        data: {
+          id: fn,
+          label: shortName,
+          kind: child.kind || 'Class',
+          full_name: fn,
+          file_path: child.file_path || '',
+          line: child.line || 0,
+        },
+      });
+    }
+    edges.push({ data: { id: `e-${fn}-${target}`, source: fn, target, label: 'INHERITS' } });
   }
 
-  return { nodes, edges };
+  return { nodes: [...nodes.values()], edges };
 }
 
 /**
- * Converts execute_query API response (array of { row: [...] }) to Cytoscape elements.
- * Only graph-renderable rows (containing objects with full_name) are converted.
+ * Transform execute_query (Cypher) results to graph elements.
+ * Heuristic: if rows contain objects with full_name, render as nodes.
+ * Edges are inferred from consecutive node pairs in each row.
  */
 export function cypherToElements(data) {
   const nodes = new Map();
   const edges = [];
 
-  if (!Array.isArray(data)) return { nodes: [], edges: [] };
+  for (const item of data || []) {
+    const row = item.row || [];
+    let prevNodeId = null;
 
-  for (const record of data) {
-    const row = record.row || [];
-    for (const value of row) {
-      if (value && typeof value === 'object' && value.full_name) {
-        const id = value.full_name;
-        if (!nodes.has(id)) {
-          nodes.set(id, {
+    for (const cell of row) {
+      if (cell && typeof cell === 'object' && cell.full_name) {
+        const fn = cell.full_name;
+        const shortName = (cell.name || fn.split('.').pop());
+        if (!nodes.has(fn)) {
+          nodes.set(fn, {
             data: {
-              id,
-              label: value.name || _shortName(id),
-              kind: (value.kind || 'unknown').toLowerCase(),
-              full_name: id,
-              file_path: value.file_path || '',
-              line: value.line || 0,
+              id: fn,
+              label: shortName.length > 16 ? shortName.slice(0, 14) + '..' : shortName,
+              kind: cell.kind || 'Class',
+              full_name: fn,
+              file_path: cell.file_path || '',
+              line: cell.line || 0,
             },
           });
         }
+        if (prevNodeId && prevNodeId !== fn) {
+          edges.push({
+            data: { id: `e-${prevNodeId}-${fn}`, source: prevNodeId, target: fn },
+          });
+        }
+        prevNodeId = fn;
       }
     }
   }
 
-  return { nodes: Array.from(nodes.values()), edges };
+  return { nodes: [...nodes.values()], edges };
 }
 
 /**
- * Returns true if the execute_query result rows contain graph-renderable objects.
- * Used to decide whether to show graph view or table view for raw Cypher results.
+ * Check if Cypher result rows contain graph-renderable objects.
  */
 export function isGraphResult(data) {
   if (!Array.isArray(data) || data.length === 0) return false;
-  const first = data[0];
-  if (!first || !Array.isArray(first.row)) return false;
-  return first.row.some(v => v && typeof v === 'object' && v.full_name);
-}
-
-/**
- * Derives a short display name from a fully-qualified name (last segment).
- */
-function _shortName(fullName) {
-  if (!fullName) return '';
-  const parts = fullName.split('.');
-  return parts[parts.length - 1] || fullName;
+  const row = data[0]?.row;
+  if (!Array.isArray(row)) return false;
+  return row.some(cell => cell && typeof cell === 'object' && cell.full_name);
 }
