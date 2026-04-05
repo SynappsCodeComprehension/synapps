@@ -60,10 +60,12 @@
           // Per-node shape and color
           g.each(function(d) {
             const sel = d3.select(this);
+            const opacity = Math.max(0.35, 1 - (d.depth || 0) * 0.25);
             appendNodeShape(sel, d.kind)
               .attr('fill', getNodeColor(d.kind))
               .attr('stroke', getNodeColor(d.kind))
-              .attr('stroke-width', 2);
+              .attr('stroke-width', 2)
+              .attr('opacity', opacity);
 
             sel.append('text')
               .text(d.label)
@@ -71,6 +73,7 @@
               .attr('text-anchor', 'middle')
               .attr('dy', '0.35em')
               .attr('fill', getNodeTextColor(d.kind))
+              .attr('opacity', opacity)
               .style('pointer-events', 'none')
               .style('user-select', 'none');
           });
@@ -131,7 +134,11 @@
 
           return g;
         },
-        update => update,
+        update => {
+          update.select('rect,ellipse,polygon').attr('opacity', d => Math.max(0.35, 1 - (d.depth || 0) * 0.25));
+          update.select('text').attr('opacity', d => Math.max(0.35, 1 - (d.depth || 0) * 0.25));
+          return update;
+        },
         exit => exit.remove()
       );
   }
