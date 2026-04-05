@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Changed
+- **D3 graph nodes and edges render at full opacity** — removed all depth-based opacity fading (`Math.max(0.35, 1 - depth * 0.25)` formulas) from `D3Graph.svelte`; all nodes and links always display at `opacity: 1` regardless of expansion depth; neighbor highlight dimming (0.2) and edge dim on selection still apply
+- **Root node highlighted with yellow border** — the initial/center node (depth=0 or no depth property) now renders with a light yellow `#F0E68C` stroke at width 3; all other nodes use their kind-color stroke at width 2; applied consistently in enter, update, highlightSelected, and theme observer callbacks
+- **`find_usages` returns all results by default** — changed default `limit` from 20 to 0 (unlimited) across MCP tool (`tools.py`), service layer (`service/__init__.py`), and web route (`navigate.py`); passing an explicit `limit > 0` still truncates as before; the silent 20-result cap that was truncating AI agent queries is removed
+
 ### Added
 - **D3 node style helpers** — `nodeStyles.js` now exports `getNodeColor`, `getNodeTextColor`, and `appendNodeShape` for D3 SVG rendering; kind-specific shapes (ellipse for Method/Endpoint, diamond polygon for Field/Property, rounded rect for all others) with CSS-var-aware hex fallbacks; `getCSSVar` exported with SSR guard for test environments; existing `buildStyles` export preserved for backward compatibility with CytoscapeGraph
 - **D3Graph.svelte force-directed graph component** — new SVG-based graph renderer using D3 force simulation (forceLink, forceManyBody, forceCenter, forceCollide); kind-specific node shapes and colors from nodeStyles.js; draggable nodes with zoom/pan (scaleExtent 0.2–5); hover tooltip showing full_name and kind; click/dblclick disambiguation with 250ms timeout (single-click=select, double-click=expand); right-click calls onNodeRemove; MutationObserver-based theme reactivity; D3 enter/exit/update join pattern for incremental node addition; $effect reacts to elements prop changes preserving existing node positions

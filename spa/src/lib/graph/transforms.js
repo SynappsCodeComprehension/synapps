@@ -200,7 +200,7 @@ export function isGraphResult(data) {
 /**
  * Transform /api/expand_node response to D3 graph format.
  * data: { full_name, neighbors: [{full_name, kind, rel_type, direction, ...}] }
- * depth: optional depth level for the neighbor nodes (default 0); used for opacity fading.
+ * depth: optional depth level for the neighbor nodes (default 0); used for root node highlighting.
  *   The center node is NOT assigned a depth here — it already exists in the graph.
  */
 export function neighborhoodToElements(data, depth = 0) {
