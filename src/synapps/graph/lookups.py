@@ -58,6 +58,54 @@ def find_implementations(conn: GraphConnection, interface_full_name: str) -> lis
     return []
 
 
+def find_neighborhood(conn: GraphConnection, full_name: str) -> dict:
+    """Return all directly connected neighbors for a given symbol.
+
+    Uses two separate queries (outgoing and incoming) to avoid Memgraph
+    OPTIONAL MATCH + collect issues with bidirectional patterns.
+    """
+    outgoing = conn.query(
+        "MATCH (n {full_name: $full_name})-[r]->(neighbor) "
+        "RETURN neighbor, type(r) AS rel_type",
+        {"full_name": full_name},
+    )
+    incoming = conn.query(
+        "MATCH (caller)-[r]->(n {full_name: $full_name}) "
+        "RETURN caller AS neighbor, type(r) AS rel_type",
+        {"full_name": full_name},
+    )
+
+    seen: set[tuple[str, str, str]] = set()
+    neighbors: list[dict] = []
+
+    def _extract(rows: list, direction: str) -> None:
+        for row in rows:
+            node = row[0]
+            rel_type = row[1]
+            fn = node.get("full_name", "") if isinstance(node, dict) else ""
+            if not fn:
+                continue
+            key = (fn, rel_type, direction)
+            if key in seen:
+                continue
+            seen.add(key)
+            neighbors.append({
+                "full_name": fn,
+                "name": node.get("name", fn.split(".")[-1]) if isinstance(node, dict) else fn.split(".")[-1],
+                "kind": node.get("kind", "") if isinstance(node, dict) else "",
+                "file_path": node.get("file_path", "") if isinstance(node, dict) else "",
+                "line": node.get("line", 0) if isinstance(node, dict) else 0,
+                "signature": node.get("signature", "") if isinstance(node, dict) else "",
+                "rel_type": rel_type,
+                "direction": direction,
+            })
+
+    _extract(outgoing, "out")
+    _extract(incoming, "in")
+
+    return {"full_name": full_name, "neighbors": neighbors}
+
+
 def find_callers(
     conn: GraphConnection,
     method_full_name: str,

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **`GET /api/expand_node` endpoint** — returns all directly connected neighbors for any symbol; uses two separate Cypher queries (outgoing/incoming) to avoid Memgraph OPTIONAL MATCH issues; each neighbor includes `full_name`, `kind`, `rel_type`, `direction`, `name`, `file_path`, `line`, `signature`
+- **`find_neighborhood()` in `lookups.py`** — graph query function backing the expand_node endpoint; deduplicates by `(full_name, rel_type, direction)` tuple
+- **`find_neighborhood()` on `SynappsService`** — service-layer wrapper resolving short names before delegating to the lookup
+- **D3-native graph transform format** — all transform functions (`calleesToElements`, `usagesToElements`, `hierarchyToElements`, `cypherToElements`) now return `{nodes: [{id,...}], links: [...]}` flat format instead of Cytoscape `{data:{id,...}}` wrappers; `edges` renamed to `links` throughout
+- **`neighborhoodToElements()` transform** — new function in `transforms.js` converting `/api/expand_node` responses to D3 graph format with center node and directional links
+- **`graphUtils.js`** — new module with `removeNodeWithOrphans(nodeId, nodes, links)` pure function; handles D3 post-simulation object-form `source`/`target`; cascade-removes nodes that become disconnected after removal
+- **d3 npm dependency** — added to `spa/package.json`
+
 ## [1.6.0] - 2026-04-04
 
 ### Added
