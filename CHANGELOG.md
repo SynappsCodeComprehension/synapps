@@ -9,6 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 - **D3 node style helpers** — `nodeStyles.js` now exports `getNodeColor`, `getNodeTextColor`, and `appendNodeShape` for D3 SVG rendering; kind-specific shapes (ellipse for Method/Endpoint, diamond polygon for Field/Property, rounded rect for all others) with CSS-var-aware hex fallbacks; `getCSSVar` exported with SSR guard for test environments; existing `buildStyles` export preserved for backward compatibility with CytoscapeGraph
 - **D3Graph.svelte force-directed graph component** — new SVG-based graph renderer using D3 force simulation (forceLink, forceManyBody, forceCenter, forceCollide); kind-specific node shapes and colors from nodeStyles.js; draggable nodes with zoom/pan (scaleExtent 0.2–5); hover tooltip showing full_name and kind; click/dblclick disambiguation with 250ms timeout (single-click=select, double-click=expand); right-click calls onNodeRemove; MutationObserver-based theme reactivity; D3 enter/exit/update join pattern for incremental node addition; $effect reacts to elements prop changes preserving existing node positions
+- **`GET /api/expand_node` endpoint** — returns all directly connected neighbors for any symbol; uses two separate Cypher queries (outgoing/incoming) to avoid Memgraph OPTIONAL MATCH issues; each neighbor includes `full_name`, `kind`, `rel_type`, `direction`, `name`, `file_path`, `line`, `signature`
+- **`find_neighborhood()` in `lookups.py`** — graph query function backing the expand_node endpoint; deduplicates by `(full_name, rel_type, direction)` tuple
+- **`find_neighborhood()` on `SynappsService`** — service-layer wrapper resolving short names before delegating to the lookup
+- **D3-native graph transform format** — all transform functions (`calleesToElements`, `usagesToElements`, `hierarchyToElements`, `cypherToElements`) now return `{nodes: [{id,...}], links: [...]}` flat format instead of Cytoscape `{data:{id,...}}` wrappers; `edges` renamed to `links` throughout
+- **`neighborhoodToElements()` transform** — new function in `transforms.js` converting `/api/expand_node` responses to D3 graph format with center node and directional links
+- **`graphUtils.js`** — new module with `removeNodeWithOrphans(nodeId, nodes, links)` pure function; handles D3 post-simulation object-form `source`/`target`; cascade-removes nodes that become disconnected after removal
+- **d3 npm dependency** — added to `spa/package.json`
+- **`NodeDetailPanel.svelte`** — fixed-width 300px right-side overlay panel showing all node properties (full_name, kind, file_path+line as `vscode://` link, signature, and any extra properties); X close button; action buttons (Get Context, Find Usages, Find Callees, Get Hierarchy); Get Hierarchy shown only for Class/Interface kinds; skips D3 internal properties (x, y, vx, vy, fx, fy, index); dark theme support
 
 ## [1.6.0] - 2026-04-04
 
