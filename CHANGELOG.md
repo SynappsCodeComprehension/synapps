@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 - **D3 node style helpers** — `nodeStyles.js` now exports `getNodeColor`, `getNodeTextColor`, and `appendNodeShape` for D3 SVG rendering; kind-specific shapes (ellipse for Method/Endpoint, diamond polygon for Field/Property, rounded rect for all others) with CSS-var-aware hex fallbacks; `getCSSVar` exported with SSR guard for test environments; existing `buildStyles` export preserved for backward compatibility with CytoscapeGraph
+- **D3Graph.svelte force-directed graph component** — new SVG-based graph renderer using D3 force simulation (forceLink, forceManyBody, forceCenter, forceCollide); kind-specific node shapes and colors from nodeStyles.js; draggable nodes with zoom/pan (scaleExtent 0.2–5); hover tooltip showing full_name and kind; click/dblclick disambiguation with 250ms timeout (single-click=select, double-click=expand); right-click calls onNodeRemove; MutationObserver-based theme reactivity; D3 enter/exit/update join pattern for incremental node addition; $effect reacts to elements prop changes preserving existing node positions
 
 ## [1.6.0] - 2026-04-04
 
