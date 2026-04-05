@@ -13,7 +13,7 @@ def router(service: SynappsService) -> APIRouter:
     def find_usages(
         full_name: str,
         exclude_test_callers: bool = True,
-        limit: int = 20,
+        limit: int = 0,
     ) -> str | list | dict:
         try:
             resolved = service._resolve(full_name)
