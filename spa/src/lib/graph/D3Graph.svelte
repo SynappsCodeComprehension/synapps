@@ -43,11 +43,12 @@
   }
 
   function updateLinkOpacity() {
-    linkGroup.selectAll('line').attr('opacity', d => {
-      const sd = (typeof d.source === 'object' ? d.source.depth : 0) || 0;
-      const td = (typeof d.target === 'object' ? d.target.depth : 0) || 0;
-      return Math.max(0.35, 1 - Math.max(sd, td) * 0.25);
-    });
+    linkGroup.selectAll('line').attr('opacity', 1);
+  }
+
+  function getRootStroke(d) {
+    if (d.depth === undefined || d.depth === 0) return { color: '#F0E68C', width: 3 };
+    return { color: getNodeColor(d.kind), width: 2 };
   }
 
   function highlightSelected() {
@@ -55,9 +56,10 @@
     nodeGroup.selectAll('g.node.selected').select('circle')
       .attr('stroke-width', 4)
       .attr('stroke', getCSSVar('--color-accent') || '#2D6A4F');
-    nodeGroup.selectAll('g.node:not(.selected)').select('circle')
-      .attr('stroke-width', 2)
-      .attr('stroke', d => getNodeColor(d.kind));
+    nodeGroup.selectAll('g.node:not(.selected)').select('circle').each(function(d) {
+      const s = getRootStroke(d);
+      d3.select(this).attr('stroke-width', s.width).attr('stroke', s.color);
+    });
 
     if (selectedNodeId) {
       // Compute direct neighbor IDs from simulation link data
@@ -73,9 +75,8 @@
       // Dim non-neighbor, non-selected nodes
       nodeGroup.selectAll('g.node').each(function(d) {
         const isRelevant = d.id === selectedNodeId || neighborIds.has(d.id);
-        const baseOpacity = Math.max(0.35, 1 - (d.depth || 0) * 0.25);
-        d3.select(this).select('circle').attr('opacity', isRelevant ? baseOpacity : 0.2);
-        d3.select(this).select('text').attr('opacity', isRelevant ? baseOpacity : 0.2);
+        d3.select(this).select('circle').attr('opacity', isRelevant ? 1 : 0.2);
+        d3.select(this).select('text').attr('opacity', isRelevant ? 1 : 0.2);
       });
 
       // Dim non-connected links
@@ -83,17 +84,13 @@
         const srcId = typeof d.source === 'object' ? d.source.id : d.source;
         const tgtId = typeof d.target === 'object' ? d.target.id : d.target;
         const isConnected = srcId === selectedNodeId || tgtId === selectedNodeId;
-        if (!isConnected) return 0.1;
-        const sd = (typeof d.source === 'object' ? d.source.depth : 0) || 0;
-        const td = (typeof d.target === 'object' ? d.target.depth : 0) || 0;
-        return Math.max(0.35, 1 - Math.max(sd, td) * 0.25);
+        return isConnected ? 1 : 0.1;
       });
     } else {
-      // Restore depth-based opacity for all nodes
-      nodeGroup.selectAll('g.node').each(function(d) {
-        const opacity = Math.max(0.35, 1 - (d.depth || 0) * 0.25);
-        d3.select(this).select('circle').attr('opacity', opacity);
-        d3.select(this).select('text').attr('opacity', opacity);
+      // Restore full opacity for all nodes
+      nodeGroup.selectAll('g.node').each(function() {
+        d3.select(this).select('circle').attr('opacity', 1);
+        d3.select(this).select('text').attr('opacity', 1);
       });
       updateLinkOpacity();
     }
@@ -162,13 +159,7 @@
           .attr('stroke-width', d => d.id === selectedLinkId ? 4 : 2),
         exit => exit.remove()
       )
-      .attr('opacity', d => {
-        // Guard: on initial render d.source/d.target are strings, not yet resolved
-        if (typeof d.source !== 'object' || typeof d.target !== 'object') return 1.0;
-        const sd = (d.source.depth || 0);
-        const td = (d.target.depth || 0);
-        return Math.max(0.35, 1 - Math.max(sd, td) * 0.25);
-      });
+      .attr('opacity', 1);
 
     // Nodes — enter/exit/update
     nodeGroup.selectAll('g.node')
@@ -180,12 +171,12 @@
           // Per-node shape and color
           g.each(function(d) {
             const sel = d3.select(this);
-            const opacity = Math.max(0.35, 1 - (d.depth || 0) * 0.25);
+            const s = getRootStroke(d);
             appendNodeShape(sel, d.kind)
               .attr('fill', getNodeColor(d.kind))
-              .attr('stroke', getNodeColor(d.kind))
-              .attr('stroke-width', 2)
-              .attr('opacity', opacity);
+              .attr('stroke', s.color)
+              .attr('stroke-width', s.width)
+              .attr('opacity', 1);
 
             sel.append('text')
               .text(d.label)
@@ -193,7 +184,7 @@
               .attr('text-anchor', 'middle')
               .attr('dy', '32')
               .attr('fill', getCSSVar('--color-text-primary') || '#1A2E23')
-              .attr('opacity', opacity)
+              .attr('opacity', 1)
               .style('pointer-events', 'none')
               .style('user-select', 'none');
           });
@@ -276,8 +267,13 @@
           return g;
         },
         update => {
-          update.select('circle').attr('opacity', d => Math.max(0.35, 1 - (d.depth || 0) * 0.25));
-          update.select('text').attr('opacity', d => Math.max(0.35, 1 - (d.depth || 0) * 0.25));
+          update.select('circle')
+            .attr('opacity', 1)
+            .each(function(d) {
+              const s = getRootStroke(d);
+              d3.select(this).attr('stroke', s.color).attr('stroke-width', s.width);
+            });
+          update.select('text').attr('opacity', 1);
           return update;
         },
         exit => exit.remove()
@@ -303,14 +299,17 @@
 
     const svg = d3.select(svgEl);
 
-    // Arrow marker for directed edges
+    // Arrow marker for directed edges.
+    // markerUnits="userSpaceOnUse" fixes size in absolute pixels so the arrowhead
+    // does not scale when a selected edge has a larger stroke-width.
     svg.append('defs').append('marker')
       .attr('id', 'arrowhead')
       .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 28)
+      .attr('refX', 32)
       .attr('refY', 0)
-      .attr('markerWidth', 6)
-      .attr('markerHeight', 6)
+      .attr('markerWidth', 10)
+      .attr('markerHeight', 10)
+      .attr('markerUnits', 'userSpaceOnUse')
       .attr('orient', 'auto')
       .append('path')
       .attr('d', 'M0,-5L10,0L0,5')
@@ -424,11 +423,13 @@
     if (!svgEl) return;
     const observer = new MutationObserver(() => {
       nodeGroup.selectAll('g.node').each(function(d) {
+        const s = getRootStroke(d);
         d3.select(this).select('circle')
           .attr('fill', getNodeColor(d.kind))
           .attr('stroke', d.id === selectedNodeId
             ? (getCSSVar('--color-accent') || '#2D6A4F')
-            : getNodeColor(d.kind));
+            : s.color)
+          .attr('stroke-width', d.id === selectedNodeId ? 4 : s.width);
         d3.select(this).select('text').attr('fill', getCSSVar('--color-text-primary') || '#1A2E23');
       });
       linkGroup.selectAll('line').attr('stroke', getCSSVar('--color-border') || '#C3DDD0');
