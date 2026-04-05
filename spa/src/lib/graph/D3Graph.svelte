@@ -19,6 +19,12 @@
   let tooltipContent = $state('');
   let tooltipStyle = $state('display: none;');
   let physicsEnabled = $state(false);
+  let controlsExpanded = $state(false);
+
+  // Physics parameter controls — defaults match initial forceSimulation config
+  let linkDistance = $state(100);
+  let chargeStrength = $state(-400);
+  let collisionRadius = $state(45);
 
   let selectedNodeId = null;
   // Disambiguate single-click vs double-click
@@ -118,11 +124,9 @@
                   d.fx = null;
                   d.fy = null;
                 } else {
-                  // Commit dragged position and unpin
+                  // Keep fx/fy pinned so next drag start reads correct position (no teleport)
                   d.x = d.fx;
                   d.y = d.fy;
-                  d.fx = null;
-                  d.fy = null;
                   tick();
                 }
               })
@@ -259,6 +263,28 @@
     }
   });
 
+  // React to physics parameter slider changes
+  $effect(() => {
+    if (!simulation) return;
+    // Access reactive values so Svelte tracks them
+    const ld = linkDistance;
+    const cs = chargeStrength;
+    const cr = collisionRadius;
+    simulation.force('link').distance(ld);
+    simulation.force('charge').strength(cs);
+    simulation.force('collision').radius(cr);
+    if (physicsEnabled) {
+      simulation.alpha(0.3).restart();
+    } else {
+      // Recalculate static layout with updated parameters
+      simulation.alpha(0.3);
+      simulation.tick(300);
+      simulation.stop();
+      tick();
+      updateLinkOpacity();
+    }
+  });
+
   // Re-apply colors when theme changes
   $effect(() => {
     if (!svgEl) return;
@@ -289,14 +315,40 @@
       <div>{line}</div>
     {/each}
   </div>
-  <button
-    class="physics-toggle"
-    class:physics-on={physicsEnabled}
-    onclick={togglePhysics}
-    title={physicsEnabled ? 'Disable physics' : 'Enable physics'}
-  >
-    {physicsEnabled ? 'Physics: ON' : 'Physics: OFF'}
-  </button>
+  <div class="graph-toolbar">
+    <button
+      class="physics-toggle"
+      class:physics-on={physicsEnabled}
+      onclick={togglePhysics}
+      title={physicsEnabled ? 'Disable physics' : 'Enable physics'}
+    >
+      {physicsEnabled ? 'Physics: ON' : 'Physics: OFF'}
+    </button>
+    <button
+      class="controls-toggle"
+      class:active={controlsExpanded}
+      onclick={() => controlsExpanded = !controlsExpanded}
+      title="Graph settings"
+    >
+      Settings
+    </button>
+    {#if controlsExpanded}
+      <div class="controls-panel">
+        <label class="control-label">
+          Link Distance: {linkDistance}
+          <input type="range" min="30" max="300" step="10" bind:value={linkDistance} />
+        </label>
+        <label class="control-label">
+          Repel Force: {chargeStrength}
+          <input type="range" min="-1000" max="-50" step="10" bind:value={chargeStrength} />
+        </label>
+        <label class="control-label">
+          Collision Radius: {collisionRadius}
+          <input type="range" min="10" max="100" step="5" bind:value={collisionRadius} />
+        </label>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -335,11 +387,17 @@
     white-space: nowrap;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
-  .physics-toggle {
+  .graph-toolbar {
     position: absolute;
     top: 8px;
     right: 8px;
     z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .graph-toolbar > :global(button) {
     background: var(--color-secondary);
     color: var(--color-text-primary);
     border: 1px solid var(--color-border);
@@ -348,12 +406,38 @@
     font-size: 12px;
     cursor: pointer;
   }
-  .physics-toggle:hover {
+  .graph-toolbar > :global(button:hover) {
     filter: brightness(1.1);
   }
   .physics-toggle.physics-on {
     background: var(--color-accent);
     color: #ffffff;
     border-color: var(--color-accent);
+  }
+  .controls-toggle.active {
+    background: var(--color-secondary);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  .controls-panel {
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .control-label {
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+    color: var(--color-text-primary);
+    gap: 2px;
+  }
+  .control-label input[type="range"] {
+    width: 120px;
+    cursor: pointer;
   }
 </style>
