@@ -200,13 +200,15 @@ export function isGraphResult(data) {
 /**
  * Transform /api/expand_node response to D3 graph format.
  * data: { full_name, neighbors: [{full_name, kind, rel_type, direction, ...}] }
+ * depth: optional depth level for the neighbor nodes (default 0); used for opacity fading.
+ *   The center node is NOT assigned a depth here — it already exists in the graph.
  */
-export function neighborhoodToElements(data) {
+export function neighborhoodToElements(data, depth = 0) {
   const nodes = new Map();
   const links = [];
   const center = data.full_name;
 
-  // Add center node
+  // Add center node (no depth override — it already exists in the accumulated graph)
   if (center) {
     nodes.set(center, {
       id: center,
@@ -230,6 +232,7 @@ export function neighborhoodToElements(data) {
         line: neighbor.line || 0,
         name: neighbor.name || shortName,
         signature: neighbor.signature || '',
+        depth,
       });
     }
     const [src, tgt] = neighbor.direction === 'out' ? [center, fn] : [fn, center];

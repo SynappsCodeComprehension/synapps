@@ -32,7 +32,11 @@
     } else {
       initial = { nodes: [], links: [] };
     }
-    accumulatedGraphElements = initial;
+    // Ensure all initial nodes start at depth 0
+    accumulatedGraphElements = {
+      nodes: initial.nodes.map(n => (n.depth == null ? { ...n, depth: 0 } : n)),
+      links: initial.links,
+    };
   });
 
   // Single-click: select node and open detail panel (per D-14)
@@ -45,7 +49,8 @@
     if (!nodeData?.full_name) return;
     try {
       const data = await apiCall('expand_node', { full_name: nodeData.full_name });
-      const newElements = neighborhoodToElements(data);
+      const maxDepth = accumulatedGraphElements.nodes.reduce((m, n) => Math.max(m, n.depth ?? 0), 0);
+      const newElements = neighborhoodToElements(data, maxDepth + 1);
 
       // Merge: deduplicate by id (per D-11)
       const existingNodeIds = new Set(accumulatedGraphElements.nodes.map(n => n.id));
