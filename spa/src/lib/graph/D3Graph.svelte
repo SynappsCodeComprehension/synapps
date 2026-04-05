@@ -71,8 +71,8 @@
               .text(d.label)
               .attr('font-size', '11px')
               .attr('text-anchor', 'middle')
-              .attr('dy', '0.35em')
-              .attr('fill', getNodeTextColor(d.kind))
+              .attr('dy', '32')
+              .attr('fill', getCSSVar('--color-text-primary') || '#1A2E23')
               .attr('opacity', opacity)
               .style('pointer-events', 'none')
               .style('user-select', 'none');
@@ -170,7 +170,7 @@
       .force('link', d3.forceLink().id(d => d.id).distance(100))
       .force('charge', d3.forceManyBody().strength(-400))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(35))
+      .force('collision', d3.forceCollide().radius(45))
       .on('tick', tick);
 
     // Zoom / pan on canvas
@@ -217,7 +217,7 @@
           .attr('stroke', d.id === selectedNodeId
             ? (getCSSVar('--color-accent') || '#2D6A4F')
             : getNodeColor(d.kind));
-        d3.select(this).select('text').attr('fill', getNodeTextColor(d.kind));
+        d3.select(this).select('text').attr('fill', getCSSVar('--color-text-primary') || '#1A2E23');
       });
       linkGroup.selectAll('line').attr('stroke', getCSSVar('--color-border') || '#C3DDD0');
     });
