@@ -240,7 +240,7 @@ class SynappsService:
                 return kind
         return "Method"
 
-    def find_usages(self, full_name: str, exclude_test_callers: bool = True, limit: int = 20, structured: bool = False) -> str | list[dict]:
+    def find_usages(self, full_name: str, exclude_test_callers: bool = True, limit: int = 0, structured: bool = False) -> str | list[dict]:
         full_name = self._resolve(full_name)
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
@@ -257,7 +257,8 @@ class SynappsService:
         # Method/Property/Field — compact caller list
         if labels & {"Method", "Property", "Field"}:
             kind = "Method" if "Method" in labels else ("Property" if "Property" in labels else "Field")
-            callers = self.find_callers(full_name, exclude_test_callers=exclude_test_callers, limit=limit)
+            effective_limit = limit if limit > 0 else None
+            callers = self.find_callers(full_name, exclude_test_callers=exclude_test_callers, limit=effective_limit or 1_000_000)
             if isinstance(callers, dict):
                 caller_list = callers["results"]
                 total = callers["_total"]
@@ -297,7 +298,8 @@ class SynappsService:
             if exclude_test_callers:
                 test_re = re.compile(_TEST_PATH_PATTERN)
                 raw_refs = [r for r in raw_refs if not test_re.match(r.get("file_path", ""))]
-            return raw_refs[:limit]
+            effective_limit = limit if limit > 0 else None
+            return raw_refs[:effective_limit]
 
         # Class or Interface — compact tiered summary
         kind = "Interface" if "Interface" in labels else "Class"
@@ -348,8 +350,9 @@ class SynappsService:
                         affected_files.add(self._rel_path(fp))
 
         # Group type references by file for compact display (short names, relative paths)
+        effective_limit = limit if limit > 0 else None
         refs_by_file: dict[str, list[str]] = {}
-        for r in raw_refs[:limit]:
+        for r in raw_refs[:effective_limit]:
             fp = self._rel_path(r.get("file_path", "?"))
             refs_by_file.setdefault(fp, []).append(_short_ref(r["full_name"]))
 
@@ -359,7 +362,8 @@ class SynappsService:
         ]
 
         if refs_by_file:
-            lines.append(f"\n### Type References ({min(ref_total, limit)} of {ref_total})\n")
+            ref_header = f"\n### Type References ({ref_total})\n" if effective_limit is None else f"\n### Type References ({min(ref_total, limit)} of {ref_total})\n"
+            lines.append(ref_header)
             for fp, symbols in refs_by_file.items():
                 lines.append(f"- {fp}: {', '.join(symbols)}")
 

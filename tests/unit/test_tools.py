@@ -42,7 +42,7 @@ def test_find_usages_tool_delegates_to_service() -> None:
     service.find_usages.return_value = "## Usages of Ns.Svc (Class)\n\n0 type references"
     fns = _register(service)
     result = fns["find_usages"]("Ns.Svc")
-    service.find_usages.assert_called_once_with("Ns.Svc", True, limit=20)
+    service.find_usages.assert_called_once_with("Ns.Svc", True, limit=0)
     assert "(Class)" in result
 
 
@@ -51,7 +51,7 @@ def test_find_usages_tool_passes_exclude_flag() -> None:
     service.find_usages.return_value = "## Usages of Ns.M (Method)\n\n0 callers"
     fns = _register(service)
     fns["find_usages"]("Ns.M", exclude_test_callers=False)
-    service.find_usages.assert_called_once_with("Ns.M", False, limit=20)
+    service.find_usages.assert_called_once_with("Ns.M", False, limit=0)
 
 
 def test_graph_schema_has_overrides_relationship() -> None:
@@ -199,7 +199,7 @@ def test_find_usages_with_kind_delegates_to_type_references() -> None:
     service.find_type_references.return_value = [{"symbol": {"full_name": "Ns.X"}, "kind": "parameter"}]
     fns = _register(service)
     result = fns["find_usages"](full_name="Ns.Cls", kind="parameter")
-    service.find_type_references.assert_called_once_with("Ns.Cls", kind="parameter", limit=20)
+    service.find_type_references.assert_called_once_with("Ns.Cls", kind="parameter", limit=0)
     service.find_usages.assert_not_called()
 
 

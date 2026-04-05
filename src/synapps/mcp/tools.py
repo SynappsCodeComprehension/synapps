@@ -341,7 +341,7 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
     def find_usages(
         full_name: str,
         exclude_test_callers: bool = True,
-        limit: int = 20,
+        limit: int = 0,
         kind: str | None = None,
     ) -> str | list[dict]:
         """Find all code that uses a symbol — returns a compact text summary.
