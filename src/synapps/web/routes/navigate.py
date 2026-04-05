@@ -58,4 +58,12 @@ def router(service: SynappsService) -> APIRouter:
             raise HTTPException(status_code=404, detail=f"Symbol '{full_name}' not found.")
         return result
 
+    @r.get("/expand_node")
+    def expand_node(full_name: str) -> dict:
+        try:
+            result = service.find_neighborhood(full_name)
+            return serialize_result(result)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     return r

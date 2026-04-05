@@ -12,6 +12,7 @@ from synapps.graph.lookups import (
     get_members_overview, get_implemented_interfaces,
     resolve_full_name, resolve_full_name_with_labels,
     suggest_similar_names,
+    find_neighborhood as query_find_neighborhood,
     find_type_references as query_find_type_references,
     find_dependencies as query_find_dependencies,
     find_field_dependencies as query_find_field_dependencies,
@@ -169,6 +170,10 @@ class SynappsService:
         full_name = self._resolve(full_name, preference="concrete")
         result = [_slim(item, "full_name", "file_path", "line") for item in find_callers(self._conn, full_name, include_interface_dispatch, exclude_test_callers)]
         return _apply_limit(result, limit)
+
+    def find_neighborhood(self, full_name: str) -> dict:
+        full_name = self._resolve(full_name)
+        return query_find_neighborhood(self._conn, full_name)
 
     def find_callees(self, full_name: str, include_interface_dispatch: bool = True, limit: int = 50) -> list[dict] | dict:
         full_name = self._resolve(full_name, preference="concrete")
