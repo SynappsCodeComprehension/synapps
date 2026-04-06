@@ -18,6 +18,8 @@ export function getNodeColor(kind) {
     'Property':  { cssVar: '--node-field',      fallback: '#E67E22' },
     'Package':   { cssVar: '--node-package',    fallback: '#1ABC9C' },
     'File':      { cssVar: '--node-file',       fallback: '#95A5A6' },
+    'Directory': { cssVar: '--node-package',    fallback: '#1ABC9C' },
+    'Repository':{ cssVar: '--node-package',    fallback: '#16A085' },
     'External':  { cssVar: '--node-external',   fallback: '#BDC3C7' },
     'Namespace': { cssVar: '--node-package',    fallback: '#1ABC9C' },
     'Endpoint':  { cssVar: '--node-method',     fallback: '#E74C3C' },
@@ -38,7 +40,7 @@ export function getNodeColor(kind) {
  * Light backgrounds (Field, Property, File, External) use dark text.
  */
 export function getNodeTextColor(kind) {
-  const lightBg = ['Field', 'Property', 'File', 'External'];
+  const lightBg = ['Field', 'Property', 'File', 'External', 'Repository'];
   return lightBg.includes(kind) ? '#333333' : '#FFFFFF';
 }
 
