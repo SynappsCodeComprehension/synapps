@@ -23,3 +23,7 @@ src/synapps/web/static/
 # C# build artifacts in test fixtures
 tests/fixtures/**/bin/
 tests/fixtures/**/obj/
+
+# Playwright test artifacts
+playwright-*.png
+.playwright-mcp/
