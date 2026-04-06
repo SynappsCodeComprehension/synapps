@@ -61,6 +61,15 @@ def find_implementations(conn: GraphConnection, interface_full_name: str) -> lis
 
 _KIND_LABELS = ("Class", "Interface", "Method", "Property", "Field", "Package", "File", "Endpoint")
 
+# Safety ceiling for Cypher path depth interpolation — prevents runaway queries from absurd
+# user inputs. NOT a user-facing feature cap (per D-02: no hard max depth cap). In practice,
+# meaningful paths are rarely deeper than 10-15 hops; 50 is effectively unlimited.
+_MAX_SAFE_EXPLORE_DEPTH = 50
+
+# Edge types traversed by find_explore. CONTAINS is intentionally excluded to prevent
+# File/Directory/Repository nodes from flooding results (Pitfall 5 in RESEARCH.md).
+_EXPLORE_EDGE_FILTER = "CALLS|INHERITS|IMPLEMENTS|REFERENCES|IMPORTS|DISPATCHES_TO|SERVES|HTTP_CALLS|OVERRIDES|TESTS"
+
 
 def _extract_kind(node) -> str:
     """Extract the kind from a neo4j Node (via labels) or a plain dict (via 'kind' property)."""
@@ -130,6 +139,79 @@ def find_neighborhood(conn: GraphConnection, full_name: str) -> dict:
         center_kind = _extract_kind(center_rows[0][0])
 
     return {"full_name": full_name, "kind": center_kind, "neighbors": neighbors}
+
+
+def find_explore(conn: GraphConnection, full_name: str, depth: int = 1) -> dict:
+    """Return all nodes reachable within depth hops from the given symbol.
+
+    Uses two path queries (outgoing + incoming) to capture all intermediate nodes
+    along every path, avoiding Memgraph bidirectional OPTIONAL MATCH issues.
+    CONTAINS edges are excluded to prevent File/Directory/Repository noise.
+    """
+    effective_depth = max(1, min(depth, _MAX_SAFE_EXPLORE_DEPTH))
+
+    outgoing = conn.query(
+        f"MATCH p=(n {{full_name: $full_name}})-[:{_EXPLORE_EDGE_FILTER}*1..{effective_depth}]->(m) "
+        "WHERE m.full_name IS NOT NULL AND m.full_name <> '' "
+        "RETURN nodes(p), relationships(p)",
+        {"full_name": full_name},
+    )
+    incoming = conn.query(
+        f"MATCH p=(m)-[:{_EXPLORE_EDGE_FILTER}*1..{effective_depth}]->(n {{full_name: $full_name}}) "
+        "WHERE m.full_name IS NOT NULL AND m.full_name <> '' "
+        "RETURN nodes(p), relationships(p)",
+        {"full_name": full_name},
+    )
+
+    seen_nodes: dict[str, dict] = {}
+    seen_links: set[tuple[str, str, str]] = set()
+    links: list[dict] = []
+
+    def _process_paths(rows: list) -> None:
+        for row in rows:
+            path_nodes, path_rels = row[0], row[1]
+            for i, rel in enumerate(path_rels):
+                src_node = path_nodes[i]
+                tgt_node = path_nodes[i + 1]
+                src_fn = src_node.get("full_name", "") if isinstance(src_node, Mapping) else ""
+                tgt_fn = tgt_node.get("full_name", "") if isinstance(tgt_node, Mapping) else ""
+                if not src_fn or not tgt_fn:
+                    continue
+                for fn, node in ((src_fn, src_node), (tgt_fn, tgt_node)):
+                    if fn not in seen_nodes:
+                        seen_nodes[fn] = {
+                            "full_name": fn,
+                            "name": node.get("name", fn.split(".")[-1]) if isinstance(node, Mapping) else fn.split(".")[-1],
+                            "kind": _extract_kind(node),
+                            "file_path": node.get("file_path", "") if isinstance(node, Mapping) else "",
+                            "line": node.get("line", 0) if isinstance(node, Mapping) else 0,
+                        }
+                rel_type = rel.type if hasattr(rel, "type") else str(rel)
+                link_key = (src_fn, tgt_fn, rel_type)
+                if link_key not in seen_links:
+                    seen_links.add(link_key)
+                    links.append({"source": src_fn, "target": tgt_fn, "type": rel_type})
+
+    _process_paths(outgoing)
+    _process_paths(incoming)
+
+    center_rows = conn.query(
+        "MATCH (n {full_name: $full_name}) RETURN n",
+        {"full_name": full_name},
+    )
+    center_node = center_rows[0][0] if center_rows else None
+    root = {
+        "full_name": full_name,
+        "name": full_name.split(".")[-1],
+        "kind": _extract_kind(center_node) if center_node is not None else "",
+        "file_path": center_node.get("file_path", "") if isinstance(center_node, Mapping) else "",
+        "line": center_node.get("line", 0) if isinstance(center_node, Mapping) else 0,
+    }
+
+    if full_name not in seen_nodes:
+        seen_nodes[full_name] = root
+
+    return {"root": root, "nodes": list(seen_nodes.values()), "links": links}
 
 
 def find_callers(
