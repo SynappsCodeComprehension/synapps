@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 - **Pagination controls for Dead Code and Untested Methods** — `find_dead_code` and `find_untested` tools now show Previous/Next pagination controls below the results table instead of raw Limit/Offset number inputs; page indicator shows current page, total pages, and total item count; filter params (subdirectory, exclude_pattern) are preserved across page changes
+- **`/explore` API endpoint for graph neighborhood traversal** — `GET /explore?full_name=X&depth=N` returns all nodes and edges reachable within N hops from a symbol as `{root, nodes, links}`, powered by two variable-length Cypher path queries (outgoing + incoming) with CONTAINS exclusion, link deduplication, and a safety ceiling at depth 50 to prevent runaway queries
 
 ## [1.7.2] - 2026-04-05
 
