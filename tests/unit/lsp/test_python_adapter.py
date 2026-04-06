@@ -423,3 +423,32 @@ def test_shutdown_calls_stop() -> None:
     adapter = PythonLSPAdapter(mock_ls, "/proj")
     adapter.shutdown()
     mock_ls.stop.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Regression: 1-based line number conversion (TD9-01)
+# ---------------------------------------------------------------------------
+
+def test_line_numbers_are_1_based() -> None:
+    """TD9-01: LSP returns 0-based line numbers; IndexSymbol.line and end_line must be 1-based.
+
+    When the adapter receives an LSP symbol with line=0 the resulting IndexSymbol.line
+    must equal 1, matching the human-readable line number shown in editors and the webviewer.
+    """
+    from synapps.lsp.python import PythonLSPAdapter
+
+    adapter = PythonLSPAdapter(MagicMock(), "/proj")
+    raw = {
+        "name": "my_func",
+        "kind": 12,  # Function
+        "location": {
+            "range": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 4, "character": 0},
+            }
+        },
+    }
+    sym = adapter._convert(raw, "/proj/pkg/mod.py", "/proj", parent_full_name=None)
+    assert sym is not None
+    assert sym.line == 1, f"Expected 1-based line=1, got {sym.line}"
+    assert sym.end_line == 5, f"Expected 1-based end_line=5, got {sym.end_line}"

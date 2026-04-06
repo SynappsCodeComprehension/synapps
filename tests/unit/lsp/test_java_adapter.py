@@ -309,8 +309,8 @@ class TestConvert:
         assert sym.full_name == "com.graphhopper.routing.Router"
         assert sym.kind == SymbolKind.CLASS
         assert sym.name == "Router"
-        assert sym.line == 10
-        assert sym.end_line == 100
+        assert sym.line == 11
+        assert sym.end_line == 101
 
     def test_convert_method_symbol(self) -> None:
         grandparent = {"name": "com.graphhopper.routing", "kind": 3}
@@ -590,8 +590,8 @@ class TestConvertSelectionRange:
         adapter = _make_adapter(root_path="/proj", source_root="/proj/src/main/java")
         sym = adapter._convert(raw, "/proj/src/main/java/com/test/Animal.java", parent_full_name=None)
 
-        assert sym.line == 7, "line must use selectionRange.start.line, not location.range.start.line"
-        assert sym.end_line == 20, "end_line must still use location.range.end.line"
+        assert sym.line == 8, "line must use selectionRange.start.line + 1 (1-based)"
+        assert sym.end_line == 21, "end_line must use location.range.end.line + 1 (1-based)"
 
     def test_falls_back_to_location_range_when_selection_range_absent(self) -> None:
         """Backward compat: when selectionRange is not present, use location.range.start.line."""
@@ -610,8 +610,8 @@ class TestConvertSelectionRange:
         adapter = _make_adapter(root_path="/proj", source_root="/proj/src/main/java")
         sym = adapter._convert(raw, "/proj/src/main/java/com/test/Animal.java", parent_full_name=None)
 
-        assert sym.line == 5
-        assert sym.end_line == 15
+        assert sym.line == 6
+        assert sym.end_line == 16
 
     def test_end_line_not_taken_from_selection_range(self) -> None:
         """selectionRange covers only the declaration name; end_line must use location.range.end."""
@@ -634,8 +634,39 @@ class TestConvertSelectionRange:
         adapter = _make_adapter(root_path="/proj", source_root="/proj/src/main/java")
         sym = adapter._convert(raw, "/proj/src/main/java/com/test/Animal.java", parent_full_name=None)
 
-        assert sym.end_line == 50, "end_line is the class body extent, not the selectionRange end"
-        assert sym.line == 7
+        assert sym.end_line == 51, "end_line is the class body extent + 1 (1-based)"
+        assert sym.line == 8
+
+
+# ---------------------------------------------------------------------------
+# Regression: 1-based line number conversion (TD9-01)
+# ---------------------------------------------------------------------------
+
+def test_line_numbers_are_1_based() -> None:
+    """TD9-01: LSP returns 0-based line numbers; IndexSymbol.line and end_line must be 1-based.
+
+    Java LSP: selectionRange.start.line=7 (0-based) -> IndexSymbol.line=8 (1-based).
+    """
+    raw = {
+        "name": "Animal",
+        "kind": 5,
+        "detail": "",
+        "location": {
+            "range": {
+                "start": {"line": 3, "character": 0},
+                "end": {"line": 20, "character": 1},
+            },
+        },
+        "selectionRange": {
+            "start": {"line": 7, "character": 13},
+            "end": {"line": 7, "character": 19},
+        },
+    }
+    adapter = _make_adapter(root_path="/proj", source_root="/proj/src/main/java")
+    sym = adapter._convert(raw, "/proj/src/main/java/com/test/Animal.java", parent_full_name=None)
+
+    assert sym.line == 8, f"Expected 1-based line=8 from selectionRange.start.line=7, got {sym.line}"
+    assert sym.end_line == 21, f"Expected 1-based end_line=21 from location.range.end.line=20, got {sym.end_line}"
 
 
 # ---------------------------------------------------------------------------

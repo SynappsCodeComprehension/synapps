@@ -661,8 +661,8 @@ class TestConvertAsClass:
         assert sym.signature == "const_object"
         assert sym.name == "myService"
         assert sym.full_name == "src/svc.myService"
-        assert sym.line == 5
-        assert sym.end_line == 20
+        assert sym.line == 6
+        assert sym.end_line == 21
         assert sym.parent_full_name is None
 
 
@@ -673,3 +673,39 @@ def test_shutdown_calls_stop() -> None:
     adapter = TypeScriptLSPAdapter(mock_ls, "/proj")
     adapter.shutdown()
     mock_ls.stop.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Regression: 1-based line number conversion (TD9-01)
+# ---------------------------------------------------------------------------
+
+def test_line_numbers_are_1_based() -> None:
+    """TD9-01: _convert, _convert_as_method, and _convert_as_class all add +1 to LSP 0-based lines.
+
+    TypeScript LSP returns 0-based line numbers. All three conversion paths must produce
+    1-based IndexSymbol.line and end_line values.
+    """
+    from synapps.lsp.typescript import TypeScriptLSPAdapter
+
+    adapter = TypeScriptLSPAdapter(MagicMock(), "/proj")
+    raw = {
+        "name": "myFunc",
+        "kind": 12,  # Function
+        "location": {"range": {"start": {"line": 0, "character": 0}, "end": {"line": 9, "character": 0}}},
+    }
+
+    # _convert path
+    sym = adapter._convert(raw, "/proj/src/mod.ts", "/proj", parent_full_name=None)
+    assert sym is not None
+    assert sym.line == 1, f"_convert: Expected line=1, got {sym.line}"
+    assert sym.end_line == 10, f"_convert: Expected end_line=10, got {sym.end_line}"
+
+    # _convert_as_method path
+    sym_m = adapter._convert_as_method(raw, "/proj/src/mod.ts", "/proj", parent_full_name=None)
+    assert sym_m.line == 1, f"_convert_as_method: Expected line=1, got {sym_m.line}"
+    assert sym_m.end_line == 10, f"_convert_as_method: Expected end_line=10, got {sym_m.end_line}"
+
+    # _convert_as_class path
+    sym_c = adapter._convert_as_class(raw, "/proj/src/mod.ts", "/proj", parent_full_name=None)
+    assert sym_c.line == 1, f"_convert_as_class: Expected line=1, got {sym_c.line}"
+    assert sym_c.end_line == 10, f"_convert_as_class: Expected end_line=10, got {sym_c.end_line}"
