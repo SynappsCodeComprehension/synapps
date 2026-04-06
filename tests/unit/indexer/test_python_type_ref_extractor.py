@@ -30,14 +30,14 @@ def _sm(file_path: str, line: int, name: str) -> dict:
 
 def test_extracts_parameter_type(extractor):
     source = "def greet(user: User):\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.greet")
+    symbol_map = _sm(FILE_PY, 1, "test.greet")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     assert any(r.type_name == "User" and r.ref_kind == "parameter" for r in results)
 
 
 def test_extracts_multiple_params(extractor):
     source = "def save(a: Foo, b: Bar):\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.save")
+    symbol_map = _sm(FILE_PY, 1, "test.save")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     names = {r.type_name for r in results if r.ref_kind == "parameter"}
     assert "Foo" in names
@@ -46,7 +46,7 @@ def test_extracts_multiple_params(extractor):
 
 def test_extracts_typed_default_parameter(extractor):
     source = "def process(item: Widget = None):\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.process")
+    symbol_map = _sm(FILE_PY, 1, "test.process")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     assert any(r.type_name == "Widget" and r.ref_kind == "parameter" for r in results)
 
@@ -57,7 +57,7 @@ def test_extracts_typed_default_parameter(extractor):
 
 def test_extracts_return_type(extractor):
     source = "def get() -> User:\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.get")
+    symbol_map = _sm(FILE_PY, 1, "test.get")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     assert any(r.type_name == "User" and r.ref_kind == "return_type" for r in results)
 
@@ -79,7 +79,7 @@ def test_extracts_class_annotation(extractor):
 
 def test_generic_type_extracts_inner(extractor):
     source = "def get_users() -> list[User]:\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.get_users")
+    symbol_map = _sm(FILE_PY, 1, "test.get_users")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     names = {r.type_name for r in results}
     assert "User" in names
@@ -88,7 +88,7 @@ def test_generic_type_extracts_inner(extractor):
 
 def test_generic_dict_extracts_non_primitive(extractor):
     source = "def get_map() -> dict[str, Config]:\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.get_map")
+    symbol_map = _sm(FILE_PY, 1, "test.get_map")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     names = {r.type_name for r in results}
     assert "Config" in names
@@ -102,7 +102,7 @@ def test_generic_dict_extracts_non_primitive(extractor):
 
 def test_union_type_extracts_non_none(extractor):
     source = "def find() -> User | None:\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.find")
+    symbol_map = _sm(FILE_PY, 1, "test.find")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     names = {r.type_name for r in results}
     assert "User" in names
@@ -111,7 +111,7 @@ def test_union_type_extracts_non_none(extractor):
 
 def test_union_type_extracts_both(extractor):
     source = "def either() -> Foo | Bar:\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.either")
+    symbol_map = _sm(FILE_PY, 1, "test.either")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     names = {r.type_name for r in results}
     assert "Foo" in names
@@ -124,7 +124,7 @@ def test_union_type_extracts_both(extractor):
 
 def test_skips_primitives(extractor):
     source = "def f(x: int, y: str):\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.f")
+    symbol_map = _sm(FILE_PY, 1, "test.f")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     assert results == []
 
@@ -139,7 +139,7 @@ def test_empty_source(extractor):
 
 def test_typing_optional_extracts_inner(extractor):
     source = "def get(x: typing.Optional[User]):\n    pass\n"
-    symbol_map = _sm(FILE_PY, 0, "test.get")
+    symbol_map = _sm(FILE_PY, 1, "test.get")
     results = extractor.extract(FILE_PY, _parse(source), symbol_map)
     names = {r.type_name for r in results}
     assert "User" in names

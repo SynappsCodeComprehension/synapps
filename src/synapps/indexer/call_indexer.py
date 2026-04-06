@@ -44,7 +44,7 @@ class CallIndexer:
         Index CALLS edges for all source files (matching configured file_extensions) under root_path.
 
         :param root_path: absolute path to the repository root.
-        :param symbol_map: maps (abs_file_path, 0-indexed line) -> method full_name.
+        :param symbol_map: maps (abs_file_path, 1-indexed line) -> method full_name.
                            Should contain only method symbols (not classes or properties).
         """
         for file_path in self._iter_files(root_path):

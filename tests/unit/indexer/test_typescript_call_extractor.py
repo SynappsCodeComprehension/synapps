@@ -38,7 +38,7 @@ function caller() {
     helper();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
@@ -50,7 +50,7 @@ function caller() {
     helper();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert any(caller == "mypackage.caller" for caller, *_ in results)
 
@@ -65,8 +65,8 @@ class MyClass {
 }
 """
     symbol_map = {
-        ("/proj/foo.ts", 1): "mypackage.MyClass.caller",
-        ("/proj/foo.ts", 4): "mypackage.MyClass.method",
+        ("/proj/foo.ts", 2): "mypackage.MyClass.caller",
+        ("/proj/foo.ts", 5): "mypackage.MyClass.method",
     }
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -79,7 +79,7 @@ function factory() {
     return new Foo();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.factory"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.factory"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "Foo" in callees
@@ -97,7 +97,7 @@ function caller() {
     helper();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert len(results) == 1
     caller, callee, line, col = results[0]
@@ -112,7 +112,7 @@ const run = () => {
     helper();
 };
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.run"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.run"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
@@ -130,8 +130,8 @@ class MyClass {
 }
 """
     symbol_map = {
-        ("/proj/foo.ts", 0): "mypackage.setup",
-        ("/proj/foo.ts", 5): "mypackage.MyClass.run",
+        ("/proj/foo.ts", 1): "mypackage.setup",
+        ("/proj/foo.ts", 6): "mypackage.MyClass.run",
     }
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -145,7 +145,7 @@ function getValue() { return 42; }
 
 const RESULT = getValue();
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.getValue"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.getValue"}
     results = module_extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callers = [caller for caller, *_ in results]
     assert "mypackage.mymodule" in callers
@@ -158,7 +158,7 @@ function getValue() { return 42; }
 
 const RESULT = getValue();
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.getValue"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.getValue"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     callers = [caller for caller, *_ in results]
     assert not callers
@@ -177,7 +177,7 @@ function App() {
     return <div />;
 }
 """
-    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    symbol_map = {("/proj/app.tsx", 1): "mypackage.App"}
     results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
@@ -191,7 +191,7 @@ function App() {
     return <div />;
 }
 """
-    symbol_map = {("/proj/app.jsx", 0): "mypackage.App"}
+    symbol_map = {("/proj/app.jsx", 1): "mypackage.App"}
     results = extractor.extract("/proj/app.jsx", _parse(source, "/proj/app.jsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
@@ -204,7 +204,7 @@ function caller() {
     helper();
 }
 """
-    symbol_map = {("/proj/foo.js", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.js", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.js", _parse(source, "/proj/foo.js"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees
@@ -231,7 +231,7 @@ function caller() {
     foo();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     seen: set = set()
     for entry in results:
@@ -245,7 +245,7 @@ function caller() {
     helper();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     lines = [line for _, _, line, _ in results]
     # helper() is on line 2 (1-indexed)
@@ -268,9 +268,9 @@ class MyClass {
 }
 """
     symbol_map = {
-        ("/proj/foo.ts", 3): "pkg.MyClass.methodA",
-        ("/proj/foo.ts", 4): "pkg.MyClass.methodB",
-        ("/proj/foo.ts", 5): "pkg.MyClass.methodC",
+        ("/proj/foo.ts", 4): "pkg.MyClass.methodA",
+        ("/proj/foo.ts", 5): "pkg.MyClass.methodB",
+        ("/proj/foo.ts", 6): "pkg.MyClass.methodC",
     }
     extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert extractor._sites_seen == 3
@@ -303,7 +303,7 @@ function App() {
     return <Button />;
 }
 """
-    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    symbol_map = {("/proj/app.tsx", 1): "mypackage.App"}
     results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "Button" in callees
@@ -316,7 +316,7 @@ function App() {
     return <Card>content</Card>;
 }
 """
-    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    symbol_map = {("/proj/app.tsx", 1): "mypackage.App"}
     results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "Card" in callees
@@ -329,7 +329,7 @@ function Dashboard() {
     return <Layout><Sidebar /><Content /></Layout>;
 }
 """
-    symbol_map = {("/proj/app.tsx", 0): "mypackage.Dashboard"}
+    symbol_map = {("/proj/app.tsx", 1): "mypackage.Dashboard"}
     results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "Layout" in callees
@@ -344,7 +344,7 @@ function App() {
     return <div><span>hello</span></div>;
 }
 """
-    symbol_map = {("/proj/app.tsx", 0): "mypackage.App"}
+    symbol_map = {("/proj/app.tsx", 1): "mypackage.App"}
     results = extractor.extract("/proj/app.tsx", _parse(source, "/proj/app.tsx"), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "div" in callees
@@ -357,7 +357,7 @@ function caller() {
     helper();
 }
 """
-    symbol_map = {("/proj/foo.ts", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.ts", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.ts", _parse(source, "/proj/foo.ts"), symbol_map)
     assert len(results) == 1
     assert results[0][1] == "helper"
@@ -381,8 +381,8 @@ function caller() {
     x();
 }
 """
-    symbol_map_three = {("/proj/foo.ts", 0): "pkg.caller"}
-    symbol_map_one = {("/proj/bar.ts", 0): "pkg.caller"}
+    symbol_map_three = {("/proj/foo.ts", 1): "pkg.caller"}
+    symbol_map_one = {("/proj/bar.ts", 1): "pkg.caller"}
 
     extractor.extract("/proj/foo.ts", _parse(source_three, "/proj/foo.ts"), symbol_map_three)
     assert extractor._sites_seen == 3

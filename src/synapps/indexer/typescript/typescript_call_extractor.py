@@ -95,7 +95,7 @@ class TypeScriptCallExtractor:
         """
         :param file_path: absolute path (used as key prefix in symbol_map).
         :param tree: pre-parsed tree-sitter Tree for the file.
-        :param symbol_map: maps (file_path, 0-indexed line) -> method full_name.
+        :param symbol_map: maps (file_path, 1-indexed line) -> method full_name.
         :returns: list of (caller_full_name, callee_simple_name, 1-indexed call line, 0-indexed call column).
         """
         self._sites_seen = 0
@@ -104,7 +104,7 @@ class TypeScriptCallExtractor:
         query = self._tsx_query if uses_tsx else self._ts_query
 
         method_lines = sorted(
-            (line, full_name)
+            (line - 1, full_name)
             for (fp, line), full_name in symbol_map.items()
             if fp == file_path
         )

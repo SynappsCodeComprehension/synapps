@@ -35,8 +35,8 @@ def caller():
     helper()
 """
     symbol_map = {
-        ("/proj/foo.py", 0): "mypackage.helper",
-        ("/proj/foo.py", 3): "mypackage.caller",
+        ("/proj/foo.py", 1): "mypackage.helper",
+        ("/proj/foo.py", 4): "mypackage.caller",
     }
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -48,7 +48,7 @@ def test_caller_full_name_is_set(extractor):
 def caller():
     helper()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     assert any(caller == "mypackage.caller" for caller, *_ in results)
 
@@ -63,8 +63,8 @@ class MyClass:
         pass
 """
     symbol_map = {
-        ("/proj/foo.py", 1): "mypackage.MyClass.caller",
-        ("/proj/foo.py", 4): "mypackage.MyClass.other_method",
+        ("/proj/foo.py", 2): "mypackage.MyClass.caller",
+        ("/proj/foo.py", 5): "mypackage.MyClass.other_method",
     }
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -77,7 +77,7 @@ def test_attribute_call_callee_simple_name(extractor):
 def runner(obj):
     obj.do_something()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.runner"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.runner"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "do_something" in callees
@@ -100,8 +100,8 @@ class MyClass:
         pass
 """
     symbol_map = {
-        ("/proj/foo.py", 0): "mypackage.some_func",
-        ("/proj/foo.py", 6): "mypackage.MyClass.run",
+        ("/proj/foo.py", 1): "mypackage.some_func",
+        ("/proj/foo.py", 7): "mypackage.MyClass.run",
     }
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -120,7 +120,7 @@ def get_value():
 
 RESULT = get_value()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.mymodule.get_value"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.mymodule.get_value"}
     results = module_extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callers = [caller for caller, *_ in results]
     assert "mypackage.mymodule" in callers
@@ -133,7 +133,7 @@ def get_value():
 
 RESULT = get_value()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.get_value"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.get_value"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     # Without a resolver, module-scope calls are skipped entirely
     callers = [caller for caller, *_ in results]
@@ -155,7 +155,7 @@ class Child:
     def __init__(self):
         super().__init__()
 """
-    symbol_map = {("/proj/foo.py", 1): "mypackage.Child.__init__"}
+    symbol_map = {("/proj/foo.py", 2): "mypackage.Child.__init__"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
     # super().__init__() — tree-sitter sees `super` call and `__init__` attribute call
@@ -167,7 +167,7 @@ def test_constructor_call(extractor):
 def factory():
     return MyClass()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.factory"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.factory"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "MyClass" in callees
@@ -179,7 +179,7 @@ def caller():
     foo()
     foo()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     # Both calls are at different lines/cols, so they are NOT duplicates
     # But same (caller, callee, line, col) must not appear twice
@@ -194,7 +194,7 @@ def test_call_line_is_1indexed(extractor):
 def caller():
     helper()
 """
-    symbol_map = {("/proj/foo.py", 0): "mypackage.caller"}
+    symbol_map = {("/proj/foo.py", 1): "mypackage.caller"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     lines = [line for _, _, line, _ in results]
     # helper() is on line 2 (1-indexed)
@@ -222,9 +222,9 @@ class MyClass:
         baz()
 """
     symbol_map = {
-        ("/proj/foo.py", 3): "pkg.MyClass.method_a",
-        ("/proj/foo.py", 6): "pkg.MyClass.method_b",
-        ("/proj/foo.py", 9): "pkg.MyClass.method_c",
+        ("/proj/foo.py", 4): "pkg.MyClass.method_a",
+        ("/proj/foo.py", 7): "pkg.MyClass.method_b",
+        ("/proj/foo.py", 10): "pkg.MyClass.method_c",
     }
     extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     assert extractor._sites_seen == 3
@@ -256,8 +256,8 @@ def caller():
 def caller():
     x()
 """
-    symbol_map_three = {("/proj/foo.py", 0): "pkg.caller"}
-    symbol_map_one = {("/proj/bar.py", 0): "pkg.caller"}
+    symbol_map_three = {("/proj/foo.py", 1): "pkg.caller"}
+    symbol_map_one = {("/proj/bar.py", 1): "pkg.caller"}
 
     extractor.extract("/proj/foo.py", _parse(source_three), symbol_map_three)
     assert extractor._sites_seen == 3
@@ -283,8 +283,8 @@ class MyClass:
         pass
 """
     symbol_map = {
-        ("/proj/foo.py", 1): "mypackage.MyClass.caller",
-        ("/proj/foo.py", 4): "mypackage.MyClass.helper",
+        ("/proj/foo.py", 2): "mypackage.MyClass.caller",
+        ("/proj/foo.py", 5): "mypackage.MyClass.helper",
     }
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -302,8 +302,8 @@ class MyClass:
         pass
 """
     symbol_map = {
-        ("/proj/foo.py", 1): "mypackage.MyClass.run",
-        ("/proj/foo.py", 4): "mypackage.MyClass._internal",
+        ("/proj/foo.py", 2): "mypackage.MyClass.run",
+        ("/proj/foo.py", 5): "mypackage.MyClass._internal",
     }
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
@@ -317,7 +317,7 @@ class MyClass:
     def caller(self):
         helper()
 """
-    symbol_map = {("/proj/foo.py", 1): "mypackage.MyClass.caller"}
+    symbol_map = {("/proj/foo.py", 2): "mypackage.MyClass.caller"}
     results = extractor.extract("/proj/foo.py", _parse(source), symbol_map)
     callees = [callee for _, callee, *_ in results]
     assert "helper" in callees

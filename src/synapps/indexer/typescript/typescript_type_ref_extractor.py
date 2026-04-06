@@ -58,7 +58,7 @@ class TypeScriptTypeRefExtractor:
         field_symbol_map: dict[tuple[str, int], str] | None = None,
     ) -> list[TypeRef]:
         method_lines = sorted(
-            (line, full_name)
+            (line - 1, full_name)
             for (fp, line), full_name in symbol_map.items()
             if fp == file_path
         )
