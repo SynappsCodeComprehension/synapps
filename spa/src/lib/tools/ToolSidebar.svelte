@@ -28,6 +28,7 @@
     {
       name: 'Query',
       tools: [
+        { id: 'explore', label: 'Explore' },
         { id: 'execute_query', label: 'Cypher Query' },
         { id: 'find_http_endpoints', label: 'HTTP Endpoints' },
       ],

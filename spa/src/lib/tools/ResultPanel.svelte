@@ -3,7 +3,7 @@
   import Pagination from '../ui/Pagination.svelte';
   import D3Graph from '../graph/D3Graph.svelte';
   import NodeDetailPanel from '../graph/NodeDetailPanel.svelte';
-  import { calleesToElements, hierarchyToElements, usagesToElements, cypherToElements, neighborhoodToElements, isGraphResult } from '../graph/transforms.js';
+  import { calleesToElements, hierarchyToElements, usagesToElements, cypherToElements, neighborhoodToElements, isGraphResult, exploreToElements } from '../graph/transforms.js';
   import { removeNodeWithOrphans } from '../graph/graphUtils.js';
   import { apiCall } from '../api.js';
   import { tools } from './toolConfig.js';
@@ -37,6 +37,8 @@
       initial = usagesToElements(usageData, queryParams?.full_name || '', queriedKind);
     } else if (activeTool === 'execute_query') {
       initial = cypherToElements(result);
+    } else if (activeTool === 'explore') {
+      initial = exploreToElements(result);
     } else {
       initial = { nodes: [], links: [] };
     }
@@ -292,14 +294,49 @@
   {:else if resultType === 'mixed'}
     <!-- Architecture overview: stats + sections -->
     {#if result.stats}
-      <div class="stats-grid">
-        {#each Object.entries(result.stats) as [key, value]}
-          <div class="stat-card">
-            <div class="stat-value heading">{typeof value === 'object' ? JSON.stringify(value) : value}</div>
-            <div class="stat-label label text-secondary">{key.replace(/_/g, ' ')}</div>
+      {@const scalarStats = Object.entries(result.stats).filter(([, v]) => typeof v !== 'object')}
+      {@const objectStats = Object.entries(result.stats).filter(([, v]) => typeof v === 'object' && v !== null)}
+      {#if scalarStats.length > 0}
+        <div class="stats-grid">
+          {#each scalarStats as [key, value]}
+            <div class="stat-card">
+              <div class="stat-value heading">{value}</div>
+              <div class="stat-label label text-secondary">{key.replace(/_/g, ' ')}</div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      {#each objectStats as [key, obj]}
+        {@const entries = Object.entries(obj).sort((a, b) => b[1] - a[1])}
+        {@const total = entries.reduce((sum, [, v]) => sum + v, 0)}
+        <div class="lang-breakdown">
+          <div class="lang-breakdown-header">
+            <span class="label text-secondary">{key.replace(/_/g, ' ')}</span>
+            <span class="label text-secondary">{total} total</span>
           </div>
-        {/each}
-      </div>
+          <div class="lang-bar">
+            {#each entries as [lang, count], i}
+              {@const pct = (count / total) * 100}
+              <div
+                class="lang-bar-segment"
+                style="width: {pct}%; --segment-hue: {(i * 137.5) % 360};"
+                title="{lang}: {count} ({pct.toFixed(1)}%)"
+              ></div>
+            {/each}
+          </div>
+          <div class="lang-legend">
+            {#each entries as [lang, count], i}
+              {@const pct = (count / total) * 100}
+              <div class="lang-legend-item">
+                <span class="lang-dot" style="--segment-hue: {(i * 137.5) % 360};"></span>
+                <span class="lang-legend-name label">{lang}</span>
+                <span class="lang-legend-count label text-secondary">{count}</span>
+                <span class="lang-legend-pct label text-secondary">({pct.toFixed(1)}%)</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/each}
     {/if}
     {#if result.hotspots}
       <h3 class="heading" style="margin-top: 24px;">Hotspots</h3>
@@ -414,6 +451,52 @@
   }
   .stat-label {
     margin-top: 4px;
+  }
+  .lang-breakdown {
+    margin-bottom: 16px;
+  }
+  .lang-breakdown-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .lang-bar {
+    display: flex;
+    height: 20px;
+    border-radius: 4px;
+    overflow: hidden;
+    gap: 2px;
+  }
+  .lang-bar-segment {
+    height: 100%;
+    background: hsl(var(--segment-hue), 45%, 55%);
+    transition: opacity 0.15s;
+    cursor: default;
+    min-width: 3px;
+  }
+  .lang-bar-segment:hover {
+    opacity: 0.75;
+  }
+  .lang-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    margin-top: 10px;
+  }
+  .lang-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lang-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: hsl(var(--segment-hue), 45%, 55%);
+    flex-shrink: 0;
+  }
+  .lang-legend-name {
+    font-weight: 500;
   }
   .graph-wrapper {
     position: relative;

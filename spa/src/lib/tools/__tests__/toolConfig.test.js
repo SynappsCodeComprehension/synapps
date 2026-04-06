@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { tools } from '../toolConfig.js';
 
 describe('toolConfig', () => {
-  it('exports exactly 10 tools', () => {
-    expect(Object.keys(tools)).toHaveLength(10);
+  it('exports exactly 11 tools', () => {
+    expect(Object.keys(tools)).toHaveLength(11);
   });
 
   it('execute_query uses POST method', () => {
@@ -65,11 +65,11 @@ describe('toolConfig', () => {
     expect(tools.get_architecture.cta).toBe('Refresh');
   });
 
-  it('contains all 10 expected tool IDs', () => {
+  it('contains all 11 expected tool IDs', () => {
     const expectedIds = [
       'search_symbols', 'find_usages', 'find_callees', 'get_hierarchy',
       'get_context_for', 'get_architecture', 'find_dead_code', 'find_untested',
-      'execute_query', 'find_http_endpoints',
+      'execute_query', 'find_http_endpoints', 'explore',
     ];
     expect(Object.keys(tools).sort()).toEqual(expectedIds.sort());
   });
