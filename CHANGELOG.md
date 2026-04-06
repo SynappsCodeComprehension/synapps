@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Changed
+- **Cypher query results now render in D3Graph with expand/remove/accumulation** — `execute_query` graph results (Cypher queries returning nodes with `full_name`) now flow through the same `accumulatedGraphElements` path as Find Usages and Find Callees, so double-click expand and right-click remove work correctly; non-graph Cypher results (scalars/tabular) automatically fall back to a DataTable; the `raw` resultType rendering path has been removed
+
 ### Fixed
 - **`_p()` crashes on neo4j Relationship objects** — `execute_query` results containing Relationship objects (e.g., `MATCH ()-[r]->() RETURN r`) previously raised `AttributeError: object has no attribute 'labels'`; `_p()` now detects Relationships via duck-typing (`hasattr type, not hasattr labels`) and serializes them as `{"_type": "REFERENCES", ...props}` instead of crashing
 - **Cypher query graph edge labels missing** — `cypherToElements` now detects relationship cells (objects with `_type` but no `full_name`) and passes `_type` as the edge label; clicking an edge in the D3 graph shows the relationship type (e.g., CALLS, REFERENCES); duplicate links are also deduplicated

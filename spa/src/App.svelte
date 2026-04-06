@@ -7,6 +7,7 @@
   import { initTheme } from './lib/stores/theme.svelte.js';
   import { tools } from './lib/tools/toolConfig.js';
   import { apiCall } from './lib/api.js';
+  import { isGraphResult } from './lib/graph/transforms.js';
   import { onMount } from 'svelte';
 
   let activeTool = $state('');
@@ -35,6 +36,10 @@
   function handleResult(data, type, params = {}) {
     result = data;
     resultType = type;
+    // Cypher queries: dynamically switch to table when result is not graph-renderable
+    if (activeTool === 'execute_query' && type === 'graph' && !isGraphResult(data)) {
+      resultType = 'table';
+    }
     queryParams = params;
     error = null;
   }
@@ -128,6 +133,10 @@
       const data = await apiCall(config.endpoint, params, config.method);
       result = data;
       resultType = config.resultType;
+      // Cypher queries: dynamically switch to table when result is not graph-renderable
+      if (activeTool === 'execute_query' && config.resultType === 'graph' && !isGraphResult(data)) {
+        resultType = 'table';
+      }
       queryParams = params;
     } catch (err) {
       error = err.message;
