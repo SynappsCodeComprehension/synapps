@@ -109,6 +109,18 @@ export const tools = {
       { name: 'offset', label: 'Offset', type: 'number', required: false, default: 0, hidden: true },
     ],
   },
+  explore: {
+    label: 'Explore',
+    category: 'Query',
+    endpoint: 'explore',
+    method: 'GET',
+    cta: 'Explore',
+    resultType: 'graph',
+    params: [
+      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork' },
+      { name: 'depth', label: 'Depth (hops)', type: 'number', required: false, default: 1 },
+    ],
+  },
   execute_query: {
     label: 'Cypher Query',
     category: 'Query',

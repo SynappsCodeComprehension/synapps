@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { Info, Search, GitFork, Network, ExternalLink } from 'lucide-svelte';
+  import { Compass, Info, Search, GitFork, Network, ExternalLink } from 'lucide-svelte';
 
   const { x = 0, y = 0, symbolData = null, onAction, onClose } = $props();
 
@@ -47,6 +47,10 @@
   onclick={(e) => e.stopPropagation()}
   role="menu"
 >
+  <button class="menu-item" onclick={() => onAction?.('explore', symbolData)} role="menuitem">
+    <Compass size={14} />
+    Explore
+  </button>
   <button class="menu-item" onclick={() => onAction?.('get_context_for', symbolData)} role="menuitem">
     <Info size={14} />
     Get Context

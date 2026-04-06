@@ -112,6 +112,9 @@
           {/if}
         {/each}
       </div>
+      {#if toolId === 'explore' && Number(formValues.depth) >= 3}
+        <p class="depth-warning">Depth 3+ may return a large graph. Consider narrowing your query.</p>
+      {/if}
       <button type="submit" class="submit-btn" disabled={submitting}>
         {submitting ? 'Loading...' : config.cta}
       </button>
@@ -184,5 +187,12 @@
   .submit-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+  .depth-warning {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+    margin-bottom: 8px;
   }
 </style>
