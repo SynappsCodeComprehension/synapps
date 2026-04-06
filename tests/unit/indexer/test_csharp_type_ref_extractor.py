@@ -26,7 +26,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.GetUser"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.GetUser"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     assert any(r.ref_kind == "return_type" and r.type_name == "UserDto" for r in results)
 
@@ -39,7 +39,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Save"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Save"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     assert any(r.ref_kind == "parameter" and r.type_name == "UserDto" for r in results)
 
@@ -80,7 +80,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.GetCount"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.GetCount"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     type_names = [r.type_name for r in results]
     assert "int" not in type_names

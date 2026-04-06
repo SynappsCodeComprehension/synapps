@@ -453,7 +453,7 @@ class Indexer:
                 for sym in all_symbols:
                     if sym.kind in _CLASS_KINDS_for_lines:
                         class_lines_per_file.setdefault(sym.file_path, []).append(
-                            (sym.line, sym.full_name)
+                            (sym.line - 1, sym.full_name)
                         )
                 for cls_lines in class_lines_per_file.values():
                     cls_lines.sort()
@@ -504,7 +504,7 @@ class Indexer:
         # recompute from class_symbol_map on each call.
         resolver_class_lines: dict[str, list[tuple[int, str]]] = {}
         for (fp, line), full_name in class_symbol_map.items():
-            resolver_class_lines.setdefault(fp, []).append((line, full_name))
+            resolver_class_lines.setdefault(fp, []).append((line - 1, full_name))
         for entries in resolver_class_lines.values():
             entries.sort()
 

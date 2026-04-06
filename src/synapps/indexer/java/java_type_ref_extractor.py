@@ -38,7 +38,7 @@ class JavaTypeRefExtractor:
         """Return TypeRef instances for all non-primitive type references."""
         # Build sorted scope lines for find_enclosing_scope
         method_lines = sorted(
-            (line, full_name)
+            (line - 1, full_name)
             for (fp, line), full_name in symbol_map.items()
             if fp == file_path
         )

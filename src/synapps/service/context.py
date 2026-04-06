@@ -44,8 +44,8 @@ class ContextBuilder:
                 all_lines = f.readlines()
         except OSError:
             return f"Source file not found: {file_path}"
-        source_lines = all_lines[line:end_line + 1]
-        result = f"// {file_path}:{line + 1}\n{''.join(source_lines)}"
+        source_lines = all_lines[line - 1:end_line]
+        result = f"// {file_path}:{line}\n{''.join(source_lines)}"
         if include_class_signature:
             parent = self._get_parent_signature(full_name)
             if parent:
@@ -760,6 +760,6 @@ class ContextBuilder:
         try:
             with open(parent_info["file_path"], encoding="utf-8", errors="ignore") as f:
                 all_lines = f.readlines()
-            return f"// {parent_info['file_path']}:{parent_line + 1}\n{all_lines[parent_line].rstrip()}"
+            return f"// {parent_info['file_path']}:{parent_line}\n{all_lines[parent_line - 1].rstrip()}"
         except (OSError, IndexError):
             return f"// Containing type: {parent_full_name}"

@@ -152,21 +152,25 @@ def test_unwatch_project_stops_watcher() -> None:
 
 
 def test_get_symbol_source_reads_file_and_returns_lines(tmp_path):
-    """Service reads the file from disk using line range from the graph."""
+    """Service reads the file from disk using 1-based line range from the graph."""
     source_file = tmp_path / "Foo.cs"
     source_file.write_text("line0\nline1\nline2\nline3\nline4\nline5\n")
 
     conn = MagicMock()
     svc = SynappsService(conn)
 
+    # Graph stores 1-based lines: line=2, end_line=4 means file lines 2-4 (array[1:4])
     with patch("synapps.service.context.get_symbol_source_info") as mock_query:
-        mock_query.return_value = {"file_path": str(source_file), "line": 1, "end_line": 3}
+        mock_query.return_value = {"file_path": str(source_file), "line": 2, "end_line": 4}
         result = svc.get_symbol_source("Ns.C.M")
 
     assert "line1" in result
     assert "line2" in result
     assert "line3" in result
     assert "line0" not in result
+    assert "line4" not in result
+    # Display header should show the 1-based line directly
+    assert ":2\n" in result
 
 
 def test_get_symbol_source_returns_none_when_symbol_not_found():
@@ -359,7 +363,7 @@ def test_get_context_for_includes_summaries_when_available(tmp_path):
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value={"full_name": "Ns.Foo.Bar", "name": "Bar"}),
-        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 0}),
+        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 1, "end_line": 0}),
         get_containing_type=MagicMock(return_value={"full_name": "Ns.Foo", "name": "Foo", "kind": "class"}),
         get_members_overview=MagicMock(return_value=[]),
         get_implemented_interfaces=MagicMock(return_value=[]),
@@ -383,7 +387,7 @@ def test_get_context_for_no_summaries_section_when_none_exist(tmp_path):
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value={"full_name": "Ns.Foo.Bar", "name": "Bar"}),
-        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 0}),
+        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 1, "end_line": 0}),
         get_containing_type=MagicMock(return_value=None),
         get_summary=MagicMock(return_value=None),
     ):
@@ -418,14 +422,14 @@ def test_get_context_for_scope_structure_returns_signatures_only(tmp_path):
     svc = _service()
     symbol = _node(["Class"], {"full_name": "Ns.MyClass", "name": "MyClass", "kind": "class"})
     ctor_node = _node(["Method"], {"full_name": "Ns.MyClass.MyClass", "name": "MyClass",
-                                    "line": 2, "end_line": 2})
+                                    "line": 3, "end_line": 3})
 
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_constructor=MagicMock(return_value=ctor_node),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 2, "end_line": 2,
+            "file_path": str(source_file), "line": 3, "end_line": 3,
         }),
         get_members_overview=MagicMock(return_value=[
             {"full_name": "Ns.MyClass.MyClass", "name": "MyClass", "signature": "MyClass(IRepo)"},
@@ -623,7 +627,7 @@ def test_get_context_for_scope_method_empty_callees_and_no_interface(tmp_path):
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 0, "end_line": 0,
+            "file_path": str(source_file), "line": 1, "end_line": 0,
         }),
         find_interface_contract=MagicMock(return_value={
             "method": "Ns.Foo.Simple",
@@ -658,7 +662,7 @@ def test_get_context_for_scope_method_interface_contract_only_matching(tmp_path)
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 0, "end_line": 0,
+            "file_path": str(source_file), "line": 1, "end_line": 0,
         }),
         find_interface_contract=MagicMock(return_value={
             "method": "Ns.Foo.DoWork",
@@ -953,7 +957,7 @@ def test_get_context_for_scope_edit_method_shows_empty_state(tmp_path):
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 0, "end_line": 0,
+            "file_path": str(source_file), "line": 1, "end_line": 0,
         }),
         find_interface_contract=MagicMock(return_value={
             "method": "Ns.Foo.Simple", "interface": None,
@@ -989,7 +993,7 @@ def test_get_context_for_scope_edit_method_includes_http_endpoint(tmp_path):
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 0, "end_line": 0,
+            "file_path": str(source_file), "line": 1, "end_line": 0,
         }),
         find_interface_contract=MagicMock(return_value={
             "method": "Ns.Api.GetItem", "interface": None,
@@ -1041,7 +1045,7 @@ def test_get_context_for_scope_edit_class_includes_all_sections(tmp_path):
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 1, "end_line": 3,
+            "file_path": str(source_file), "line": 2, "end_line": 4,
         }),
         get_implemented_interfaces=MagicMock(return_value=[
             _node(["Interface"], {"full_name": "Ns.ISvc", "name": "ISvc"}),
@@ -1076,7 +1080,7 @@ def test_get_context_for_scope_edit_interface_skips_constructor_deps():
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": "/src/ISvc.cs", "line": 0, "end_line": 5,
+            "file_path": "/src/ISvc.cs", "line": 1, "end_line": 6,
         }),
         get_implemented_interfaces=MagicMock(return_value=[]),
         get_members_overview=MagicMock(return_value=[]),
@@ -1100,7 +1104,7 @@ def test_get_context_for_scope_edit_class_no_methods_shows_note():
         "synapps.service.context",
         get_symbol=MagicMock(return_value=symbol),
         get_symbol_source_info=MagicMock(return_value={
-            "file_path": "/src/Empty.cs", "line": 0, "end_line": 1,
+            "file_path": "/src/Empty.cs", "line": 1, "end_line": 2,
         }),
         get_implemented_interfaces=MagicMock(return_value=[]),
         get_members_overview=MagicMock(return_value=[]),
@@ -1276,7 +1280,7 @@ def test_get_context_for_falls_back_to_structure_when_source_exceeds_max_lines(t
 
     class_node = _node(["Class"], {
         "full_name": "Ns.BigClass", "name": "BigClass", "kind": "class",
-        "line": 0, "end_line": 299,
+        "line": 1, "end_line": 300,
     })
     member = _node(["Method"], {
         "full_name": "Ns.BigClass.DoWork", "name": "DoWork",
@@ -1286,7 +1290,7 @@ def test_get_context_for_falls_back_to_structure_when_source_exceeds_max_lines(t
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
-        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 299}),
+        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 1, "end_line": 300}),
         get_containing_type=MagicMock(return_value=None),
         get_members_overview=MagicMock(return_value=[member]),
         get_implemented_interfaces=MagicMock(return_value=[]),
@@ -1311,13 +1315,13 @@ def test_get_context_for_shows_full_source_when_under_max_lines(tmp_path) -> Non
 
     class_node = _node(["Class"], {
         "full_name": "Ns.Small", "name": "Small", "kind": "class",
-        "line": 0, "end_line": 1,
+        "line": 1, "end_line": 2,
     })
 
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
-        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 1}),
+        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 1, "end_line": 2}),
         get_containing_type=MagicMock(return_value=None),
         get_members_overview=MagicMock(return_value=[]),
         get_implemented_interfaces=MagicMock(return_value=[]),
@@ -1341,13 +1345,13 @@ def test_get_context_for_max_lines_zero_always_uses_structure(tmp_path) -> None:
 
     class_node = _node(["Class"], {
         "full_name": "Ns.X", "name": "X", "kind": "class",
-        "line": 0, "end_line": 0,
+        "line": 1, "end_line": 0,
     })
 
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
-        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 0}),
+        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 1, "end_line": 0}),
         get_containing_type=MagicMock(return_value=None),
         get_members_overview=MagicMock(return_value=[]),
         get_implemented_interfaces=MagicMock(return_value=[]),
@@ -1371,13 +1375,13 @@ def test_get_context_for_negative_max_lines_disables_fallback(tmp_path) -> None:
 
     class_node = _node(["Class"], {
         "full_name": "Ns.Huge", "name": "Huge", "kind": "class",
-        "line": 0, "end_line": 499,
+        "line": 1, "end_line": 500,
     })
 
     with patch.multiple(
         "synapps.service.context",
         get_symbol=MagicMock(return_value=class_node),
-        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 0, "end_line": 499}),
+        get_symbol_source_info=MagicMock(return_value={"file_path": str(source_file), "line": 1, "end_line": 500}),
         get_containing_type=MagicMock(return_value=None),
         get_members_overview=MagicMock(return_value=[]),
         get_implemented_interfaces=MagicMock(return_value=[]),

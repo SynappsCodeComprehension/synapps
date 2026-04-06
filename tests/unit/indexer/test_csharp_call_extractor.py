@@ -27,10 +27,10 @@ namespace MyNs {
     }
 }
 """
-    # symbol_map keys: (abs_file_path, 0-indexed line) -> full_name
+    # symbol_map keys: (abs_file_path, 1-indexed line) -> full_name
     symbol_map = {
-        ("/proj/Foo.cs", 2): "MyNs.MyClass.Caller",   # line 3 in source = index 2
-        ("/proj/Foo.cs", 5): "MyNs.MyClass.Helper",   # line 6 in source = index 5
+        ("/proj/Foo.cs", 3): "MyNs.MyClass.Caller",   # line 3 in source
+        ("/proj/Foo.cs", 6): "MyNs.MyClass.Helper",   # line 6 in source
     }
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
@@ -47,7 +47,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Run"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Run"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Execute" in callee_names
@@ -63,7 +63,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Caller"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     assert any(caller == "MyNs.MyClass.Caller" for caller, *_ in results)
 
@@ -83,7 +83,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.M"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.M"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     foo_calls = [(c, n, l, col) for c, n, l, col in results if n == "Foo"]
     # Two Foo calls at different columns are distinct — no (line, col) duplicates
@@ -104,7 +104,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Run"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Run"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Parse" in callee_names, "bare generic call not captured"
@@ -123,7 +123,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Run"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Run"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "List" in callee_names, "generic object creation not captured"
@@ -139,8 +139,8 @@ namespace MyNs {
     }
 }
 """
-    # Only Run() is in the symbol_map; Compute() is at class scope (line 2) before Run() (line 3)
-    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Run"}
+    # Only Run() is in the symbol_map; Compute() is at class scope (line 3) before Run() (line 4)
+    symbol_map = {("/proj/Foo.cs", 4): "MyNs.MyClass.Run"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Compute" not in callee_names
@@ -157,7 +157,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Caller"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Execute" in callee_names
@@ -174,7 +174,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Caller"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Method1" in callee_names
@@ -192,7 +192,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Caller"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Process" in callee_names
@@ -209,7 +209,7 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Caller"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     callee_names = [callee for _, callee, *_ in results]
     assert "Execute" in callee_names
@@ -226,6 +226,6 @@ namespace MyNs {
     }
 }
 """
-    symbol_map = {("/proj/Foo.cs", 2): "MyNs.MyClass.Caller"}
+    symbol_map = {("/proj/Foo.cs", 3): "MyNs.MyClass.Caller"}
     results = extractor.extract("/proj/Foo.cs", _parse(source), symbol_map)
     assert len(results) == 0
