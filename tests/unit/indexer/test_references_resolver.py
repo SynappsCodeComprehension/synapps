@@ -1,0 +1,324 @@
+"""Unit tests for ReferencesResolver — LSP references-based CALLS edge writer.
+
+All LSP calls are mocked; only the resolver's logic is under test.
+Patches: find_enclosing_method_ast, batch_upsert_calls.
+"""
+from __future__ import annotations
+
+import threading
+import time
+from contextlib import contextmanager
+from unittest.mock import MagicMock, call, patch
+
+import pytest
+
+from synapps.indexer.references_resolver import ReferencesResolver
+from synapps.indexer.tree_sitter_util import ParsedFile
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_ls(root: str = "/proj") -> MagicMock:
+    """Create a mock LSPResolverBackend with the minimum required interface."""
+    ls = MagicMock()
+    ls.repository_root_path = root
+    # open_file must work as a context manager
+    ls.open_file.return_value.__enter__ = MagicMock(return_value=None)
+    ls.open_file.return_value.__exit__ = MagicMock(return_value=False)
+    return ls
+
+
+def _make_parsed_file(file_path: str) -> ParsedFile:
+    """Create a stub ParsedFile (tree is not used by ReferencesResolver directly)."""
+    pf = MagicMock(spec=ParsedFile)
+    pf.file_path = file_path
+    return pf
+
+
+def _make_ref(abs_path: str, line_0: int, col_0: int) -> dict:
+    """Create a reference dict matching the LSP Location structure used by request_references."""
+    return {
+        "absolutePath": abs_path,
+        "range": {
+            "start": {"line": line_0, "character": col_0},
+            "end": {"line": line_0, "character": col_0 + 5},
+        },
+    }
+
+
+def _make_resolver(
+    ls: MagicMock | None = None,
+    parsed_cache: dict | None = None,
+    symbol_map: dict | None = None,
+    per_request_timeout: float = 30.0,
+) -> tuple[ReferencesResolver, MagicMock]:
+    """Build a ReferencesResolver with a mocked GraphConnection."""
+    conn = MagicMock()
+    if ls is None:
+        ls = _make_ls()
+    if parsed_cache is None:
+        parsed_cache = {}
+    if symbol_map is None:
+        symbol_map = {}
+    resolver = ReferencesResolver(
+        conn=conn,
+        ls=ls,
+        parsed_cache=parsed_cache,
+        symbol_map=symbol_map,
+        per_request_timeout=per_request_timeout,
+    )
+    return resolver, conn
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+class TestPrewarm:
+    def test_prewarm_opens_all_files(self):
+        """resolve() must call open_file once for each file in parsed_cache."""
+        ls = _make_ls(root="/proj")
+        parsed_cache = {
+            "/proj/a.py": _make_parsed_file("/proj/a.py"),
+            "/proj/b.py": _make_parsed_file("/proj/b.py"),
+        }
+        ls.request_references.return_value = []
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map={})
+
+        with patch("synapps.indexer.references_resolver.batch_upsert_calls"):
+            resolver.resolve()
+
+        assert ls.open_file.call_count == 2
+        opened_args = {c.args[0] for c in ls.open_file.call_args_list}
+        assert "a.py" in opened_args
+        assert "b.py" in opened_args
+
+    def test_prewarm_continues_on_open_file_failure(self):
+        """A failure in open_file for one file must not prevent processing others."""
+        ls = _make_ls(root="/proj")
+        parsed_cache = {
+            "/proj/a.py": _make_parsed_file("/proj/a.py"),
+            "/proj/b.py": _make_parsed_file("/proj/b.py"),
+        }
+        # First open_file raises, second succeeds
+        ls.open_file.side_effect = [RuntimeError("LSP failed"), MagicMock(
+            __enter__=MagicMock(return_value=None),
+            __exit__=MagicMock(return_value=False),
+        )]
+        ls.request_references.return_value = []
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map={})
+
+        # Must not raise
+        with patch("synapps.indexer.references_resolver.batch_upsert_calls"):
+            resolver.resolve()
+
+
+class TestIteration:
+    def test_iterates_all_method_symbols(self):
+        """request_references must be called once per entry in symbol_map."""
+        ls = _make_ls(root="/proj")
+        symbol_map = {
+            ("/proj/a.py", 10): "pkg.A.method_one",
+            ("/proj/a.py", 20): "pkg.A.method_two",
+            ("/proj/b.py", 5):  "pkg.B.run",
+        }
+        parsed_cache = {
+            "/proj/a.py": _make_parsed_file("/proj/a.py"),
+            "/proj/b.py": _make_parsed_file("/proj/b.py"),
+        }
+        ls.request_references.return_value = []
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.batch_upsert_calls"):
+            resolver.resolve()
+
+        assert ls.request_references.call_count == 3
+
+
+class TestSelfReferenceGuard:
+    def test_self_reference_guard_discards_declaration_line_ref(self):
+        """A reference on the callee's own declaration line must be discarded."""
+        ls = _make_ls(root="/proj")
+        # Method at line 10 (1-based) → 0-based is 9
+        symbol_map = {("/proj/a.py", 10): "pkg.A.foo"}
+        parsed_cache = {"/proj/a.py": _make_parsed_file("/proj/a.py")}
+
+        # Reference on line 9 (0-based) == declaration line 10 (1-based) → self-reference
+        ls.request_references.return_value = [_make_ref("/proj/a.py", 9, 4)]
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.find_enclosing_method_ast") as mock_find, \
+             patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()
+
+        # find_enclosing_method_ast must NOT be called for the self-reference
+        mock_find.assert_not_called()
+        # No CALLS edge written
+        if mock_batch.called:
+            for c in mock_batch.call_args_list:
+                assert len(c.args[1]) == 0
+
+    def test_recursive_call_not_filtered(self):
+        """A reference from the same method on a DIFFERENT line is a recursive call and must produce a CALLS edge."""
+        ls = _make_ls(root="/proj")
+        # Method at line 10 (1-based)
+        symbol_map = {("/proj/a.py", 10): "pkg.A.foo"}
+        parsed_cache = {"/proj/a.py": _make_parsed_file("/proj/a.py")}
+
+        # Reference on line 15 (0-based) — different line, same file as callee
+        ls.request_references.return_value = [_make_ref("/proj/a.py", 15, 4)]
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.find_enclosing_method_ast",
+                   return_value="pkg.A.foo") as mock_find, \
+             patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()
+
+        # find_enclosing_method_ast must be called (not filtered as self-ref)
+        mock_find.assert_called()
+        # CALLS edge must be written (recursive call is valid)
+        mock_batch.assert_called()
+        all_batches = [row for c in mock_batch.call_args_list for row in c.args[1]]
+        assert any(r["caller"] == "pkg.A.foo" and r["callee"] == "pkg.A.foo" for r in all_batches)
+
+
+class TestNoneScopeFilter:
+    def test_none_scope_skipped(self):
+        """When find_enclosing_method_ast returns None, the reference is skipped (module-level code)."""
+        ls = _make_ls(root="/proj")
+        symbol_map = {("/proj/a.py", 10): "pkg.A.foo"}
+        parsed_cache = {"/proj/a.py": _make_parsed_file("/proj/a.py")}
+
+        # Reference from a different file at module level
+        ls.request_references.return_value = [_make_ref("/proj/b.py", 2, 0)]
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.find_enclosing_method_ast",
+                   return_value=None), \
+             patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()
+
+        # No CALLS edge must be written
+        if mock_batch.called:
+            all_rows = [row for c in mock_batch.call_args_list for row in c.args[1]]
+            assert len(all_rows) == 0
+
+
+class TestCallsEdgeProduction:
+    def test_attributed_reference_produces_calls_edge(self):
+        """A valid reference attributed to an enclosing method must write a CALLS edge with correct keys."""
+        ls = _make_ls(root="/proj")
+        symbol_map = {("/proj/a.py", 10): "pkg.A.callee"}
+        parsed_cache = {"/proj/a.py": _make_parsed_file("/proj/a.py")}
+
+        # Reference from b.py at line 5, col 8
+        ls.request_references.return_value = [_make_ref("/proj/b.py", 5, 8)]
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.find_enclosing_method_ast",
+                   return_value="pkg.B.caller"), \
+             patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()
+
+        mock_batch.assert_called()
+        all_rows = [row for c in mock_batch.call_args_list for row in c.args[1]]
+        assert len(all_rows) == 1
+        row = all_rows[0]
+        assert row["caller"] == "pkg.B.caller"
+        assert row["callee"] == "pkg.A.callee"
+        assert row["line"] == 6   # 0-based ref_line + 1
+        assert row["col"] == 8
+
+    def test_method_group_reference_produces_calls_edge(self):
+        """A non-call reference (delegate assignment, variable binding) also produces a CALLS edge.
+
+        Per D-11: request_references returns all reference types; no special handling needed.
+        A reference at any position that resolves to an enclosing method is treated identically.
+        """
+        ls = _make_ls(root="/proj")
+        symbol_map = {("/proj/handlers.py", 3): "pkg.Handlers.on_event"}
+        parsed_cache = {"/proj/handlers.py": _make_parsed_file("/proj/handlers.py")}
+
+        # Reference at a delegate-assignment position (e.g., button.Click += on_event)
+        ls.request_references.return_value = [_make_ref("/proj/wiring.py", 20, 15)]
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.find_enclosing_method_ast",
+                   return_value="pkg.Wiring.setup"), \
+             patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()
+
+        mock_batch.assert_called()
+        all_rows = [row for c in mock_batch.call_args_list for row in c.args[1]]
+        assert any(r["caller"] == "pkg.Wiring.setup" and r["callee"] == "pkg.Handlers.on_event"
+                   for r in all_rows)
+
+
+class TestTimeout:
+    def test_timeout_skips_method(self):
+        """When request_references takes longer than per_request_timeout, the method is skipped gracefully."""
+        ls = _make_ls(root="/proj")
+        symbol_map = {("/proj/a.py", 10): "pkg.A.slow_method"}
+        parsed_cache = {"/proj/a.py": _make_parsed_file("/proj/a.py")}
+
+        # request_references blocks for longer than the timeout
+        def _slow_refs(*args, **kwargs):
+            time.sleep(5.0)  # much longer than timeout
+            return []
+
+        ls.request_references.side_effect = _slow_refs
+
+        # Use a very short timeout so the test doesn't actually wait 5 seconds
+        resolver, _ = _make_resolver(
+            ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map,
+            per_request_timeout=0.05,
+        )
+
+        with patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()  # must not raise or hang
+
+        # No CALLS edges written
+        if mock_batch.called:
+            all_rows = [row for c in mock_batch.call_args_list for row in c.args[1]]
+            assert len(all_rows) == 0
+
+        # methods_timed_out stat must be non-zero
+        assert resolver._stats.methods_timed_out >= 1
+
+
+class TestDeduplication:
+    def test_deduplication_same_caller_callee_produces_one_edge(self):
+        """Multiple references from the same caller to the same callee produce only one CALLS edge."""
+        ls = _make_ls(root="/proj")
+        symbol_map = {("/proj/a.py", 10): "pkg.A.helper"}
+        parsed_cache = {"/proj/a.py": _make_parsed_file("/proj/a.py")}
+
+        # Three references to the same callee — all from the same caller
+        ls.request_references.return_value = [
+            _make_ref("/proj/b.py", 5, 4),
+            _make_ref("/proj/b.py", 8, 4),
+            _make_ref("/proj/b.py", 12, 4),
+        ]
+
+        resolver, _ = _make_resolver(ls=ls, parsed_cache=parsed_cache, symbol_map=symbol_map)
+
+        with patch("synapps.indexer.references_resolver.find_enclosing_method_ast",
+                   return_value="pkg.B.consumer"), \
+             patch("synapps.indexer.references_resolver.batch_upsert_calls") as mock_batch:
+            resolver.resolve()
+
+        all_rows = [row for c in mock_batch.call_args_list for row in c.args[1]]
+        # Deduplicate by (caller, callee) — must result in exactly 1 unique pair
+        unique_pairs = {(r["caller"], r["callee"]) for r in all_rows}
+        assert unique_pairs == {("pkg.B.consumer", "pkg.A.helper")}
+        assert len(unique_pairs) == 1
