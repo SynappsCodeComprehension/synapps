@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Fixed
+- **SPA static files missing from wheel** — added `[tool.hatch.build.targets.wheel.force-include]` mapping so `src/synapps/web/static` is packaged despite being gitignored; fixes `synapps serve` returning 404 when installed via pipx
+
 ## [1.8.0] - 2026-04-06
 
 ### Added
