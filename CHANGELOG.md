@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 - **LSPResolverBackend protocol** — extended with `request_references` and `set_request_timeout` method stubs, matching the concrete implementations in solidlsp; required by the v2.1 ReferencesResolver
-- **`find_enclosing_method_ast`** — new AST-based scope attribution function in `tree_sitter_util` using tree-sitter parent-chain traversal; correctly handles nested functions and lambdas where line-based bisect cannot distinguish scope boundaries
+- **`find_enclosing_method_ast`** — new AST-based scope attribution function in `tree_sitter_util` using tree-sitter parent-chain traversal; correctly handles nested functions and lambdas where line-based bisect cannot distinguish scope boundaries; `_METHOD_NODE_TYPES` frozenset covers all 4 language grammars (14 node types)
 
 ## [1.8.4] - 2026-04-06
 
