@@ -185,7 +185,31 @@ def test_convert_captures_end_line():
         },
     }
     sym = adapter._convert(raw, "/proj/Foo.cs", parent_full_name="MyNs.MyClass")
-    assert sym.end_line == 25
+    assert sym.end_line == 26
+
+
+def test_line_numbers_are_1_based() -> None:
+    """TD9-01: LSP returns 0-based line numbers; IndexSymbol.line and end_line must be 1-based.
+
+    C# LSP: start.line=10, end.line=25 (0-based) -> IndexSymbol.line=11, end_line=26 (1-based).
+    """
+    from synapps.lsp.csharp import CSharpLSPAdapter
+
+    adapter = CSharpLSPAdapter(MagicMock())
+    raw = {
+        "name": "MyMethod",
+        "kind": 6,
+        "detail": "void MyMethod()",
+        "location": {
+            "range": {
+                "start": {"line": 10, "character": 4},
+                "end": {"line": 25, "character": 5},
+            }
+        },
+    }
+    sym = adapter._convert(raw, "/proj/Foo.cs", parent_full_name="MyNs.MyClass")
+    assert sym.line == 11, f"Expected 1-based line=11, got {sym.line}"
+    assert sym.end_line == 26, f"Expected 1-based end_line=26, got {sym.end_line}"
 
 
 def test_create_uses_csharp_language_enum() -> None:
