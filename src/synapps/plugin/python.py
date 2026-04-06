@@ -27,8 +27,8 @@ class PythonPlugin:
     def create_lsp_adapter(self, root_path: str) -> PythonLSPAdapter:
         return PythonLSPAdapter.create(root_path)
 
-    def create_call_extractor(self) -> PythonCallExtractor:
-        return PythonCallExtractor()
+    def create_call_extractor(self) -> None:
+        return None
 
     def create_import_extractor(self, source_root: str = "") -> PythonImportExtractor:
         return PythonImportExtractor(source_root=source_root)

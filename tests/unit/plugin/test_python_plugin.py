@@ -40,10 +40,10 @@ def test_create_import_extractor_with_source_root():
     assert extractor._source_root == "/some/path"
 
 
-def test_create_call_extractor_returns_python_call_extractor():
-    from synapps.indexer.python.python_call_extractor import PythonCallExtractor
+def test_create_call_extractor_returns_none():
+    """create_call_extractor() returning None is the migration gate for ReferencesResolver dispatch (LANG-02)."""
     extractor = PythonPlugin().create_call_extractor()
-    assert isinstance(extractor, PythonCallExtractor)
+    assert extractor is None
 
 
 def test_create_attribute_extractor_returns_python_attribute_extractor():

@@ -1,10 +1,12 @@
 from synappspytest.animals import IAnimal
+from synappspytest.utils import logged
 
 
 class AnimalService:
     def __init__(self, animal: IAnimal) -> None:
         self._animal = animal
 
+    @logged
     def get_greeting(self) -> str:
         return f"{self._animal.name} says {self._animal.speak()}"
 
