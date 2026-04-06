@@ -89,3 +89,11 @@ class LSPResolverBackend(Protocol):
     ) -> Any:
         """Return the symbol that defines the symbol at the given position, or None."""
         ...
+
+    def request_references(self, relative_file_path: str, line: int, column: int) -> list[Any]:
+        """Return reference locations for the symbol at the given position."""
+        ...
+
+    def set_request_timeout(self, timeout: float | None) -> None:
+        """Set per-request timeout for LSP calls. None disables timeout."""
+        ...
