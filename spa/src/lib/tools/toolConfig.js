@@ -1,6 +1,6 @@
 /**
  * Tool configuration: endpoint, HTTP method, parameter definitions, result type.
- * resultType determines rendering: 'table', 'text', 'graph', 'mixed', 'raw'.
+ * resultType determines rendering: 'table', 'text', 'graph', 'mixed', 'context'.
  */
 export const tools = {
   search_symbols: {
@@ -115,7 +115,7 @@ export const tools = {
     endpoint: 'execute_query',
     method: 'POST',
     cta: 'Execute Query',
-    resultType: 'raw',
+    resultType: 'graph',
     params: [
       { name: 'cypher', label: 'Cypher query', type: 'textarea', required: true, placeholder: 'MATCH (n:Method) RETURN n.full_name LIMIT 10' },
     ],

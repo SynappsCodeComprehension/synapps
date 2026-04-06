@@ -35,6 +35,8 @@
       const queriedKind = result?.queried_kind;
       const usageData = result?.usages || result;
       initial = usagesToElements(usageData, queryParams?.full_name || '', queriedKind);
+    } else if (activeTool === 'execute_query') {
+      initial = cypherToElements(result);
     } else {
       initial = { nodes: [], links: [] };
     }
@@ -348,30 +350,6 @@
           />
         {/if}
       </div>
-    {/if}
-  {:else if resultType === 'raw'}
-    {#if isGraphResult(result)}
-      <div class="graph-wrapper">
-        <D3Graph
-          elements={cypherToElements(result)}
-          onNodeSelect={handleNodeSelect}
-          onNodeExpand={handleNodeExpand}
-          onNodeRemove={handleNodeRemove}
-        />
-        {#if selectedNode}
-          <NodeDetailPanel
-            node={selectedNode}
-            onClose={() => selectedNode = null}
-            onAction={handleDetailAction}
-          />
-        {/if}
-      </div>
-      <details style="margin-top: 16px;">
-        <summary class="text-secondary">Raw JSON</summary>
-        <pre class="text-result">{JSON.stringify(result, null, 2)}</pre>
-      </details>
-    {:else}
-      <pre class="text-result">{JSON.stringify(result, null, 2)}</pre>
     {/if}
   {/if}
 </div>
