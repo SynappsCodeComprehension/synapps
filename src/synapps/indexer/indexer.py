@@ -545,6 +545,19 @@ class Indexer:
         else:
             resolver.resolve(root_path, symbol_map, class_symbol_map=class_symbol_map)
 
+        # When call_ext is None, the language has opted into LSP references-based
+        # CALLS resolution (D-01). SymbolResolver above still ran for REFERENCES
+        # (type-ref) edges per D-09.
+        if call_ext is None and parsed_cache is not None:
+            from synapps.indexer.references_resolver import ReferencesResolver
+            refs_resolver = ReferencesResolver(
+                conn=self._conn,
+                ls=self._lsp.language_server,
+                parsed_cache=parsed_cache,
+                symbol_map=symbol_map,
+            )
+            refs_resolver.resolve()
+
         # Per-site DEBUG logging for unresolved call sites
         if self._language in ("python", "typescript", "java") and hasattr(resolver, "_unresolved_sites"):
             for site_msg in resolver._unresolved_sites:
