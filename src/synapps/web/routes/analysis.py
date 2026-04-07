@@ -26,7 +26,7 @@ def router(service: SynappsService) -> APIRouter:
         offset: int = 0,
     ) -> dict:
         try:
-            result = service.find_dead_code(exclude_pattern=exclude_pattern, limit=limit, offset=offset)
+            result = service.find_dead_code(exclude_pattern=exclude_pattern, limit=limit, offset=offset, subdirectory=subdirectory or "")
             return serialize_result(result)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -40,7 +40,7 @@ def router(service: SynappsService) -> APIRouter:
         offset: int = 0,
     ) -> dict:
         try:
-            result = service.find_untested(exclude_pattern=exclude_pattern, limit=limit, offset=offset)
+            result = service.find_untested(exclude_pattern=exclude_pattern, limit=limit, offset=offset, subdirectory=subdirectory or "")
             return serialize_result(result)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))

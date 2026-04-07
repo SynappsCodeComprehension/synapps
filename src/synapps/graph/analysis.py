@@ -274,17 +274,21 @@ def _build_base_exclusion_where() -> str:
     )
 
 
-def find_dead_code(conn: GraphConnection, exclude_pattern: str = "", limit: int = 15, offset: int = 0) -> dict:
+def find_dead_code(conn: GraphConnection, exclude_pattern: str = "", limit: int = 15, offset: int = 0, subdirectory: str = "") -> dict:
     """Query for methods with zero inbound CALLS, excluding test/framework/infra methods."""
     exclude_pattern = _ensure_full_match_regex(exclude_pattern)
     base_where = _build_base_exclusion_where()
     dead_filter = "AND NOT ()-[:CALLS]->(m) "
+    subdir_filter = "AND m.file_path CONTAINS $subdirectory " if subdirectory else ""
     params = {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern}
-    
+    if subdirectory:
+        params["subdirectory"] = subdirectory
+
     q_dead = (
         "MATCH (m:Method) "
         f"WHERE {base_where}"
         f"{dead_filter}"
+        f"{subdir_filter}"
         "RETURN m.full_name, m.file_path, m.line "
         f"ORDER BY m.file_path, m.full_name SKIP {offset} LIMIT {limit}"
     )
@@ -292,11 +296,13 @@ def find_dead_code(conn: GraphConnection, exclude_pattern: str = "", limit: int 
         "MATCH (m:Method) "
         f"WHERE {base_where}"
         f"{dead_filter}"
+        f"{subdir_filter}"
         "RETURN count(m)"
     )
     q_total = (
         "MATCH (m:Method) "
         f"WHERE {base_where}"
+        f"{subdir_filter}"
         "RETURN count(m)"
     )
     dead_rows = conn.query(q_dead, params)
@@ -322,17 +328,21 @@ def find_dead_code(conn: GraphConnection, exclude_pattern: str = "", limit: int 
     }
 
 
-def find_untested(conn: GraphConnection, exclude_pattern: str = "", limit: int = 15, offset: int = 0) -> dict:
+def find_untested(conn: GraphConnection, exclude_pattern: str = "", limit: int = 15, offset: int = 0, subdirectory: str = "") -> dict:
     """Query for production methods with no inbound TESTS edges."""
     exclude_pattern = _ensure_full_match_regex(exclude_pattern)
     base_where = _build_base_exclusion_where()
     untested_filter = "AND NOT ()-[:TESTS]->(m) "
+    subdir_filter = "AND m.file_path CONTAINS $subdirectory " if subdirectory else ""
     params = {"test_pattern": _TEST_PATH_PATTERN, "exclude_pattern": exclude_pattern}
+    if subdirectory:
+        params["subdirectory"] = subdirectory
 
     q_untested = (
         "MATCH (m:Method) "
         f"WHERE {base_where}"
         f"{untested_filter}"
+        f"{subdir_filter}"
         "RETURN m.full_name, m.file_path, m.line "
         f"ORDER BY m.file_path, m.full_name SKIP {offset} LIMIT {limit}"
     )
@@ -340,11 +350,13 @@ def find_untested(conn: GraphConnection, exclude_pattern: str = "", limit: int =
         "MATCH (m:Method) "
         f"WHERE {base_where}"
         f"{untested_filter}"
+        f"{subdir_filter}"
         "RETURN count(m)"
     )
     q_total = (
         "MATCH (m:Method) "
         f"WHERE {base_where}"
+        f"{subdir_filter}"
         "RETURN count(m)"
     )
     untested_rows = conn.query(q_untested, params)

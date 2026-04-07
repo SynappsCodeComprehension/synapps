@@ -496,3 +496,48 @@ def test_dotnet_convention_method_names_excluded():
     assert "ConfigureWebHost" in _EXCLUDED_METHOD_NAMES
     assert "CreateHostBuilder" in _EXCLUDED_METHOD_NAMES
     assert "CreateWebHostBuilder" in _EXCLUDED_METHOD_NAMES
+
+
+# ---------------------------------------------------------------------------
+# Regression: subdirectory filter adds CONTAINS clause to all three queries
+# ---------------------------------------------------------------------------
+
+def test_subdirectory_filter_adds_contains_clause():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, subdirectory="src/api")
+    for i in range(3):
+        cypher = conn.query.call_args_list[i].args[0]
+        params = conn.query.call_args_list[i].args[1]
+        assert "m.file_path CONTAINS $subdirectory" in cypher
+        assert params["subdirectory"] == "src/api"
+
+
+def test_subdirectory_empty_string_no_contains_clause():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, subdirectory="")
+    cypher = conn.query.call_args_list[0].args[0]
+    assert "CONTAINS $subdirectory" not in cypher
+
+
+def test_subdirectory_default_no_contains_clause():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn)
+    cypher = conn.query.call_args_list[0].args[0]
+    assert "CONTAINS $subdirectory" not in cypher
+
+
+def test_find_untested_subdirectory_filter():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_untested(conn, subdirectory="src/services")
+    for i in range(3):
+        cypher = conn.query.call_args_list[i].args[0]
+        params = conn.query.call_args_list[i].args[1]
+        assert "m.file_path CONTAINS $subdirectory" in cypher
+        assert params["subdirectory"] == "src/services"
+
+
+def test_find_untested_no_subdirectory_no_contains():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_untested(conn)
+    cypher = conn.query.call_args_list[0].args[0]
+    assert "CONTAINS $subdirectory" not in cypher

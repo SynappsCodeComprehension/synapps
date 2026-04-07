@@ -31,7 +31,7 @@ def test_find_dead_code_basic():
     response = client.get("/api/find_dead_code?path=/foo")
     assert response.status_code == 200
     assert response.json() == {"methods": [], "total": 0}
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0)
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="")
 
 
 def test_find_dead_code_with_limit_and_offset():
@@ -39,7 +39,7 @@ def test_find_dead_code_with_limit_and_offset():
     svc.find_dead_code.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_dead_code?path=/foo&limit=5&offset=10")
     assert response.status_code == 200
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=5, offset=10)
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=5, offset=10, subdirectory="")
 
 
 def test_find_untested_basic():
@@ -48,7 +48,7 @@ def test_find_untested_basic():
     response = client.get("/api/find_untested?path=/foo")
     assert response.status_code == 200
     assert response.json() == {"methods": [], "total": 0}
-    svc.find_untested.assert_called_once_with(exclude_pattern="", limit=15, offset=0)
+    svc.find_untested.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="")
 
 
 def test_get_architecture_value_error_returns_400():
@@ -82,13 +82,22 @@ def test_find_dead_code_no_path():
     svc.find_dead_code.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_dead_code")
     assert response.status_code == 200
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0)
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="")
 
 
 def test_find_dead_code_with_subdirectory():
-    """D-08: subdirectory param is accepted without error."""
+    """D-08: subdirectory param is passed through to service."""
     client, svc = _make_client()
     svc.find_dead_code.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_dead_code?subdirectory=src/api")
     assert response.status_code == 200
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0)
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="src/api")
+
+
+def test_find_untested_with_subdirectory():
+    """subdirectory param is passed through to service for find_untested."""
+    client, svc = _make_client()
+    svc.find_untested.return_value = {"methods": [], "total": 0}
+    response = client.get("/api/find_untested?subdirectory=src/services")
+    assert response.status_code == 200
+    svc.find_untested.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="src/services")
