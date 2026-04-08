@@ -1,5 +1,6 @@
 /* === Reset === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+td, th { text-align: left; }
 
 /* === CSS Custom Properties — Light Theme (default) === */
 :root,

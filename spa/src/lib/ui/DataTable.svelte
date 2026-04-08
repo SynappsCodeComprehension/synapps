@@ -84,6 +84,7 @@
     padding: 8px 16px;
     border-bottom: 1px solid var(--color-border);
     vertical-align: top;
+    text-align: left;
   }
   tr:nth-child(even) {
     background: var(--color-secondary);

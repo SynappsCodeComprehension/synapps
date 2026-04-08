@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Dead code structural heuristics** — `_build_base_exclusion_where` now excludes methods on classes with external bases, virtual methods, abstract methods, and methods on framework-managed classes; class-level attribute OR chain parenthesized for Memgraph parser safety
 
 ### Fixed
+- **Wrapping text centered in web UI table cells** — SymbolLink's `inline-flex` display caused long symbol names to appear centered when wrapping; changed to block display with explicit left-alignment
 - **Empty LSP definitions not treated as external** — when LSP returns no definitions for a base type (e.g. NuGet/Maven interfaces), treat it as external rather than silently skipping
 - **Java parameterized constructors not excluded from dead code** — JDT LS stores constructor names as `ClassName(Type, Type)` which didn't match the exact `p.name = m.name` check; now uses `STARTS WITH p.name + '('` fallback
 - **Dead code query crashes with `bool + string` type error** — Memgraph evaluates `STARTS WITH` with higher precedence than `+`, so `m.name STARTS WITH p.name + '('` was parsed as `(m.name STARTS WITH p.name) + '('`; parenthesized the concatenation

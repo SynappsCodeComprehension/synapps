@@ -6,19 +6,14 @@
   }
 </script>
 
-<span class="symbol-link">
-  <button class="symbol-name" onclick={handleClick} title={fullName || name}>
-    {name}
-  </button>
-</span>
+<button class="symbol-name" onclick={handleClick} title={fullName || name}>
+  {name}
+</button>
 
 <style>
-  .symbol-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
   .symbol-name {
+    display: block;
+    width: 100%;
     background: none;
     border: none;
     color: var(--color-accent);
