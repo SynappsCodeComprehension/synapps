@@ -7,32 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
-- **`exclude_file_pattern` parameter for `find_dead_code` and `find_untested`** — new optional regex parameter filters results by file path (e.g. `'.*generated.*'` excludes generated source files); uses empty-string guard so omitting the parameter is a no-op; auto-wrapped via `_ensure_full_match_regex` for substring matching
-- **Subdirectory filter uses path-segment-bounded regex** — `subdirectory='api'` now matches `/src/api/` but not `/src/graphapi/`; replaces `file_path CONTAINS $subdirectory` with `file_path =~ $subdirectory_pattern` across all three Cypher queries in both `find_dead_code` and `find_untested`
-- **Vendored JS file exclusion from dead code** — `_build_base_exclusion_where` now excludes methods in `node_modules`, `vendor`, `bower_components`, `third_party`, `.gradle`, `static/js|lib|libs`, and minified/bundled/CDN files via `NOT m.file_path =~ $vendor_pattern`; `find_dead_code` and `find_untested` pass `vendor_pattern` in params; `_VENDORED_PATH_PATTERN` extended with `bower_components` alternative
-- **Java entity/DTO getter-setter exclusion from dead code** — new `_ENTITY_DTO_ANNOTATIONS` constant (`entity`, `data`, `embeddable`, `mappedsuperclass`, `getter`, `setter`) drives a list-comprehension WHERE clause that suppresses `get*`/`set*`/`is*` methods on annotated Java classes only; business methods on the same classes are unaffected
-- **External base type tracking** — added `set_external_bases` graph function for storing unresolved base type names on Class nodes; MATCH/MERGE invariant tested
-- **Indexer wires external base collection** — `_index_base_types` now collects unresolved (external library) base type names per class and writes them to the graph via `set_external_bases`; graph writes flushed after LSP context closes; empty LSP definitions now also treated as external (catches NuGet/Maven interfaces that LSP can't resolve)
-- **Expanded dead code deny-lists** — added C#/Java framework method names, annotations, and class-level framework attributes for dead code false positive reduction
-- **Dead code structural heuristics** — `_build_base_exclusion_where` now excludes methods on classes with external bases, virtual methods, abstract methods, and methods on framework-managed classes; class-level attribute OR chain parenthesized for Memgraph parser safety
-
-### Changed
-- **Architecture stat `endpoints_shown` renamed to `endpoints_hosted`** — the stat only counts endpoints with SERVES edges (hosted by this codebase), not a pagination cap; label now reflects the actual semantics
-
-### Fixed
-- **Wrapping text centered in web UI table cells** — SymbolLink's `inline-flex` display caused long symbol names to appear centered when wrapping; changed to block display with explicit left-alignment
-- **Empty LSP definitions not treated as external** — when LSP returns no definitions for a base type (e.g. NuGet/Maven interfaces), treat it as external rather than silently skipping
-- **Java parameterized constructors not excluded from dead code** — JDT LS stores constructor names as `ClassName(Type, Type)` which didn't match the exact `p.name = m.name` check; now uses `STARTS WITH p.name + '('` fallback
-- **Dead code query crashes with `bool + string` type error** — Memgraph evaluates `STARTS WITH` with higher precedence than `+`, so `m.name STARTS WITH p.name + '('` was parsed as `(m.name STARTS WITH p.name) + '('`; parenthesized the concatenation
-- **C# generic class constructors flagged as dead code** — generic classes like `Repository<T>` have constructors named `Repository` which don't match `p.name = m.name` or `STARTS WITH (p.name + '(')`; added `p.name STARTS WITH (m.name + '<')` check
-- **ASP.NET `IConfigureOptions<T>` Configure methods flagged as dead code** — added `'Options'` suffix to the configure-method class exclusion list
-- **Failed LSP definition requests silently skip external base collection** — when `request_definition` throws for a base type (e.g. decompiled NuGet metadata), the exception handler now collects the base as external instead of skipping it
-
-### Fixed
-- **Subdirectory filter not working in dead code and untested methods tabs** — the `subdirectory` parameter was accepted by web routes but silently ignored; now threaded through web route → service → graph analysis layer, adding a `file_path CONTAINS` filter to Cypher queries when non-empty
-- **Python CALLS edges missing due to selectionRange line mismatch** — `PythonLSPAdapter._convert()` read `line` from `location.range.start.line` (includes decorators) instead of `selectionRange.start.line`, and never set `col`; this caused `find_enclosing_method_ast` to miss symbol_map lookups for decorated methods, producing zero CALLS edges and flagging all Python code as dead
-- **TypeScript noise symbols indexed** — tsserver-synthesized symbols (`.map() callback`, `<unknown>`, array literals) were indexed as real symbols, polluting the graph; now filtered out in `_traverse`
-- **TypeScript CALLS edges missing due to selectionRange line mismatch** — same root cause as Python and C#; `TypeScriptLSPAdapter` now reads `line` and `col` from `selectionRange` across all three convert paths
+- **Module-level CALLS edges for Python** — `ReferencesResolver` now attributes references at module scope (e.g. `app = create_app()`) to the enclosing module node via `batch_upsert_module_calls`, eliminating false positives in `find_dead_code` for functions only called at module level
+- **`_is_in_type_checking_block`** — new helper in `tree_sitter_util` using AST parent-chain traversal to detect whether a position is inside `if TYPE_CHECKING:` or `if typing.TYPE_CHECKING:` blocks; references inside these blocks are excluded from module-level call attribution
+- **`refs_attributed_as_module_calls` stat counter** — `ReferencesResolver` now tracks how many module-level references were successfully attributed, separate from the existing `refs_skipped_none_scope` counter
+- **`module_name_resolver` wired in Indexer** — `Indexer._resolve_calls_and_refs` now passes `module_map.get` to `ReferencesResolver` for Python and TypeScript projects, enabling module-level call attribution end-to-end
 
 ## [1.8.7] - 2026-04-07
 
