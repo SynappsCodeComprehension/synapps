@@ -508,22 +508,22 @@ def test_subdirectory_filter_adds_contains_clause():
     for i in range(3):
         cypher = conn.query.call_args_list[i].args[0]
         params = conn.query.call_args_list[i].args[1]
-        assert "m.file_path CONTAINS $subdirectory" in cypher
-        assert params["subdirectory"] == "src/api"
+        assert "m.file_path =~ $subdirectory_pattern" in cypher
+        assert params["subdirectory_pattern"] == ".*/src/api/.*|.*/src/api$"
 
 
 def test_subdirectory_empty_string_no_contains_clause():
     conn = _conn_with_side_effects([], [(0,)], [(0,)])
     find_dead_code(conn, subdirectory="")
     cypher = conn.query.call_args_list[0].args[0]
-    assert "CONTAINS $subdirectory" not in cypher
+    assert "subdirectory_pattern" not in cypher
 
 
 def test_subdirectory_default_no_contains_clause():
     conn = _conn_with_side_effects([], [(0,)], [(0,)])
     find_dead_code(conn)
     cypher = conn.query.call_args_list[0].args[0]
-    assert "CONTAINS $subdirectory" not in cypher
+    assert "subdirectory_pattern" not in cypher
 
 
 def test_find_untested_subdirectory_filter():
@@ -532,15 +532,15 @@ def test_find_untested_subdirectory_filter():
     for i in range(3):
         cypher = conn.query.call_args_list[i].args[0]
         params = conn.query.call_args_list[i].args[1]
-        assert "m.file_path CONTAINS $subdirectory" in cypher
-        assert params["subdirectory"] == "src/services"
+        assert "m.file_path =~ $subdirectory_pattern" in cypher
+        assert params["subdirectory_pattern"] == ".*/src/services/.*|.*/src/services$"
 
 
 def test_find_untested_no_subdirectory_no_contains():
     conn = _conn_with_side_effects([], [(0,)], [(0,)])
     find_untested(conn)
     cypher = conn.query.call_args_list[0].args[0]
-    assert "CONTAINS $subdirectory" not in cypher
+    assert "subdirectory_pattern" not in cypher
 
 
 # --- VEND-01/02: Vendored path exclusion in dead code and untested queries ---
@@ -564,3 +564,71 @@ def test_find_untested_passes_vendor_pattern_in_params():
 def test_vendor_pattern_exclusion_in_where_clause():
     clause = _build_base_exclusion_where()
     assert "NOT m.file_path =~ $vendor_pattern" in clause
+
+
+# --- FILT-01/02: exclude_file_pattern parameter ---
+
+def test_exclude_file_pattern_passed_to_query():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, exclude_file_pattern=".*test_helpers.*")
+    params = conn.query.call_args_list[0].args[1]
+    assert "exclude_file_pattern" in params
+    assert params["exclude_file_pattern"] == ".*test_helpers.*"
+
+
+def test_exclude_file_pattern_in_cypher():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, exclude_file_pattern=".*test_helpers.*")
+    for i in range(3):
+        cypher = conn.query.call_args_list[i].args[0]
+        assert "$exclude_file_pattern" in cypher
+        assert "m.file_path =~" in cypher
+
+
+def test_empty_exclude_file_pattern_default():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn)
+    params = conn.query.call_args_list[0].args[1]
+    assert params["exclude_file_pattern"] == ""
+
+
+def test_exclude_file_pattern_auto_wrapped():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, exclude_file_pattern="test_helpers")
+    params = conn.query.call_args_list[0].args[1]
+    assert params["exclude_file_pattern"] == ".*test_helpers.*"
+
+
+def test_find_untested_exclude_file_pattern_in_params():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_untested(conn, exclude_file_pattern=".*generated.*")
+    params = conn.query.call_args_list[0].args[1]
+    assert "exclude_file_pattern" in params
+    assert params["exclude_file_pattern"] == ".*generated.*"
+
+
+def test_find_untested_exclude_file_pattern_in_cypher():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_untested(conn, exclude_file_pattern=".*generated.*")
+    for i in range(3):
+        cypher = conn.query.call_args_list[i].args[0]
+        assert "$exclude_file_pattern" in cypher
+        assert "m.file_path =~" in cypher
+
+
+# --- FILT-03: subdirectory no-partial-segment-match ---
+
+def test_subdirectory_no_partial_segment_match():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, subdirectory="api")
+    params = conn.query.call_args_list[0].args[1]
+    pattern = params["subdirectory_pattern"]
+    assert pattern.startswith(".*/")  # leading separator prevents "graphapi" match
+
+
+def test_subdirectory_uses_pattern_param_key():
+    conn = _conn_with_side_effects([], [(0,)], [(0,)])
+    find_dead_code(conn, subdirectory="api")
+    params = conn.query.call_args_list[0].args[1]
+    assert "subdirectory_pattern" in params
+    assert "subdirectory" not in params

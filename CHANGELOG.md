@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- **`exclude_file_pattern` parameter for `find_dead_code` and `find_untested`** — new optional regex parameter filters results by file path (e.g. `'.*generated.*'` excludes generated source files); uses empty-string guard so omitting the parameter is a no-op; auto-wrapped via `_ensure_full_match_regex` for substring matching
+- **Subdirectory filter uses path-segment-bounded regex** — `subdirectory='api'` now matches `/src/api/` but not `/src/graphapi/`; replaces `file_path CONTAINS $subdirectory` with `file_path =~ $subdirectory_pattern` across all three Cypher queries in both `find_dead_code` and `find_untested`
 - **Vendored JS file exclusion from dead code** — `_build_base_exclusion_where` now excludes methods in `node_modules`, `vendor`, `bower_components`, `third_party`, `.gradle`, `static/js|lib|libs`, and minified/bundled/CDN files via `NOT m.file_path =~ $vendor_pattern`; `find_dead_code` and `find_untested` pass `vendor_pattern` in params; `_VENDORED_PATH_PATTERN` extended with `bower_components` alternative
 - **Java entity/DTO getter-setter exclusion from dead code** — new `_ENTITY_DTO_ANNOTATIONS` constant (`entity`, `data`, `embeddable`, `mappedsuperclass`, `getter`, `setter`) drives a list-comprehension WHERE clause that suppresses `get*`/`set*`/`is*` methods on annotated Java classes only; business methods on the same classes are unaffected
 - **External base type tracking** — added `set_external_bases` graph function for storing unresolved base type names on Class nodes; MATCH/MERGE invariant tested

@@ -31,7 +31,7 @@ def test_find_dead_code_basic():
     response = client.get("/api/find_dead_code?path=/foo")
     assert response.status_code == 200
     assert response.json() == {"methods": [], "total": 0}
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="")
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", exclude_file_pattern="", limit=15, offset=0, subdirectory="")
 
 
 def test_find_dead_code_with_limit_and_offset():
@@ -39,7 +39,7 @@ def test_find_dead_code_with_limit_and_offset():
     svc.find_dead_code.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_dead_code?path=/foo&limit=5&offset=10")
     assert response.status_code == 200
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=5, offset=10, subdirectory="")
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", exclude_file_pattern="", limit=5, offset=10, subdirectory="")
 
 
 def test_find_untested_basic():
@@ -48,7 +48,7 @@ def test_find_untested_basic():
     response = client.get("/api/find_untested?path=/foo")
     assert response.status_code == 200
     assert response.json() == {"methods": [], "total": 0}
-    svc.find_untested.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="")
+    svc.find_untested.assert_called_once_with(exclude_pattern="", exclude_file_pattern="", limit=15, offset=0, subdirectory="")
 
 
 def test_get_architecture_value_error_returns_400():
@@ -82,7 +82,7 @@ def test_find_dead_code_no_path():
     svc.find_dead_code.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_dead_code")
     assert response.status_code == 200
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="")
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", exclude_file_pattern="", limit=15, offset=0, subdirectory="")
 
 
 def test_find_dead_code_with_subdirectory():
@@ -91,7 +91,7 @@ def test_find_dead_code_with_subdirectory():
     svc.find_dead_code.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_dead_code?subdirectory=src/api")
     assert response.status_code == 200
-    svc.find_dead_code.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="src/api")
+    svc.find_dead_code.assert_called_once_with(exclude_pattern="", exclude_file_pattern="", limit=15, offset=0, subdirectory="src/api")
 
 
 def test_find_untested_with_subdirectory():
@@ -100,4 +100,26 @@ def test_find_untested_with_subdirectory():
     svc.find_untested.return_value = {"methods": [], "total": 0}
     response = client.get("/api/find_untested?subdirectory=src/services")
     assert response.status_code == 200
-    svc.find_untested.assert_called_once_with(exclude_pattern="", limit=15, offset=0, subdirectory="src/services")
+    svc.find_untested.assert_called_once_with(exclude_pattern="", exclude_file_pattern="", limit=15, offset=0, subdirectory="src/services")
+
+
+def test_find_dead_code_with_exclude_file_pattern():
+    client, svc = _make_client()
+    svc.find_dead_code.return_value = {"methods": [], "total": 0}
+    response = client.get("/api/find_dead_code?exclude_file_pattern=.*gen.*")
+    assert response.status_code == 200
+    svc.find_dead_code.assert_called_once_with(
+        exclude_pattern="", exclude_file_pattern=".*gen.*",
+        limit=15, offset=0, subdirectory="",
+    )
+
+
+def test_find_untested_with_exclude_file_pattern():
+    client, svc = _make_client()
+    svc.find_untested.return_value = {"methods": [], "total": 0}
+    response = client.get("/api/find_untested?exclude_file_pattern=.*gen.*")
+    assert response.status_code == 200
+    svc.find_untested.assert_called_once_with(
+        exclude_pattern="", exclude_file_pattern=".*gen.*",
+        limit=15, offset=0, subdirectory="",
+    )
