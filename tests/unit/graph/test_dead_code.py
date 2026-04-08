@@ -171,8 +171,18 @@ class TestBuildExclusionWhere:
 
     def test_constructor_excluded_by_starts_with_classname(self) -> None:
         # JDT LS stores Java constructors as "ClassName()" or "ClassName(Type, Type)"
-        # Must match via STARTS WITH p.name + '(' not just exact p.name = m.name
-        assert "m.name STARTS WITH p.name + '('" in self.clause
+        # Must match via STARTS WITH (p.name + '(') not just exact p.name = m.name.
+        # The concatenation MUST be parenthesized: Memgraph evaluates STARTS WITH with
+        # higher precedence than +, so the unparenthesized form `STARTS WITH p.name + '('`
+        # is parsed as `(STARTS WITH p.name) + '('` → bool + string → runtime error.
+        assert "m.name STARTS WITH (p.name + '(')" in self.clause
+
+    def test_constructor_starts_with_concatenation_is_parenthesized(self) -> None:
+        # Regression for: "Invalid types: bool and string for '+'"
+        # The unparenthesized form `m.name STARTS WITH p.name + '('` causes Memgraph to
+        # evaluate this as `(m.name STARTS WITH p.name) + '('` (bool + string → error).
+        # This test ensures the parenthesized form is used and the broken form is absent.
+        assert "m.name STARTS WITH p.name + '('" not in self.clause
 
     # --- .NET Startup/Program convention exclusions ---
 
