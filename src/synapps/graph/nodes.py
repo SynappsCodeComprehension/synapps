@@ -159,6 +159,13 @@ def set_attributes(conn: GraphConnection, full_name: str, attributes: list[str])
     )
 
 
+def set_external_bases(conn: GraphConnection, full_name: str, bases: list[str]) -> None:
+    conn.execute(
+        "MATCH (n {full_name: $full_name}) SET n.external_bases = $bases",
+        {"full_name": full_name, "bases": json.dumps(bases)},
+    )
+
+
 _ALLOWED_FLAGS = frozenset({"is_abstract", "is_static", "is_classmethod", "is_async"})
 
 

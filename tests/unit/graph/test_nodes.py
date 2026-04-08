@@ -5,7 +5,7 @@ from synapps.graph.nodes import (
     upsert_package, upsert_interface, upsert_class, upsert_method,
     upsert_property, upsert_field, delete_file_nodes,
     set_summary, remove_summary, collect_summaries, restore_summaries,
-    set_attributes, set_metadata_flags,
+    set_attributes, set_metadata_flags, set_external_bases,
 )
 from synapps.lsp.interface import IndexSymbol, SymbolKind
 
@@ -428,3 +428,19 @@ def test_index_symbol_defaults_is_classmethod_and_is_async_to_false() -> None:
     )
     assert sym.is_classmethod is False
     assert sym.is_async is False
+
+
+def test_set_external_bases_writes_json_list() -> None:
+    conn = _conn()
+    set_external_bases(conn, "MyApp.OrdersController", ["ControllerBase", "IDisposable"])
+    cypher, params = conn.execute.call_args[0]
+    assert "external_bases" in cypher
+    assert params["full_name"] == "MyApp.OrdersController"
+    assert params["bases"] == '["ControllerBase", "IDisposable"]'
+
+
+def test_set_external_bases_empty_list_writes_empty_json() -> None:
+    conn = _conn()
+    set_external_bases(conn, "MyApp.Foo", [])
+    _, params = conn.execute.call_args[0]
+    assert params["bases"] == "[]"

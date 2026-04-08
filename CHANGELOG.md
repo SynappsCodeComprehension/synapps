@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **External base type tracking** — added `set_external_bases` graph function for storing unresolved base type names on Class nodes
+
 ### Fixed
 - **Subdirectory filter not working in dead code and untested methods tabs** — the `subdirectory` parameter was accepted by web routes but silently ignored; now threaded through web route → service → graph analysis layer, adding a `file_path CONTAINS` filter to Cypher queries when non-empty
 - **Python CALLS edges missing due to selectionRange line mismatch** — `PythonLSPAdapter._convert()` read `line` from `location.range.start.line` (includes decorators) instead of `selectionRange.start.line`, and never set `col`; this caused `find_enclosing_method_ast` to miss symbol_map lookups for decorated methods, producing zero CALLS edges and flagging all Python code as dead
