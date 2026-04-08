@@ -11,7 +11,7 @@ export const tools = {
     cta: 'Search Symbols',
     resultType: 'table',
     params: [
-      { name: 'query', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass, doWork' },
+      { name: 'query', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass, doWork', autocomplete: true },
       { name: 'kind', label: 'Kind', type: 'select', required: false, options: ['', 'Class', 'Interface', 'Method', 'Property', 'Field', 'Namespace', 'File'] },
       { name: 'language', label: 'Language', type: 'select', required: false, options: ['', 'csharp', 'python', 'typescript', 'java'] },
       { name: 'namespace', label: 'Namespace prefix', type: 'text', required: false, placeholder: 'e.g. MyApp.Services' },
@@ -26,7 +26,7 @@ export const tools = {
     cta: 'Run Query',
     resultType: 'graph',
     params: [
-      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork' },
+      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork', autocomplete: true },
       { name: 'exclude_test_callers', label: 'Exclude test callers', type: 'checkbox', required: false, default: true },
       { name: 'limit', label: 'Limit', type: 'number', required: false, default: 20 },
     ],
@@ -39,7 +39,7 @@ export const tools = {
     cta: 'Run Query',
     resultType: 'graph',
     params: [
-      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork' },
+      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork', autocomplete: true },
       { name: 'include_interface_dispatch', label: 'Include interface dispatch', type: 'checkbox', required: false, default: true },
       { name: 'depth', label: 'Depth (call tree)', type: 'number', required: false, placeholder: 'Leave empty for direct only' },
       { name: 'limit', label: 'Limit', type: 'number', required: false, default: 50 },
@@ -53,18 +53,18 @@ export const tools = {
     cta: 'Run Query',
     resultType: 'graph',
     params: [
-      { name: 'full_name', label: 'Class or interface name', type: 'text', required: true, placeholder: 'e.g. IMyService' },
+      { name: 'full_name', label: 'Class or interface name', type: 'text', required: true, placeholder: 'e.g. IMyService', autocomplete: true },
     ],
   },
   get_context_for: {
     label: 'Context',
-    category: 'Navigate',
+    category: 'Analysis',
     endpoint: 'get_context_for',
     method: 'GET',
     cta: 'Get Context',
     resultType: 'context',
     params: [
-      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork' },
+      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork', autocomplete: true },
       { name: 'scope', label: 'Scope', type: 'select', required: false, default: 'impact',
         options: ['impact', 'structure', 'method', 'edit'] },
     ],
@@ -96,7 +96,7 @@ export const tools = {
   },
   find_untested: {
     label: 'Untested Methods',
-    category: 'Analysis',
+    category: 'Experimental',
     endpoint: 'find_untested',
     method: 'GET',
     cta: 'Run Query',
@@ -111,13 +111,13 @@ export const tools = {
   },
   explore: {
     label: 'Explore',
-    category: 'Query',
+    category: 'Navigate',
     endpoint: 'explore',
     method: 'GET',
     cta: 'Explore',
     resultType: 'graph',
     params: [
-      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork' },
+      { name: 'full_name', label: 'Symbol name', type: 'text', required: true, placeholder: 'e.g. MyClass.DoWork', autocomplete: true },
       { name: 'depth', label: 'Depth (hops)', type: 'number', required: false, default: 1 },
     ],
   },
@@ -134,7 +134,7 @@ export const tools = {
   },
   find_http_endpoints: {
     label: 'HTTP Endpoints',
-    category: 'Query',
+    category: 'Experimental',
     endpoint: 'find_http_endpoints',
     method: 'GET',
     cta: 'Run Query',

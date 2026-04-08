@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **Web UI autocomplete for symbol name inputs** — text fields tagged with `autocomplete: true` in toolConfig now show a dropdown of matching symbol names (fetched from `/api/search_symbols`) after 2+ characters typed, with keyboard navigation (Up/Down/Enter/Escape) and matching substring bolding
+- **Web UI per-tool form state persistence** — form values are preserved per tool when switching between sidebar tabs and retained after form submission; initialValues from context-menu click-through still take highest priority
+- **Web UI Experimental sidebar category** — new sidebar section (visually separated, italic label) containing Untested Methods and HTTP Endpoints; Explore moved to Navigate, Context moved to Analysis
+
 ## [1.9.1] - 2026-04-08
 
 ### Fixed

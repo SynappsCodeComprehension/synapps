@@ -76,10 +76,30 @@ describe('toolConfig', () => {
 
   it('get_context_for has context resultType and scope select defaulting to impact', () => {
     expect(tools.get_context_for.resultType).toBe('context');
-    expect(tools.get_context_for.category).toBe('Navigate');
+    expect(tools.get_context_for.category).toBe('Analysis');
     const scopeParam = tools.get_context_for.params.find(p => p.name === 'scope');
     expect(scopeParam.type).toBe('select');
     expect(scopeParam.default).toBe('impact');
     expect(scopeParam.options).not.toContain('');
+  });
+
+  it('explore has Navigate category', () => {
+    expect(tools.explore.category).toBe('Navigate');
+  });
+
+  it('find_untested and find_http_endpoints have Experimental category', () => {
+    expect(tools.find_untested.category).toBe('Experimental');
+    expect(tools.find_http_endpoints.category).toBe('Experimental');
+  });
+
+  it('autocomplete flag is set on symbol name params', () => {
+    const fullNameAutocompleteTools = ['find_usages', 'find_callees', 'get_hierarchy', 'get_context_for', 'explore'];
+    for (const toolId of fullNameAutocompleteTools) {
+      const fullNameParam = tools[toolId].params.find(p => p.name === 'full_name');
+      expect(fullNameParam, `${toolId} should have full_name param`).toBeDefined();
+      expect(fullNameParam.autocomplete, `${toolId}.full_name should have autocomplete: true`).toBe(true);
+    }
+    const searchQueryParam = tools.search_symbols.params.find(p => p.name === 'query');
+    expect(searchQueryParam.autocomplete).toBe(true);
   });
 });

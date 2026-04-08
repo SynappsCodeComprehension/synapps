@@ -14,22 +14,28 @@
         { id: 'find_usages', label: 'Find Usages' },
         { id: 'find_callees', label: 'Find Callees' },
         { id: 'get_hierarchy', label: 'Get Hierarchy' },
-        { id: 'get_context_for', label: 'Context' },
+        { id: 'explore', label: 'Explore' },
       ],
     },
     {
       name: 'Analysis',
       tools: [
         { id: 'get_architecture', label: 'Architecture' },
+        { id: 'get_context_for', label: 'Context' },
         { id: 'find_dead_code', label: 'Dead Code' },
-        { id: 'find_untested', label: 'Untested Methods' },
       ],
     },
     {
       name: 'Query',
       tools: [
-        { id: 'explore', label: 'Explore' },
         { id: 'execute_query', label: 'Cypher Query' },
+      ],
+    },
+    {
+      name: 'Experimental',
+      experimental: true,
+      tools: [
+        { id: 'find_untested', label: 'Untested Methods' },
         { id: 'find_http_endpoints', label: 'HTTP Endpoints' },
       ],
     },
@@ -42,8 +48,11 @@
 
 <nav class="sidebar">
   {#each categories as category}
-    <div class="category">
-      <h3 class="category-label label">{category.name}</h3>
+    {#if category.experimental}
+      <hr class="section-divider" />
+    {/if}
+    <div class="category" class:experimental={category.experimental}>
+      <h3 class="category-label label" class:experimental-label={category.experimental}>{category.name}</h3>
       {#each category.tools as tool}
         <button
           class="tool-item"
@@ -76,6 +85,17 @@
     color: var(--color-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+  .experimental-label {
+    font-style: italic;
+    font-size: 10px;
+    opacity: 0.7;
+  }
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 4px 16px 20px;
+    opacity: 0.5;
   }
   .tool-item {
     display: block;

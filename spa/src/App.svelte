@@ -24,6 +24,9 @@
   // Cache for autoRun tool results (e.g. get_architecture)
   let cachedResults = $state({});
 
+  // Per-tool form value cache — preserves inputs when switching between sidebar tabs
+  let savedFormValues = $state({});
+
   onMount(() => {
     initTheme();
     // Fetch project root for path relativization
@@ -80,8 +83,15 @@
     contextMenu = null;
   }
 
+  function handleSaveFormValues(toolId, values) {
+    savedFormValues = { ...savedFormValues, [toolId]: values };
+  }
+
   async function handleSelectTool(toolId) {
-    initialValues = null;
+    // Only clear initialValues if no saved state exists; context-menu actions still override via initialValues
+    if (!savedFormValues[toolId]) {
+      initialValues = null;
+    }
     activeTool = toolId;
     error = null;
 
@@ -165,11 +175,13 @@
           <ToolForm
             toolId={activeTool}
             {initialValues}
+            {savedFormValues}
             onResult={handleResult}
             onError={handleError}
             onLoading={handleLoading}
             onRefresh={handleRefresh}
             onClearInitialValues={() => { initialValues = null; }}
+            onSaveFormValues={handleSaveFormValues}
           />
           <ResultPanel
             {result}
