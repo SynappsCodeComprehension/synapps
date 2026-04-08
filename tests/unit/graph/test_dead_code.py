@@ -178,6 +178,33 @@ class TestBuildExclusionWhere:
     def test_program_class_excluded(self) -> None:
         assert "cfg.name = 'Program'" in self.clause
 
+    # --- Heuristic 1: External bases exclusion ---
+
+    def test_clause_excludes_methods_on_classes_with_external_bases(self) -> None:
+        assert "external_bases" in self.clause
+
+    def test_external_bases_check_requires_non_static(self) -> None:
+        assert "m.is_static" in self.clause
+
+    # --- Heuristic 2: C# virtual modifier ---
+
+    def test_clause_excludes_virtual_methods(self) -> None:
+        assert 'CONTAINS \'"virtual"\'' in self.clause
+
+    # --- Heuristic 3: Abstract methods ---
+
+    def test_clause_excludes_abstract_methods(self) -> None:
+        assert "m.is_abstract" in self.clause
+
+    # --- Heuristic 4: Class-level framework attributes ---
+
+    def test_clause_checks_class_level_attributes(self) -> None:
+        # Must check attributes on the PARENT class, not just the method
+        assert '"component"' in self.clause
+
+    def test_clause_checks_class_level_ApiController(self) -> None:
+        assert '"ApiController"' in self.clause
+
 
 class TestExpandedExcludedMethodNames:
     """New method names added for C# and Java false positive reduction."""

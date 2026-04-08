@@ -309,6 +309,10 @@ def _build_base_exclusion_where() -> str:
         f"coalesce(m.attributes, '[]') CONTAINS '\"{ a}\"'"
         for a in _FRAMEWORK_ATTRIBUTES
     )
+    class_attr_checks = " OR ".join(
+        f"coalesce(c.attributes, '[]') CONTAINS '\"{ a}\"'"
+        for a in _FRAMEWORK_CLASS_ATTRIBUTES
+    )
     return (
         "NOT m.file_path =~ $test_pattern "
         "AND NOT (m)-[:SERVES]->() "
@@ -328,6 +332,17 @@ def _build_base_exclusion_where() -> str:
         f"AND NOT ({attr_checks}) "
         "AND NOT coalesce(m.stub, false) "
         "AND ($exclude_pattern = '' OR NOT m.full_name =~ $exclude_pattern) "
+        # Heuristic 1: Methods on classes with external (unresolved) base types
+        "AND NOT size([(m)<-[:CONTAINS]-(c:Class) "
+        "WHERE coalesce(c.external_bases, '[]') <> '[]' "
+        "AND NOT coalesce(m.is_static, false) | 1]) > 0 "
+        # Heuristic 2: C# virtual methods (polymorphic dispatch points)
+        "AND NOT coalesce(m.attributes, '[]') CONTAINS '\"virtual\"' "
+        # Heuristic 3: Abstract methods (exist solely to be overridden)
+        "AND NOT coalesce(m.is_abstract, false) "
+        # Heuristic 4: Methods on classes with framework class-level attributes
+        f"AND NOT size([(m)<-[:CONTAINS]-(c:Class) "
+        f"WHERE {class_attr_checks} | 1]) > 0 "
     )
 
 
