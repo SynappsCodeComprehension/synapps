@@ -587,6 +587,7 @@ class Indexer:
                 parsed_cache=parsed_cache,
                 symbol_map=symbol_map,
                 symbol_col_map=symbol_col_map,
+                module_name_resolver=module_map.get if module_map else None,
             )
             refs_resolver.resolve()
 
