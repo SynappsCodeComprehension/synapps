@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Web UI per-tool form state persistence** — form values are preserved per tool when switching between sidebar tabs and retained after form submission; initialValues from context-menu click-through still take highest priority
 - **Web UI Experimental sidebar category** — new sidebar section (visually separated, italic label) containing Untested Methods and HTTP Endpoints; Explore moved to Navigate, Context moved to Analysis
 
+### Fixed
+- **Web UI infinite reactive loop** — `$effect` cycle between `savedFormValues` prop read and `onSaveFormValues` callback caused `effect_update_depth_exceeded`; fixed by wrapping reads/callbacks in `untrack()`
+- **Autocomplete response parsing** — autocomplete expected a plain array but `/api/search_symbols` returns `{ results: [...] }`; now handles both formats
+
 ## [1.9.1] - 2026-04-08
 
 ### Fixed

@@ -23,10 +23,12 @@
   let autocompleteState = $state({});
   let debounceTimers = {};
 
-  // Reset form values when tool changes; prefer saved state over defaults, initialValues takes highest priority
+  // Reset form values when tool changes; prefer saved state over defaults, initialValues takes highest priority.
+  // Read savedFormValues inside untrack to avoid a loop: Effect sets formValues → save callback
+  // updates savedFormValues prop → re-triggers this effect → infinite cycle.
   $effect(() => {
     if (config) {
-      const saved = savedFormValues?.[toolId];
+      const saved = untrack(() => savedFormValues?.[toolId]);
       const vals = {};
       for (const p of config.params) {
         if (saved && p.name in saved) {
@@ -49,10 +51,13 @@
     }
   });
 
-  // Persist form values to parent on every change
+  // Persist form values to parent on every change.
+  // Use untrack for the callback to avoid triggering upstream reactive cascades.
   $effect(() => {
     if (toolId && config && Object.keys(formValues).length > 0) {
-      onSaveFormValues?.(toolId, { ...formValues });
+      const id = toolId;
+      const vals = { ...formValues };
+      untrack(() => onSaveFormValues?.(id, vals));
     }
   });
 
@@ -63,7 +68,8 @@
     }
     try {
       const data = await apiCall('search_symbols', { query: value, limit: 10 });
-      const suggestions = Array.isArray(data) ? data.map(s => s.full_name).filter(Boolean) : [];
+      const items = Array.isArray(data) ? data : (data?.results ?? []);
+      const suggestions = items.map(s => s.full_name).filter(Boolean);
       autocompleteState = { ...autocompleteState, [paramName]: { suggestions, activeIndex: -1, open: suggestions.length > 0 } };
     } catch {
       autocompleteState = { ...autocompleteState, [paramName]: { suggestions: [], activeIndex: -1, open: false } };
