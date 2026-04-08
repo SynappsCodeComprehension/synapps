@@ -452,3 +452,118 @@ def test_line_numbers_are_1_based() -> None:
     assert sym is not None
     assert sym.line == 1, f"Expected 1-based line=1, got {sym.line}"
     assert sym.end_line == 5, f"Expected 1-based end_line=5, got {sym.end_line}"
+
+
+# ---------------------------------------------------------------------------
+# selectionRange-based line and col extraction (regression: Python dead code)
+# ---------------------------------------------------------------------------
+
+class TestSelectionRangeExtraction:
+    """Regression: _convert must use selectionRange for line and col.
+
+    PythonLSPAdapter previously read line from location.range.start.line, which
+    includes decorators. This caused find_enclosing_method_ast to fail symbol_map
+    lookups for decorated methods (decorator line != name line), producing zero
+    CALLS edges and flagging all Python code as dead after PythonCallExtractor
+    was retired in favour of ReferencesResolver.
+    """
+
+    def _make_adapter(self) -> object:
+        from synapps.lsp.python import PythonLSPAdapter
+        return PythonLSPAdapter(MagicMock(), "/proj")
+
+    def test_line_from_selection_range_when_present(self) -> None:
+        """When selectionRange is present, line must come from selectionRange.start.line."""
+        adapter = self._make_adapter()
+        raw = {
+            "name": "get_greeting",
+            "kind": 6,
+            "location": {"range": {
+                "start": {"line": 9, "character": 0},   # decorator line (0-based)
+                "end": {"line": 15, "character": 0},
+            }},
+            "selectionRange": {
+                "start": {"line": 10, "character": 8},  # 'def' name line (0-based)
+                "end": {"line": 10, "character": 20},
+            },
+        }
+        sym = adapter._convert(raw, "/proj/pkg/services.py", "/proj", parent_full_name=None)
+        assert sym is not None
+        assert sym.line == 11, f"Expected selectionRange line 11 (1-based), got {sym.line}"
+
+    def test_col_from_selection_range_when_present(self) -> None:
+        """When selectionRange is present, col must come from selectionRange.start.character."""
+        adapter = self._make_adapter()
+        raw = {
+            "name": "my_method",
+            "kind": 6,
+            "location": {"range": {
+                "start": {"line": 5, "character": 0},
+                "end": {"line": 10, "character": 0},
+            }},
+            "selectionRange": {
+                "start": {"line": 5, "character": 8},
+                "end": {"line": 5, "character": 17},
+            },
+        }
+        sym = adapter._convert(raw, "/proj/pkg/mod.py", "/proj", parent_full_name=None)
+        assert sym is not None
+        assert sym.col == 8, f"Expected col=8 from selectionRange, got {sym.col}"
+
+    def test_line_falls_back_to_location_range_when_no_selection_range(self) -> None:
+        """Without selectionRange, line falls back to location.range.start.line."""
+        adapter = self._make_adapter()
+        raw = {
+            "name": "plain_func",
+            "kind": 12,
+            "location": {"range": {
+                "start": {"line": 3, "character": 0},
+                "end": {"line": 8, "character": 0},
+            }},
+        }
+        sym = adapter._convert(raw, "/proj/pkg/mod.py", "/proj", parent_full_name=None)
+        assert sym is not None
+        assert sym.line == 4, f"Expected fallback line=4 (1-based), got {sym.line}"
+
+    def test_col_defaults_to_zero_when_character_missing(self) -> None:
+        """col defaults to 0 when selectionRange has no character field."""
+        adapter = self._make_adapter()
+        raw = {
+            "name": "my_func",
+            "kind": 12,
+            "location": {"range": {"start": {"line": 0}, "end": {"line": 5}}},
+        }
+        sym = adapter._convert(raw, "/proj/pkg/mod.py", "/proj", parent_full_name=None)
+        assert sym is not None
+        assert sym.col == 0
+
+    def test_decorated_method_uses_def_line_not_decorator_line(self) -> None:
+        """Core regression: decorated method line must be the 'def' line, not the decorator line.
+
+        Without this fix, symbol_map[(file, decorator_line)] would be set but
+        find_enclosing_method_ast would look up symbol_map[(file, def_line)], causing
+        a miss and producing no CALLS edges for any caller of this method.
+        """
+        adapter = self._make_adapter()
+        raw = {
+            "name": "get_greeting",
+            "kind": 6,
+            "location": {"range": {
+                "start": {"line": 14, "character": 4},  # @logged decorator (0-based)
+                "end": {"line": 20, "character": 0},
+            }},
+            "selectionRange": {
+                "start": {"line": 15, "character": 8},  # def get_greeting (0-based)
+                "end": {"line": 15, "character": 20},
+            },
+        }
+        sym = adapter._convert(raw, "/proj/synappspytest/services.py", "/proj",
+                               parent_full_name=None)
+        assert sym is not None
+        # Must be the 'def' line (1-based = 16), not the decorator line (1-based = 15)
+        assert sym.line == 16, (
+            f"Expected def-line 16 from selectionRange, got {sym.line}. "
+            "If this is 15, the decorator line is being used — "
+            "this causes find_enclosing_method_ast to miss the symbol_map lookup."
+        )
+        assert sym.col == 8
