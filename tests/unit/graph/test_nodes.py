@@ -444,3 +444,11 @@ def test_set_external_bases_empty_list_writes_empty_json() -> None:
     set_external_bases(conn, "MyApp.Foo", [])
     _, params = conn.execute.call_args[0]
     assert params["bases"] == "[]"
+
+
+def test_set_external_bases_uses_match_not_merge() -> None:
+    conn = _conn()
+    set_external_bases(conn, "MyApp.Foo", ["Base"])
+    cypher = conn.execute.call_args[0][0]
+    assert "MATCH" in cypher
+    assert "MERGE" not in cypher
