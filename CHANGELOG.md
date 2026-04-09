@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Batch CONTAINS/IMPORTS edge functions** — `batch_upsert_file_contains_symbol`, `batch_upsert_contains_symbol`, `batch_upsert_dir_contains`, and `batch_upsert_symbol_imports` added to `graph/edges.py` using UNWIND for efficient bulk writes; existing single-row functions are unchanged
 - **Batch node upsert functions** — `batch_upsert_files`, `batch_upsert_directories`, `batch_upsert_packages`, `batch_upsert_classes`, `batch_upsert_interfaces`, `batch_upsert_methods`, `batch_upsert_properties`, and `batch_upsert_fields` added to `graph/nodes.py` using UNWIND for efficient bulk structural node writes; existing single-row functions are unchanged
 - **Batch structural pass in index_project** — `Indexer.index_project()` now accumulates all structural nodes and edges into a `_StructuralBatch` during the per-file loop and flushes them via UNWIND-based batch functions; `reindex_file` continues using original single-row writes
+- **Missing database indexes** — added indexes on `Class(file_path)`, `Interface(file_path)`, `Property(name)`, and `Field(name)` to speed up MERGE operations and symbol search queries
+- **Default 4 concurrent workers for ReferencesResolver** — `ReferencesResolver` is now instantiated with `max_workers=4` during `index_project`, processing 4 methods concurrently for call resolution
 
 ## [1.9.2] - 2026-04-08
 

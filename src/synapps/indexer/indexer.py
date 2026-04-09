@@ -620,6 +620,7 @@ class Indexer:
                 symbol_map=symbol_map,
                 symbol_col_map=symbol_col_map,
                 module_name_resolver=module_map.get if module_map else None,
+                max_workers=4,
             )
             refs_resolver.resolve()
 
