@@ -12,6 +12,10 @@ from synapps.graph.edges import (
     upsert_calls, upsert_contains_symbol, upsert_dir_contains, upsert_file_contains_symbol,
     upsert_imports, upsert_module_calls, upsert_symbol_imports, upsert_inherits, upsert_interface_inherits, upsert_implements,
     upsert_repo_contains_dir,
+    batch_upsert_file_contains_symbol,
+    batch_upsert_contains_symbol as batch_upsert_contains_symbol_edge,
+    batch_upsert_dir_contains as batch_upsert_dir_contains_edge,
+    batch_upsert_symbol_imports as batch_upsert_symbol_imports_edge,
 )
 from synapps.graph.nodes import (
     upsert_class, upsert_directory, upsert_field, upsert_file,
@@ -20,6 +24,9 @@ from synapps.graph.nodes import (
     collect_summaries, restore_summaries,
     get_file_symbol_names, delete_orphaned_symbols,
     set_attributes, set_metadata_flags, set_external_bases,
+    batch_upsert_files, batch_upsert_directories, batch_upsert_packages,
+    batch_upsert_classes, batch_upsert_interfaces, batch_upsert_methods,
+    batch_upsert_properties, batch_upsert_fields,
 )
 from synapps.indexer.csharp.csharp_base_type_extractor import CSharpBaseTypeExtractor
 from synapps.indexer.method_implements_indexer import MethodImplementsIndexer
@@ -81,6 +88,29 @@ def _extract_java_package(tree: Tree) -> str | None:
                 if sub.type in ("scoped_identifier", "identifier"):
                     return node_text(sub)
     return None
+
+
+class _StructuralBatch:
+    """Accumulates structural nodes and edges for batch write."""
+    __slots__ = (
+        "files", "directories", "packages", "classes", "interfaces", "methods",
+        "properties", "fields", "file_contains", "symbol_contains",
+        "dir_contains", "symbol_imports",
+    )
+
+    def __init__(self) -> None:
+        self.files: list[dict] = []
+        self.directories: list[dict] = []
+        self.packages: list[dict] = []
+        self.classes: list[dict] = []
+        self.interfaces: list[dict] = []
+        self.methods: list[dict] = []
+        self.properties: list[dict] = []
+        self.fields: list[dict] = []
+        self.file_contains: list[dict] = []
+        self.symbol_contains: list[dict] = []
+        self.dir_contains: list[dict] = []
+        self.symbol_imports: list[dict] = []
 
 
 class Indexer:
@@ -172,6 +202,7 @@ class Indexer:
         total_symbols = 0
         timed_out_files: list[str] = []
         t_structural = time.monotonic()
+        structural_batch = _StructuralBatch()
         for file_path, pf in parsed_cache.items():
             try:
                 symbols = self._lsp.get_document_symbols(file_path)
@@ -185,7 +216,8 @@ class Indexer:
                     sym.kind = SymbolKind.INTERFACE
             symbols_by_file[file_path] = symbols
             total_symbols += len(symbols)
-            self._index_file_structure(file_path, root_path, symbols, pf)
+            self._index_file_structure(file_path, root_path, symbols, pf, batch=structural_batch)
+        self._flush_structural_batch(structural_batch)
         log.info(
             "Structural pass: %d files, %d symbols in %.1fs",
             len(parsed_cache), total_symbols, time.monotonic() - t_structural,
@@ -705,7 +737,54 @@ class Indexer:
         root_path: str,
         symbols: list[IndexSymbol],
         parsed_file: ParsedFile | None = None,
+        batch: _StructuralBatch | None = None,
     ) -> None:
+        if batch is not None:
+            # -- Batch path: accumulate into batch for later flush --
+            batch.files.append({"path": file_path, "name": os.path.basename(file_path), "language": self._language})
+            self._accumulate_directory_chain(file_path, root_path, batch)
+            if parsed_file is not None:
+                self._accumulate_file_imports(file_path, parsed_file.tree, batch)
+            else:
+                self._accumulate_file_imports(file_path, batch=batch)
+
+            for symbol in symbols:
+                self._accumulate_symbol(symbol, batch)
+                if symbol.parent_full_name is None:
+                    batch.file_contains.append({"file": file_path, "sym": symbol.full_name})
+                else:
+                    batch.symbol_contains.append({"from_id": symbol.parent_full_name, "to_id": symbol.full_name})
+
+            # Java field type post-pass: patch Field nodes with type_name after initial accumulation
+            if self._language == "java" and parsed_file is not None:
+                from synapps.indexer.java.java_field_type_extractor import JavaFieldTypeExtractor
+                name_to_type = dict(JavaFieldTypeExtractor().extract(file_path, parsed_file.tree))
+                for symbol in symbols:
+                    if symbol.kind == SymbolKind.FIELD:
+                        symbol.type_name = name_to_type.get(symbol.name, "")
+                        # Re-append with updated type_name; batch MERGE is idempotent
+                        batch.fields.append({
+                            "full_name": symbol.full_name, "name": symbol.name,
+                            "type_name": symbol.type_name, "file_path": symbol.file_path,
+                            "line": symbol.line, "end_line": symbol.end_line,
+                            "language": self._language,
+                        })
+
+            # Wire Java Package -> Class/Interface CONTAINS edges (per D-05, D-06)
+            if self._language == "java" and parsed_file is not None:
+                pkg_name = _extract_java_package(parsed_file.tree)
+                if pkg_name:
+                    pkg_simple = pkg_name.rsplit(".", 1)[-1]
+                    batch.packages.append({"full_name": pkg_name, "name": pkg_simple})
+                    for symbol in symbols:
+                        if symbol.parent_full_name is None and symbol.kind in (
+                            SymbolKind.CLASS, SymbolKind.INTERFACE, SymbolKind.ABSTRACT_CLASS,
+                            SymbolKind.ENUM, SymbolKind.RECORD,
+                        ):
+                            batch.symbol_contains.append({"from_id": pkg_name, "to_id": symbol.full_name})
+            return
+
+        # -- Non-batch path: original single-row writes (used by reindex_file) --
         upsert_file(self._conn, file_path, os.path.basename(file_path), self._language)
         self._upsert_directory_chain(file_path, root_path)
         if parsed_file is not None:
@@ -866,6 +945,161 @@ class Indexer:
                 upsert_field(self._conn, symbol.full_name, symbol.name, symbol.type_name, file_path=symbol.file_path, line=symbol.line, end_line=symbol.end_line, language=self._language)
             case _:
                 log.debug("Skipping symbol of unhandled kind: %s", symbol.kind)
+
+    def _accumulate_symbol(self, symbol: IndexSymbol, batch: _StructuralBatch) -> None:
+        """Same logic as _upsert_symbol but appends dicts to batch instead of writing to graph."""
+        kind_str = symbol.kind.value
+        if self._language == "python":
+            if symbol.name == "__init__" and symbol.kind == SymbolKind.METHOD:
+                kind_str = "constructor"
+            elif symbol.kind == SymbolKind.METHOD and symbol.parent_full_name is None:
+                kind_str = "function"
+            elif symbol.signature == "module" and symbol.kind == SymbolKind.CLASS:
+                kind_str = "module"
+        elif self._language == "typescript":
+            if symbol.name == "constructor" and symbol.kind == SymbolKind.METHOD:
+                kind_str = "constructor"
+            elif symbol.kind == SymbolKind.METHOD and symbol.parent_full_name is None:
+                kind_str = "function"
+            elif symbol.signature == "const_object" and symbol.kind == SymbolKind.CLASS:
+                kind_str = "const_object"
+        elif self._language == "java":
+            if symbol.kind == SymbolKind.METHOD and symbol.parent_full_name:
+                parent_simple = symbol.parent_full_name.rsplit(".", 1)[-1]
+                if symbol.name == parent_simple:
+                    kind_str = "constructor"
+
+        match symbol.kind:
+            case SymbolKind.NAMESPACE:
+                batch.packages.append({"full_name": symbol.full_name, "name": symbol.name})
+            case SymbolKind.INTERFACE:
+                batch.interfaces.append({
+                    "full_name": symbol.full_name, "name": symbol.name,
+                    "file_path": symbol.file_path, "line": symbol.line,
+                    "end_line": symbol.end_line, "language": self._language,
+                })
+            case SymbolKind.CLASS | SymbolKind.ABSTRACT_CLASS | SymbolKind.ENUM | SymbolKind.RECORD:
+                batch.classes.append({
+                    "full_name": symbol.full_name, "name": symbol.name, "kind": kind_str,
+                    "file_path": symbol.file_path, "line": symbol.line,
+                    "end_line": symbol.end_line, "language": self._language,
+                })
+            case SymbolKind.METHOD:
+                batch.methods.append({
+                    "full_name": symbol.full_name, "name": symbol.name,
+                    "signature": symbol.signature, "is_abstract": symbol.is_abstract,
+                    "is_static": symbol.is_static, "file_path": symbol.file_path,
+                    "line": symbol.line, "end_line": symbol.end_line,
+                    "language": self._language, "is_classmethod": symbol.is_classmethod,
+                    "is_async": symbol.is_async, "stub": False,
+                })
+            case SymbolKind.PROPERTY:
+                batch.properties.append({
+                    "full_name": symbol.full_name, "name": symbol.name,
+                    "type_name": "", "file_path": symbol.file_path,
+                    "line": symbol.line, "end_line": symbol.end_line,
+                    "language": self._language,
+                })
+            case SymbolKind.FIELD:
+                batch.fields.append({
+                    "full_name": symbol.full_name, "name": symbol.name,
+                    "type_name": symbol.type_name, "file_path": symbol.file_path,
+                    "line": symbol.line, "end_line": symbol.end_line,
+                    "language": self._language,
+                })
+            case _:
+                log.debug("Skipping symbol of unhandled kind: %s", symbol.kind)
+
+    def _accumulate_directory_chain(self, file_path: str, root_path: str, batch: _StructuralBatch) -> None:
+        """Same logic as _upsert_directory_chain but appends to batch."""
+        dirs: list[str] = []
+        current = os.path.dirname(file_path)
+        while True:
+            dirs.append(current)
+            if current == root_path or current == os.path.dirname(current):
+                break
+            current = os.path.dirname(current)
+
+        dirs.reverse()  # root-first
+
+        for dir_path in dirs:
+            batch.directories.append({"path": dir_path, "name": os.path.basename(dir_path) or dir_path})
+
+        for i in range(len(dirs) - 1):
+            batch.dir_contains.append({"parent": dirs[i], "child": dirs[i + 1]})
+
+        batch.dir_contains.append({"parent": dirs[-1], "child": file_path})
+
+    def _accumulate_file_imports(self, file_path: str, tree: Tree | None = None, batch: _StructuralBatch | None = None) -> None:
+        """Same logic as _index_file_imports but appends symbol imports to batch.
+
+        C# namespace imports and Java wildcard imports still use individual
+        functions (they need Package nodes to exist via upsert_imports).
+        """
+        if tree is None:
+            try:
+                with open(file_path, encoding="utf-8") as f:
+                    source = f.read()
+            except OSError:
+                log.warning("Could not read %s for import extraction", file_path)
+                return
+            if self._language == "csharp":
+                tree = _parse_csharp_source(source)
+            else:
+                tree = self._plugin.parse_file(file_path, source).tree
+
+        # Lazily wire source_root into the extractor on first file processed.
+        if hasattr(self._import_extractor, "_source_root") and not self._import_extractor._source_root:
+            if self._language == "python":
+                from synapps.lsp.python import detect_source_root
+                self._import_extractor._source_root = detect_source_root(
+                    file_path, self._root_path or ""
+                )
+            elif self._language == "typescript":
+                self._import_extractor._source_root = self._root_path or ""
+        if self._language == "java":
+            from synapps.lsp.java import _detect_java_source_root
+            self._import_extractor._source_root = _detect_java_source_root(
+                file_path, self._root_path or ""
+            )
+
+        results = self._import_extractor.extract(file_path, tree)
+        if not results:
+            return
+
+        for item in results:
+            if isinstance(item, tuple):
+                module_path, imported_name = item
+                if imported_name:
+                    batch.symbol_imports.append({"file": file_path, "sym": f"{module_path}.{imported_name}"})
+                else:
+                    batch.symbol_imports.append({"file": file_path, "sym": module_path})
+            elif self._language == "java":
+                if item.endswith(".*"):
+                    # Wildcard import: needs Package node — use individual function
+                    upsert_imports(self._conn, file_path, item[:-2])
+                else:
+                    batch.symbol_imports.append({"file": file_path, "sym": item})
+            else:
+                # C#: namespace imports need Package node — use individual function
+                upsert_imports(self._conn, file_path, item)
+
+    def _flush_structural_batch(self, batch: _StructuralBatch) -> None:
+        """Write all accumulated structural nodes and edges to the graph."""
+        # Nodes first (must exist before edges can match them)
+        batch_upsert_directories(self._conn, batch.directories)
+        batch_upsert_files(self._conn, batch.files)
+        batch_upsert_packages(self._conn, batch.packages)
+        batch_upsert_classes(self._conn, batch.classes)
+        batch_upsert_interfaces(self._conn, batch.interfaces)
+        batch_upsert_methods(self._conn, batch.methods)
+        batch_upsert_properties(self._conn, batch.properties)
+        batch_upsert_fields(self._conn, batch.fields)
+        # Edges (nodes must exist first)
+        batch_upsert_dir_contains_edge(self._conn, batch.dir_contains)
+        batch_upsert_file_contains_symbol(self._conn, batch.file_contains)
+        batch_upsert_contains_symbol_edge(self._conn, batch.symbol_contains)
+        batch_upsert_symbol_imports_edge(self._conn, batch.symbol_imports)
 
     def _index_callback_edges(
         self,
