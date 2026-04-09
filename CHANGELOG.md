@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 - **Batch CONTAINS/IMPORTS edge functions** — `batch_upsert_file_contains_symbol`, `batch_upsert_contains_symbol`, `batch_upsert_dir_contains`, and `batch_upsert_symbol_imports` added to `graph/edges.py` using UNWIND for efficient bulk writes; existing single-row functions are unchanged
+- **Batch node upsert functions** — `batch_upsert_files`, `batch_upsert_directories`, `batch_upsert_packages`, `batch_upsert_classes`, `batch_upsert_interfaces`, `batch_upsert_methods`, `batch_upsert_properties`, and `batch_upsert_fields` added to `graph/nodes.py` using UNWIND for efficient bulk structural node writes; existing single-row functions are unchanged
 
 ## [1.9.2] - 2026-04-08
 

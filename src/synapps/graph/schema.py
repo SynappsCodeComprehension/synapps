@@ -12,13 +12,17 @@ _INDEX_DEFS = [
     ("Package", "full_name"),
     ("Class", "full_name"),
     ("Class", "name"),
+    ("Class", "file_path"),
     ("Interface", "full_name"),
     ("Interface", "name"),
+    ("Interface", "file_path"),
     ("Method", "full_name"),
     ("Method", "name"),
     ("Method", "file_path"),
     ("Property", "full_name"),
+    ("Property", "name"),
     ("Field", "full_name"),
+    ("Field", "name"),
     ("Endpoint", "route"),
 ]
 

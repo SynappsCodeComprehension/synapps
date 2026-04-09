@@ -181,6 +181,114 @@ def set_metadata_flags(conn: GraphConnection, full_name: str, flags: dict) -> No
     )
 
 
+def batch_upsert_files(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write File nodes using UNWIND. Each row: {path, name, language}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:File {path: row.path}) "
+        "SET n.name = row.name, n.language = row.language, n.last_indexed = $ts",
+        {"batch": batch, "ts": _now()},
+    )
+
+
+def batch_upsert_directories(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Directory nodes using UNWIND. Each row: {path, name}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Directory {path: row.path}) "
+        "SET n.name = row.name",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_packages(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Package nodes using UNWIND. Each row: {full_name, name}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Package {full_name: row.full_name}) "
+        "SET n.name = row.name",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_classes(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Class nodes using UNWIND. Each row: {full_name, name, kind, file_path, line, end_line, language}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Class {full_name: row.full_name}) "
+        "SET n.name = row.name, n.kind = row.kind, n.file_path = row.file_path, "
+        "n.line = row.line, n.end_line = row.end_line, n.language = row.language",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_interfaces(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Interface nodes using UNWIND. Each row: {full_name, name, file_path, line, end_line, language}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Interface {full_name: row.full_name}) "
+        "SET n.name = row.name, n.kind = 'interface', n.file_path = row.file_path, "
+        "n.line = row.line, n.end_line = row.end_line, n.language = row.language",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_methods(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Method nodes using UNWIND.
+
+    Each row: {full_name, name, signature, is_abstract, is_static, file_path, line, end_line,
+               language, is_classmethod, is_async, stub}.
+    """
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Method {full_name: row.full_name}) "
+        "SET n.name = row.name, n.signature = row.signature, "
+        "n.is_abstract = row.is_abstract, n.is_static = row.is_static, "
+        "n.file_path = row.file_path, n.line = row.line, n.end_line = row.end_line, "
+        "n.language = row.language, n.is_classmethod = row.is_classmethod, "
+        "n.is_async = row.is_async, n.stub = row.stub",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_properties(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Property nodes using UNWIND. Each row: {full_name, name, type_name, file_path, line, end_line, language}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Property {full_name: row.full_name}) "
+        "SET n.name = row.name, n.type_name = row.type_name, n.file_path = row.file_path, "
+        "n.line = row.line, n.end_line = row.end_line, n.language = row.language",
+        {"batch": batch},
+    )
+
+
+def batch_upsert_fields(conn: GraphConnection, batch: list[dict]) -> None:
+    """Batch-write Field nodes using UNWIND. Each row: {full_name, name, type_name, file_path, line, end_line, language}."""
+    if not batch:
+        return
+    conn.execute(
+        "UNWIND $batch AS row "
+        "MERGE (n:Field {full_name: row.full_name}) "
+        "SET n.name = row.name, n.type_name = row.type_name, n.file_path = row.file_path, "
+        "n.line = row.line, n.end_line = row.end_line, n.language = row.language",
+        {"batch": batch},
+    )
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 

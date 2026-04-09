@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from synapps.graph.schema import ensure_schema
+from synapps.graph.schema import _INDEX_DEFS, ensure_schema
 
 
 def test_ensure_schema_memgraph_creates_indices() -> None:
@@ -57,3 +57,32 @@ def test_schema_creates_index_for_each_node_type() -> None:
     for label in ["Repository", "Directory", "File", "Package",
                   "Class", "Interface", "Method", "Property", "Field", "Endpoint"]:
         assert any(f":{label}" in c for c in calls), f"Missing index for :{label}"
+
+
+def test_class_file_path_index_exists() -> None:
+    assert ("Class", "file_path") in _INDEX_DEFS
+
+
+def test_interface_file_path_index_exists() -> None:
+    assert ("Interface", "file_path") in _INDEX_DEFS
+
+
+def test_property_name_index_exists() -> None:
+    assert ("Property", "name") in _INDEX_DEFS
+
+
+def test_field_name_index_exists() -> None:
+    assert ("Field", "name") in _INDEX_DEFS
+
+
+def test_all_existing_indexes_preserved() -> None:
+    """Existing indexes must not be removed."""
+    required = [
+        ("Repository", "path"), ("Directory", "path"), ("File", "path"),
+        ("Package", "full_name"), ("Class", "full_name"), ("Class", "name"),
+        ("Interface", "full_name"), ("Interface", "name"),
+        ("Method", "full_name"), ("Method", "name"), ("Method", "file_path"),
+        ("Property", "full_name"), ("Field", "full_name"), ("Endpoint", "route"),
+    ]
+    for entry in required:
+        assert entry in _INDEX_DEFS, f"Missing required index: {entry}"
