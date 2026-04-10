@@ -7,14 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
-- **`read_symbol` MCP tool** — returns a symbol's source code with containing class signature in fewer tokens than reading the full file; falls back to member signatures overview when source exceeds `max_lines`
-- **`assess_impact` MCP tool** — single-call risk assessment showing direct callers (≤15), transitive callers (≤10), test coverage (≤5), interface contract, and HTTP endpoint info (≤5)
-
-### Changed
-- **`get_context_for` rework** — removed the `scope` parameter from `ContextBuilder` and `SynappsService`; replaced with `members_only: bool = False` for lightweight type-overview mode; default behavior (full context: source, containing type, interfaces, callees, dependencies, summaries) is unchanged; callers and test coverage sections are no longer part of `get_context_for` (use `assess_impact` instead)
-- **`get_context_for` MCP tool** — updated docstring to mention `assess_impact` for callers/tests; `scope` parameter removed from MCP tool signature
-- **`get_context_for` web route** — replaced `scope` query parameter with `members_only: bool = False`; removed `scope="impact"` delegation to `analyze_change_impact`
-- **Tests updated** — added `test_get_context_for_tool_no_scope_param` and `test_get_context_for_tool_has_members_only_param` to MCP tool tests; replaced scope-based web route tests with `members_only` equivalents
+- **search_symbols grep-tolerance** — `search_symbols` now pre-processes queries via `_preprocess_query`, stripping language keywords (`def`, `class`, `function`, `public`, `static`, etc.) and syntax characters (`(`, `)`, `{`, `}`, `:`, `@`, etc.) so agents can paste grep-style queries like `def my_function(` and get useful results; dots are preserved for qualified names; single bare keywords are passed through unchanged; when the exact-case query returns no results a case-insensitive `toLower CONTAINS` fallback fires automatically with all original filters preserved
 
 ## [1.10.0] - 2026-04-08
 
