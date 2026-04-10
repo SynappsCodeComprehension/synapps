@@ -417,6 +417,25 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         return result or "Symbol not found."
 
     @mcp.tool()
+    def read_symbol(full_name: str, max_lines: int = 100) -> str:
+        """Read a symbol's source code with file location and containing class signature.
+
+        Returns only source and location -- no callers, callees, or dependencies.
+        Cheaper than get_context_for when you just need to read the code.
+
+        When source exceeds max_lines, returns member signatures overview instead,
+        so you can call read_symbol again on a specific member.
+
+        max_lines: maximum source lines before falling back to member overview (default 100).
+        """
+        _auto_sync_check()
+        try:
+            result = service.read_symbol(full_name, max_lines=max_lines)
+        except ValueError as e:
+            return str(e)
+        return result or "Symbol not found."
+
+    @mcp.tool()
     def find_entry_points(
         full_name: str,
         max_depth: int = 8,
