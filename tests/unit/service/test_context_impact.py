@@ -1,27 +1,37 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from synapps.service.context import ContextBuilder
 
 
-def test_context_impact_returns_formatted_output():
-    """scope='impact' should delegate to analyze_change_impact and return markdown."""
+def test_get_context_for_returns_none_for_missing_symbol():
+    """get_context_for returns None when the symbol is not found in the graph."""
     conn = MagicMock()
-    service = MagicMock()
-    service.analyze_change_impact.return_value = "## Change Impact: Foo.Bar\n\n2 affected"
+    conn.query.return_value = []  # get_symbol returns None when rows is empty
 
-    builder = ContextBuilder(conn, service=service)
-    result = builder.get_context_for("Foo.Bar", scope="impact")
-
-    service.analyze_change_impact.assert_called_once_with("Foo.Bar", structured=False)
-    assert "Change Impact" in result
-
-
-def test_context_impact_without_service_returns_error():
-    """scope='impact' without a service reference should return an error message."""
-    conn = MagicMock()
     builder = ContextBuilder(conn)
-    result = builder.get_context_for("Foo.Bar", scope="impact")
+    result = builder.get_context_for("Nonexistent.Symbol")
 
-    assert result == "Impact scope requires service reference"
+    assert result is None
+
+
+def test_get_context_for_members_only_error_for_method():
+    """members_only=True with a Method symbol returns an error string."""
+    conn = MagicMock()
+    # get_symbol returns rows[0][0]; simulate a Method node
+    method_node = {"full_name": "Ns.Cls.method", "_labels": ["Method"], "kind": "method"}
+    conn.query.return_value = [[method_node]]
+
+    builder = ContextBuilder(conn)
+    result = builder.get_context_for("Ns.Cls.method", members_only=True)
+
+    assert isinstance(result, str)
+    assert "members_only=True requires a type" in result
+
+
+def test_context_builder_has_no_service_reference():
+    """ContextBuilder no longer accepts a service parameter."""
+    import inspect
+    sig = inspect.signature(ContextBuilder.__init__)
+    assert "service" not in sig.parameters

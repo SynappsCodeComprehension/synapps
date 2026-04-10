@@ -296,6 +296,64 @@ def test_graph_schema_no_experimental_note() -> None:
         assert "experimental" not in note.lower(), f"Experimental language still in schema note: {note}"
 
 
+# --- read_symbol tool tests ---
+
+def test_read_symbol_delegates_to_service() -> None:
+    service = MagicMock()
+    service.read_symbol.return_value = "// src/foo.py:10\ndef foo(): pass"
+    fns = _register(service)
+    result = fns["read_symbol"](full_name="mod.foo")
+    service.read_symbol.assert_called_once_with("mod.foo", max_lines=100)
+    assert "foo" in result
+
+
+def test_read_symbol_returns_not_found_when_service_returns_none() -> None:
+    service = MagicMock()
+    service.read_symbol.return_value = None
+    fns = _register(service)
+    result = fns["read_symbol"](full_name="mod.missing")
+    assert result == "Symbol not found."
+
+
+def test_read_symbol_passes_max_lines() -> None:
+    service = MagicMock()
+    service.read_symbol.return_value = "// src/foo.py:10\ndef foo(): pass"
+    fns = _register(service)
+    fns["read_symbol"](full_name="mod.foo", max_lines=-1)
+    service.read_symbol.assert_called_once_with("mod.foo", max_lines=-1)
+
+
+# --- assess_impact tool tests ---
+
+def test_assess_impact_delegates_to_service() -> None:
+    service = MagicMock()
+    service.assess_impact.return_value = "## Direct Callers\n\nNo direct callers found."
+    fns = _register(service)
+    result = fns["assess_impact"](full_name="mod.Cls.method")
+    service.assess_impact.assert_called_once_with("mod.Cls.method")
+    assert "Direct Callers" in result
+
+
+def test_assess_impact_returns_error_string_on_value_error() -> None:
+    service = MagicMock()
+    service.assess_impact.side_effect = ValueError("Ambiguous name 'method' — matches: A.method, B.method")
+    fns = _register(service)
+    result = fns["assess_impact"](full_name="method")
+    assert "Ambiguous" in result
+    assert isinstance(result, str)
+
+
+# --- get_context_for uses members_only ---
+
+def test_get_context_for_passes_members_only() -> None:
+    service = MagicMock()
+    service.get_context_for.return_value = "## Members: Ns.Cls\n\n- method()"
+    service._staleness_warning.return_value = None
+    fns = _register(service)
+    fns["get_context_for"](full_name="Ns.Cls", members_only=True)
+    service.get_context_for.assert_called_once_with("Ns.Cls", members_only=True, max_lines=200)
+
+
 # --- removed tools absence test ---
 
 def test_removed_tools_not_registered() -> None:

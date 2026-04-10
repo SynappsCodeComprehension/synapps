@@ -386,28 +386,37 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
             return {"error": str(e)}
 
     @mcp.tool()
-    def get_context_for(full_name: str, scope: str | None = None, max_lines: int = 200) -> str:
+    def read_symbol(full_name: str, max_lines: int = 100) -> str:
+        """Read the source code of a symbol. Instead of cat file.py or reading line ranges, use read_symbol.
+
+        Returns source with file path and line number as a header comment.
+        Falls back to member signatures overview when source exceeds max_lines.
+        max_lines=-1 disables the limit (returns full source regardless of size).
+
+        When a short type name matches both an interface and concrete class, the concrete implementation is preferred.
+        """
+        _auto_sync_check()
+        result = service.read_symbol(full_name, max_lines=max_lines)
+        return result or "Symbol not found."
+
+    @mcp.tool()
+    def get_context_for(full_name: str, members_only: bool = False, max_lines: int = 200) -> str:
         """Recommended starting point for understanding any symbol before reading or editing.
 
-        Returns rich context: source, hierarchy, dependencies, and summaries.
+        Returns rich context: source, containing type, interfaces, callees, dependencies, and summaries.
 
-        scope controls detail level:
-        - None (default): full context — source, all members, interfaces, callees, dependencies, summaries
-        - "structure": type overview — constructor, member signatures, interfaces, summaries (no method bodies)
-        - "method": focused method context — source, interface contract, callees, dependencies, summaries
-        - "edit": task-oriented edit context — source, interface contract, direct callers with call-site
-          lines, constructor dependencies relevant to the symbol, test coverage, summaries.
-          Works for methods (filtered deps) and classes/interfaces (all deps, callers grouped by method).
-        - "impact": change impact analysis — direct callers, transitive callers (2-4 hops),
-          test coverage, and direct callees. Answers: "if I change this, what breaks?"
+        members_only=True returns member signatures only (no source bodies) — use for a quick structural
+        overview of a class or interface. Requires the symbol to be a class or interface.
+
+        No callers or test lists — use assess_impact for those.
 
         max_lines: if source exceeds this many lines, show structure overview instead of full source.
-        Set to 0 for structure-only. Set to -1 to disable the limit.
+        Set to -1 to disable the limit.
         When a short type name matches both an interface and concrete class, the concrete implementation is preferred. Method-level ambiguity (e.g. CreateAsync on multiple classes) still requires a qualified name.
         """
         _auto_sync_check()
         try:
-            result = service.get_context_for(full_name, scope=scope, max_lines=max_lines)
+            result = service.get_context_for(full_name, members_only=members_only, max_lines=max_lines)
         except ValueError as e:
             return str(e)
         if result:
@@ -415,6 +424,23 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
             if warning:
                 result = f"\u26a0\ufe0f {warning}\n\n---\n\n{result}"
         return result or "Symbol not found."
+
+    @mcp.tool()
+    def assess_impact(full_name: str) -> str:
+        """Analyze the change impact of a symbol.
+
+        Returns: direct callers (limit 15), transitive callers (limit 10), test coverage (limit 5),
+        interface contract, and HTTP endpoint info.
+
+        Does NOT include source code or callees — use read_symbol and get_context_for for those.
+
+        When a short type name matches both an interface and concrete class, the concrete implementation is preferred.
+        """
+        _auto_sync_check()
+        try:
+            return service.assess_impact(full_name)
+        except ValueError as e:
+            return str(e)
 
     @mcp.tool()
     def find_entry_points(

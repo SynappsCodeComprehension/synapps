@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from synapps.graph.connection import GraphConnection
-
-if TYPE_CHECKING:
-    from synapps.service import SynappsService
 from synapps.graph.lookups import (
     get_symbol, get_symbol_source_info,
     get_containing_type, get_members_overview, get_implemented_interfaces,
     get_constructor, get_summary,
     find_callers_with_sites, find_callees,
-    find_relevant_deps, find_all_deps, find_test_coverage,
+    find_relevant_deps, find_all_deps, find_test_coverage, find_tests_for,
     get_called_members, get_served_endpoint, find_http_callers,
     find_dependencies as query_find_dependencies,
 )
@@ -23,10 +18,13 @@ class ContextBuilder:
     _CALLER_LIMIT = 15
     _TYPE_CALLER_LIMIT = 10
     _TYPE_METHOD_LIMIT = 10
+    _ASSESS_DIRECT_LIMIT = 15
+    _ASSESS_TRANSITIVE_LIMIT = 10
+    _ASSESS_TEST_LIMIT = 5
+    _ASSESS_HTTP_LIMIT = 5
 
-    def __init__(self, conn: GraphConnection, service: SynappsService | None = None) -> None:
+    def __init__(self, conn: GraphConnection) -> None:
         self._conn = conn
-        self._service = service
 
     # --- Source retrieval ---
 
@@ -52,15 +50,42 @@ class ContextBuilder:
                 result = parent + "\n\n" + result
         return result
 
+    def read_symbol(self, full_name: str, max_lines: int = 100) -> str | None:
+        info = get_symbol_source_info(self._conn, full_name)
+        if info is None:
+            return None
+        file_path = info["file_path"]
+        line = info["line"]
+        end_line = info["end_line"]
+        if line is None or not end_line:
+            return f"Symbol '{full_name}' was indexed without line ranges. Re-index the project to enable source retrieval."
+
+        try:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                all_lines = f.readlines()
+        except OSError:
+            return f"Source file not found: {file_path}"
+
+        source_lines = all_lines[line - 1:end_line]
+        line_count = len(source_lines)
+
+        if max_lines >= 0 and line_count > max_lines:
+            members = get_members_overview(self._conn, full_name)
+            member_lines = "\n".join(_member_line(m) for m in members)
+            note = f"[source exceeds {max_lines} lines \u2014 showing members]"
+            return f"// {file_path}:{line}\n{note}\n\n{member_lines}"
+
+        result = f"// {file_path}:{line}\n{''.join(source_lines)}"
+
+        parent = self._get_parent_signature(full_name)
+        if parent:
+            result = parent + "\n\n" + result
+
+        return result
+
     # --- Context entry point ---
 
-    def get_context_for(self, full_name: str, scope: str | None = None, max_lines: int = 200, structured: bool = False) -> str | dict | None:
-        # Impact scope delegates to SynappsService which handles its own resolution
-        if scope == "impact":
-            if self._service is None:
-                return "Impact scope requires service reference"
-            return self._service.analyze_change_impact(full_name, structured=structured)
-
+    def get_context_for(self, full_name: str, members_only: bool = False, max_lines: int = 200, structured: bool = False) -> str | dict | None:
         symbol = get_symbol(self._conn, full_name)
         if symbol is None:
             return None
@@ -68,34 +93,12 @@ class ContextBuilder:
         props = _p(symbol)
         labels = set(props.get("_labels", []))
 
-        if scope == "structure":
+        if members_only:
             if not labels & {"Class", "Interface"}:
                 if structured:
-                    return {"error": f"scope='structure' requires a type (class or interface), but '{full_name}' is a {props.get('kind', 'unknown')}."}
-                return f"scope='structure' requires a type (class or interface), but '{full_name}' is a {props.get('kind', 'unknown')}."
+                    return {"error": f"members_only=True requires a type (class or interface), but '{full_name}' is a {props.get('kind', 'unknown')}."}
+                return f"members_only=True requires a type (class or interface), but '{full_name}' is a {props.get('kind', 'unknown')}."
             return self._structured_structure(full_name) if structured else self._context_structure(full_name)
-        elif scope == "method":
-            if not labels & {"Method", "Property"}:
-                if structured:
-                    return {"error": f"scope='method' requires a method or property, but '{full_name}' is a {props.get('kind', 'unknown')}."}
-                return f"scope='method' requires a method or property, but '{full_name}' is a {props.get('kind', 'unknown')}."
-            return self._structured_method(full_name) if structured else self._context_method(full_name, max_lines=max_lines)
-        elif scope == "edit":
-            if labels & {"Method"}:
-                return self._structured_edit_method(full_name) if structured else self._context_edit_method(full_name, max_lines=max_lines)
-            elif labels & {"Class", "Interface"}:
-                if structured:
-                    return self._structured_edit_type(full_name, is_interface=bool(labels & {"Interface"}))
-                return self._context_edit_type(full_name, is_interface=bool(labels & {"Interface"}), max_lines=max_lines)
-            else:
-                kind = props.get("kind", "unknown")
-                if structured:
-                    return {"error": f"scope='edit' requires a method, class, or interface, but '{full_name}' is a {kind}."}
-                return f"scope='edit' requires a method, class, or interface, but '{full_name}' is a {kind}."
-        elif scope is not None:
-            if structured:
-                return {"error": f"Unknown scope '{scope}'. Valid values: 'structure', 'method', 'edit', 'impact'."}
-            return f"Unknown scope '{scope}'. Valid values: 'structure', 'method', 'edit', 'impact'."
 
         return self._structured_full(full_name, labels=labels) if structured else self._context_full(full_name, labels=labels, max_lines=max_lines)
 
@@ -192,6 +195,116 @@ class ContextBuilder:
             return None
         lines = [f"- `{t['full_name']}` — {t['file_path']}" for t in tests]
         return "## Test Coverage\n\n" + "\n".join(lines)
+
+    # --- assess_impact ---
+
+    def assess_impact(self, full_name: str) -> str:
+        sections: list[str] = []
+        sections.append(self._assess_direct_callers(full_name))
+        sections.append(self._assess_transitive_callers(full_name))
+        sections.append(self._assess_test_coverage(full_name))
+        sections.append(self._assess_interface_contract(full_name))
+        sections.append(self._assess_http_endpoint(full_name))
+        return "\n\n".join(sections)
+
+    def _assess_direct_callers(self, full_name: str) -> str:
+        results = find_callers_with_sites(self._conn, full_name)
+        if not results:
+            return "## Direct Callers\n\nNo direct callers found."
+        total = len(results)
+        limit = self._ASSESS_DIRECT_LIMIT
+        shown = min(total, limit)
+        header = f"## Direct Callers (showing {shown} of {total})" if total > limit else "## Direct Callers"
+        lines = []
+        for entry in results[:limit]:
+            caller_props = _p(entry["caller"])
+            sites = entry["call_sites"]
+            line_str = self._format_call_sites(sites)
+            fp = caller_props.get("file_path", "")
+            fn = caller_props["full_name"]
+            if line_str:
+                lines.append(f"- `{fn}` \u2014 {fp} ({line_str})")
+            else:
+                lines.append(f"- `{fn}` \u2014 {fp}")
+        return header + "\n\n" + "\n".join(lines)
+
+    def _assess_transitive_callers(self, full_name: str) -> str:
+        direct = find_callers_with_sites(self._conn, full_name)
+        exclude = {_p(e["caller"])["full_name"] for e in direct} | {full_name}
+        rows = self._conn.query(
+            "MATCH (target {full_name: $fn})<-[:CALLS*2..2]-(transitive) "
+            "WHERE NOT transitive.full_name IN $exclude "
+            "AND NOT any(l IN labels(transitive) WHERE l = 'TestMethod') "
+            "RETURN DISTINCT transitive",
+            {"fn": full_name, "exclude": list(exclude)},
+        )
+        results = [row["transitive"] for row in rows]
+        if not results:
+            return "## Transitive Callers\n\nNo transitive callers found."
+        total = len(results)
+        limit = self._ASSESS_TRANSITIVE_LIMIT
+        shown = min(total, limit)
+        header = f"## Transitive Callers (showing {shown} of {total})" if total > limit else "## Transitive Callers"
+        lines = []
+        for node in results[:limit]:
+            props = _p(node)
+            fn = props["full_name"]
+            fp = props.get("file_path", "")
+            lines.append(f"- `{fn}` \u2014 {fp}")
+        return header + "\n\n" + "\n".join(lines)
+
+    def _assess_test_coverage(self, full_name: str) -> str:
+        tests = find_tests_for(self._conn, full_name)
+        has_line = True
+        if not tests:
+            tests = find_test_coverage(self._conn, full_name)
+            has_line = False
+        if not tests:
+            return "## Test Coverage\n\nNo test coverage found."
+        total = len(tests)
+        limit = self._ASSESS_TEST_LIMIT
+        shown = min(total, limit)
+        header = f"## Test Coverage (showing {shown} of {total})" if total > limit else "## Test Coverage"
+        lines = []
+        for t in tests[:limit]:
+            fn = t["full_name"]
+            fp = t["file_path"]
+            line = t.get("line") if has_line else None
+            if line is not None:
+                lines.append(f"- `{fn}` \u2014 {fp}:{line}")
+            else:
+                lines.append(f"- `{fn}` \u2014 {fp}")
+        return header + "\n\n" + "\n".join(lines)
+
+    def _assess_interface_contract(self, full_name: str) -> str:
+        result = find_interface_contract(self._conn, full_name)
+        if result["interface"] is None:
+            return "## Interface Contract\n\nNo interface contract found."
+        lines = [
+            f"Implements `{result['contract_method']}` from `{result['interface']}`",
+        ]
+        if result["sibling_implementations"]:
+            lines.append("\nSibling implementations:")
+            for s in result["sibling_implementations"]:
+                lines.append(f"- `{s['class_name']}` \u2014 {s['file_path']}")
+        return "## Interface Contract\n\n" + "\n".join(lines)
+
+    def _assess_http_endpoint(self, full_name: str) -> str:
+        ep = get_served_endpoint(self._conn, full_name)
+        if ep is None:
+            return "## HTTP Endpoint\n\nNo HTTP endpoint found."
+        endpoint_line = f"{ep['http_method']} {ep['route']}"
+        http_callers = find_http_callers(self._conn, full_name)
+        if not http_callers:
+            return f"## HTTP Endpoint\n\n{endpoint_line}"
+        total = len(http_callers)
+        limit = self._ASSESS_HTTP_LIMIT
+        shown = min(total, limit)
+        header = f"## HTTP Endpoint (showing {shown} of {total})" if total > limit else "## HTTP Endpoint"
+        lines = [endpoint_line, ""]
+        for c in http_callers[:limit]:
+            lines.append(f"- `{c['full_name']}` \u2014 {c['file_path']}")
+        return header + "\n\n" + "\n".join(lines)
 
     def _relevant_deps_section(self, class_full_name: str, method_full_name: str) -> str | None:
         deps = find_relevant_deps(self._conn, class_full_name, method_full_name)
