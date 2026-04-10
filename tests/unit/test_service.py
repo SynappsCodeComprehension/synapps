@@ -31,7 +31,6 @@ def test_set_summary_delegates_to_nodes() -> None:
         mock_set.assert_called_once_with(svc._conn, "MyNs.MyClass", "Auth handler")
 
 
-
 def test_watch_project_registers_watcher() -> None:
     svc = _service()
     mock_watcher_cls = MagicMock()
@@ -475,6 +474,75 @@ def test_index_method_implements_calls_indexer() -> None:
     mock_instance.index.assert_called_once()
 
 
+def test_callers_section_formats_callers_with_sites():
+    svc = _service()
+    caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[
+        {"caller": caller, "call_sites": [[32, 5], [58, 8]]},
+    ]):
+        result = svc._context._callers_section("Ns.Svc.DoWork")
+    assert "## Direct Callers" in result
+    assert "`A.Ctrl.Create`" in result
+    assert "lines 32, 58" in result
+
+
+def test_callers_section_single_line_uses_singular():
+    svc = _service()
+    caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[
+        {"caller": caller, "call_sites": [[32, 5]]},
+    ]):
+        result = svc._context._callers_section("Ns.Svc.DoWork")
+    assert "line 32" in result
+    assert "lines" not in result
+
+
+def test_callers_section_no_sites_omits_parenthetical():
+    svc = _service()
+    caller = _node(["Method"], {"full_name": "A.Ctrl.Create", "file_path": "/src/Ctrl.cs"})
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[
+        {"caller": caller, "call_sites": []},
+    ]):
+        result = svc._context._callers_section("Ns.Svc.DoWork")
+    assert "`A.Ctrl.Create`" in result
+    assert "(" not in result
+
+
+def test_callers_section_returns_none_when_no_callers():
+    svc = _service()
+    with patch("synapps.service.context.find_callers_with_sites", return_value=[]):
+        result = svc._context._callers_section("Ns.Svc.DoWork")
+    assert result is None
+
+
+def test_callers_section_limits_to_15_callers():
+    svc = _service()
+    callers = [
+        {"caller": _node(["Method"], {"full_name": f"A.C{i}", "file_path": f"/src/{i}.cs"}), "call_sites": []}
+        for i in range(20)
+    ]
+    with patch("synapps.service.context.find_callers_with_sites", return_value=callers):
+        result = svc._context._callers_section("Ns.Svc.DoWork")
+    assert "... and 5 more callers" in result
+
+
+def test_test_coverage_section_formats_test_methods():
+    svc = _service()
+    with patch("synapps.service.context.find_test_coverage", return_value=[
+        {"full_name": "Ns.Tests.FooTests.TestBar", "file_path": "/tests/FooTests.cs"},
+    ]):
+        result = svc._context._test_coverage_section("Ns.Foo.Bar")
+    assert "## Test Coverage" in result
+    assert "Ns.Tests.FooTests.TestBar" in result
+
+
+def test_test_coverage_section_returns_none_when_empty():
+    svc = _service()
+    with patch("synapps.service.context.find_test_coverage", return_value=[]):
+        result = svc._context._test_coverage_section("Ns.Foo.Bar")
+    assert result is None
+
+
 def test_find_callers_returns_slim_dicts() -> None:
     """find_callers should return only full_name, file_path, line — not all node properties."""
     svc = _service()
@@ -514,49 +582,53 @@ def test_get_hierarchy_returns_slim_dicts() -> None:
     assert "end_line" not in result["parents"][0]
 
 
-def test_get_context_for_default_output_unchanged(tmp_path):
-    """Verify that default output (no members_only) includes target, containing type, interfaces, callees."""
-    source_file = tmp_path / "Foo.cs"
-    source_file.write_text(
-        "namespace Ns {\n"
-        "    class MyClass : IFoo {\n"
-        "        public UserDto GetUser(int id) {\n"
-        "            return _repo.Find(id);\n"
-        "        }\n"
-        "    }\n"
-        "}\n"
-    )
+def test_relevant_deps_section_shows_member_signatures():
+    svc = _service()
+    dep = _node(["Interface"], {"full_name": "Ns.IRepo"})
+    with patch("synapps.service.context.find_relevant_deps", return_value=[dep]), \
+         patch("synapps.service.context.get_called_members", return_value=[
+             {"full_name": "Ns.IRepo.Save", "name": "Save", "signature": "Task Save(Entity)"},
+         ]):
+        result = svc._context._relevant_deps_section("Ns.MyClass", "Ns.MyClass.DoWork")
+    assert "## Constructor Dependencies (used by this method)" in result
+    assert "Ns.IRepo" in result
+    assert "Save" in result
 
+
+def test_relevant_deps_section_returns_none_when_empty():
+    svc = _service()
+    with patch("synapps.service.context.find_relevant_deps", return_value=[]):
+        result = svc._context._relevant_deps_section("Ns.MyClass", "Ns.MyClass.DoWork")
+    assert result is None
+
+
+def test_relevant_deps_section_shows_only_called_members() -> None:
     conn = MagicMock()
     svc = SynappsService(conn)
-
-    patches = dict(
-        get_symbol=MagicMock(return_value=_node(
-            ["Method"], {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "line": 2, "end_line": 4}
-        )),
-        get_symbol_source_info=MagicMock(return_value={
-            "file_path": str(source_file), "line": 2, "end_line": 4,
-        }),
-        get_containing_type=MagicMock(return_value=_node(
-            ["Class"], {"full_name": "Ns.MyClass", "name": "MyClass", "kind": "class"}
-        )),
-        get_members_overview=MagicMock(return_value=[
-            {"full_name": "Ns.MyClass.GetUser", "name": "GetUser", "signature": "UserDto GetUser(int)"},
-        ]),
-        get_implemented_interfaces=MagicMock(return_value=[]),
-        find_callees=MagicMock(return_value=[]),
-        query_find_dependencies=MagicMock(return_value=[]),
-        get_summary=MagicMock(return_value=None),
-    )
-
-    with patch.multiple("synapps.service.context", **patches):
-        result = svc.get_context_for("Ns.MyClass.GetUser")
-
-    assert "## Target:" in result
-    assert "## Containing Type:" in result
+    dep_node = {"full_name": "Ns.DbContext", "name": "DbContext"}
+    with patch("synapps.service.context.find_relevant_deps", return_value=[dep_node]), \
+         patch("synapps.service.context.get_called_members") as mock_called:
+        mock_called.return_value = [
+            {"full_name": "Ns.DbContext.MeetingNotes", "name": "MeetingNotes", "type_name": "DbSet<MeetingNote>"},
+        ]
+        result = svc._context._relevant_deps_section("Ns.Svc", "Ns.Svc.Create")
+    assert result is not None
+    assert "MeetingNotes" in result
 
 
-# --- find_usages tests ---
+def test_relevant_deps_section_fallback_to_all_members() -> None:
+    conn = MagicMock()
+    svc = SynappsService(conn)
+    dep_node = {"full_name": "Ns.DbContext", "name": "DbContext"}
+    with patch("synapps.service.context.find_relevant_deps", return_value=[dep_node]), \
+         patch("synapps.service.context.get_called_members", return_value=[]), \
+         patch("synapps.service.context.get_members_overview") as mock_members:
+        mock_members.return_value = [
+            {"full_name": "Ns.DbContext.All", "name": "All", "type_name": "DbSet<All>"},
+        ]
+        result = svc._context._relevant_deps_section("Ns.Svc", "Ns.Svc.Create")
+    assert result is not None
+    assert "all members shown" in result.lower()
 
 
 def test_find_usages_method_returns_text_with_callers() -> None:
@@ -740,7 +812,7 @@ def test_get_context_for_falls_back_to_structure_when_source_exceeds_max_lines(t
         result = svc.get_context_for("Ns.BigClass", max_lines=50)
 
     assert "Source exceeds 50 lines" in result
-    assert "get_symbol_source" in result
+    assert "scope='method'" in result
     assert "DoWork" in result  # member signature visible
 
 

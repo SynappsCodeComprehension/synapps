@@ -7,7 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- **`read_symbol` MCP tool** — returns a symbol's source code with containing class signature in fewer tokens than reading the full file; falls back to member signatures overview when source exceeds `max_lines`
+- **`assess_impact` MCP tool** — single-call risk assessment showing direct callers, transitive callers, test coverage, interface contract, and HTTP endpoint info with configurable limits
 - **search_symbols grep-tolerance** — `search_symbols` now pre-processes queries via `_preprocess_query`, stripping language keywords (`def`, `class`, `function`, `public`, `static`, etc.) and syntax characters (`(`, `)`, `{`, `}`, `:`, `@`, etc.) so agents can paste grep-style queries like `def my_function(` and get useful results; dots are preserved for qualified names; single bare keywords are passed through unchanged; when the exact-case query returns no results a case-insensitive `toLower CONTAINS` fallback fires automatically with all original filters preserved
+
+### Changed
+- **`get_context_for` rework** — removed `scope` parameter, replaced with `members_only: bool = False`; default output no longer includes callers or test coverage (use `assess_impact` instead)
+- **MCP instructions rewrite** — 3-tool primary decision tree (`read_symbol`, `search_symbols`, `find_usages`), explicit grep/read replacement mappings
 
 ### Removed
 - **Tool consolidation** — `find_dependencies`, `get_hierarchy`, `find_tests_for`, and `find_entry_points` MCP tools replaced with deprecation stubs pointing to their replacements (`get_context_for`, `assess_impact`, `get_architecture`); underlying service methods retained for web UI
