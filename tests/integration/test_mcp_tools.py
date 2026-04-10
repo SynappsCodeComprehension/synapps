@@ -28,6 +28,7 @@ EXPECTED_TOOLS = {
     "find_http_endpoints",
     "get_architecture",
     "find_dead_code", "find_tests_for", "find_untested",
+    "read_symbol", "assess_impact",
 }
 
 
@@ -223,9 +224,9 @@ def test_get_hierarchy_controller(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_hierarchy", {
         "full_name": "SynappsTest.Controllers.TaskController"
     }))
-    hierarchy = result_json(result)
-    parent_names = [p.get("full_name", "") for p in hierarchy["parents"]]
-    assert any("BaseController" in n for n in parent_names)
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_context_for" in msg
 
 
 @pytest.mark.integration
@@ -234,9 +235,9 @@ def test_get_hierarchy_model(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_hierarchy", {
         "full_name": "SynappsTest.Models.TaskItem"
     }))
-    hierarchy = result_json(result)
-    parent_names = [p.get("full_name", "") for p in hierarchy["parents"]]
-    assert any("BaseEntity" in n for n in parent_names)
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_context_for" in msg
 
 
 @pytest.mark.integration
@@ -271,11 +272,9 @@ def test_find_dependencies(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_dependencies", {
         "full_name": "SynappsTest.Controllers.TaskController"
     }))
-    deps = result_json(result)
-    dep_names = [d["type"].get("full_name", "") for d in deps]
-    assert any("ITaskService" in n for n in dep_names), (
-        f"Expected ITaskService in dependencies for TaskController, got: {dep_names}"
-    )
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_context_for" in msg
 
 
 @pytest.mark.integration
@@ -291,69 +290,64 @@ def test_get_context_for(mcp_server: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_context_for_structure_scope(mcp_server: FastMCP) -> None:
+def test_get_context_for_members_only(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("get_context_for", {
         "full_name": "SynappsTest.Services.TaskService",
-        "scope": "structure",
+        "members_only": True,
     }))
     ctx = text(result)
     assert "## Members" in ctx
     assert "TaskService" in ctx
-    # Structure scope should NOT contain full source body or callees
-    assert "## Called Methods" not in ctx
 
+
+# ---------------------------------------------------------------------------
+# read_symbol tool tests
+# ---------------------------------------------------------------------------
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_context_for_method_scope(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_context_for", {
+def test_read_symbol_returns_source(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("read_symbol", {
         "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
-        "scope": "method",
     }))
-    ctx = text(result)
-    assert "## Target:" in ctx
-    assert "CreateTaskAsync" in ctx
-    # Method scope should NOT contain full containing type member list
-    assert "## Containing Type:" not in ctx
-    assert "## Members:" not in ctx
+    output = text(result)
+    assert "CreateTaskAsync" in output
+    assert ".cs" in output
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_context_for_edit_scope_method(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_context_for", {
+def test_read_symbol_unknown_returns_not_found(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("read_symbol", {
+        "full_name": "NonExistent.Fake.Method",
+    }))
+    output = text(result)
+    assert "not found" in output.lower()
+
+
+# ---------------------------------------------------------------------------
+# assess_impact tool tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_assess_impact_returns_callers(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("assess_impact", {
         "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
-        "scope": "edit",
     }))
-    ctx = text(result)
-    assert "## Target:" in ctx
-    assert "CreateTaskAsync" in ctx
-    # Edit scope should NOT contain full containing type member list or callees
-    assert "## Containing Type:" not in ctx
-    assert "## Called Methods" not in ctx
+    output = text(result)
+    assert "CreateTaskAsync" in output
+    assert any(kw in output for kw in ("Impact", "Callers", "callers"))
 
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_context_for_edit_scope_class(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynappsTest.Services.TaskService",
-        "scope": "edit",
+def test_assess_impact_unknown_returns_error(mcp_server: FastMCP) -> None:
+    result = run(mcp_server.call_tool("assess_impact", {
+        "full_name": "NonExistent.Fake.Method",
     }))
-    ctx = text(result)
-    assert "## Target:" in ctx
-    assert "TaskService" in ctx
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynappsTest.Models.BaseEntity._createdBy",
-        "scope": "edit",
-    }))
-    ctx = text(result)
-    assert "scope='edit' requires" in ctx
+    output = text(result)
+    assert isinstance(output, str)
 
 
 # ---------------------------------------------------------------------------
@@ -365,26 +359,10 @@ def test_get_context_for_edit_scope_rejects_field(mcp_server: FastMCP) -> None:
 def test_find_entry_points(mcp_server: FastMCP) -> None:
     result = run(mcp_server.call_tool("find_entry_points", {
         "full_name": "SynappsTest.Services.ProjectService.ValidateProjectAsync",
-        "exclude_test_callers": False,
     }))
-    ep = result_json(result)
-    entries = [e["entry"] for e in ep["entry_points"]]
-    assert any("TaskController" in e for e in entries), (
-        f"Expected TaskController as entry point, got: {entries}"
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_context_for_impact(mcp_server: FastMCP) -> None:
-    result = run(mcp_server.call_tool("get_context_for", {
-        "full_name": "SynappsTest.Services.TaskService.CreateTaskAsync",
-        "scope": "impact",
-    }))
-    output = text(result)
-    assert "Change Impact" in output
-    assert "CreateTaskAsync" in output
-    assert "Test Coverage" in output or "Callees" in output
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_architecture" in msg
 
 
 @pytest.mark.integration

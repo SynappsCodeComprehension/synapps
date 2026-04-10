@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Bench logging unit tests** — `test_bench_wrap_writes_jsonl_record`, `test_bench_wrap_handles_none_result`, and `test_register_tools_activates_bench_logging` cover JSONL record format and instrumentation activation
 - **Instructions content unit tests** — four tests verify PRIMARY TOOLS section, primary tool names, grep/read replacement mappings, and absence of stale `scope=` references in `SERVER_INSTRUCTIONS`
 - **Tool parameter shape tests** — `test_get_context_for_tool_no_scope_param` and `test_get_context_for_tool_has_members_only_param` verify the reworked signature
+- **Integration test suite updated** — `EXPECTED_TOOLS` now includes `read_symbol` and `assess_impact`; all stale `scope=` integration tests replaced with `members_only=True` or deleted; deprecated tool tests (`get_hierarchy`, `find_dependencies`, `find_entry_points`) updated to assert deprecation messages; new integration tests for `read_symbol` and `assess_impact` added for both C# and Python fixtures
 
 ## [1.10.0] - 2026-04-08
 

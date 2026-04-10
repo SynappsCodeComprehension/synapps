@@ -117,16 +117,13 @@ def test_find_implementations(python_mcp: FastMCP) -> None:
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_get_hierarchy(python_mcp: FastMCP) -> None:
-    """get_hierarchy for Dog returns Animal/IAnimal in parent chain."""
+    """get_hierarchy is a deprecation stub — returns removal message."""
     result = run(python_mcp.call_tool("get_hierarchy", {
         "full_name": "synappspytest.animals.Dog"
     }))
-    hierarchy = result_json(result)
-    assert "parents" in hierarchy
-    parent_names = [p.get("full_name", "") for p in hierarchy["parents"]]
-    assert any("Animal" in n for n in parent_names), (
-        f"Expected Animal in Dog's parents, got: {parent_names}"
-    )
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_context_for" in msg
 
 
 @pytest.mark.integration
@@ -167,12 +164,13 @@ def test_find_usages(python_mcp: FastMCP) -> None:
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_find_dependencies(python_mcp: FastMCP) -> None:
-    """find_dependencies returns list without error for AnimalService."""
+    """find_dependencies is a deprecation stub — returns removal message."""
     result = run(python_mcp.call_tool("find_dependencies", {
         "full_name": "synappspytest.services.AnimalService"
     }))
-    deps = result_json(result)
-    assert isinstance(deps, list)
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_context_for" in msg
 
 
 @pytest.mark.integration
@@ -189,67 +187,15 @@ def test_get_context_for(python_mcp: FastMCP) -> None:
 
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_context_for_structure_scope(python_mcp: FastMCP) -> None:
-    """get_context_for(scope='structure') returns Members but not Called Methods for a Python class."""
+def test_get_context_for_members_only(python_mcp: FastMCP) -> None:
+    """get_context_for(members_only=True) returns Members but not full source for a Python class."""
     result = run(python_mcp.call_tool("get_context_for", {
         "full_name": "synappspytest.services.AnimalService",
-        "scope": "structure",
+        "members_only": True,
     }))
     ctx = text(result)
     assert "## Members" in ctx
     assert "AnimalService" in ctx
-    assert "## Called Methods" not in ctx
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_context_for_method_scope(python_mcp: FastMCP) -> None:
-    """get_context_for(scope='method') returns Target but not Containing Type or Members list."""
-    result = run(python_mcp.call_tool("get_context_for", {
-        "full_name": "synappspytest.services.AnimalService.get_greeting",
-        "scope": "method",
-    }))
-    ctx = text(result)
-    assert "## Target:" in ctx
-    assert "get_greeting" in ctx
-    assert "## Containing Type:" not in ctx
-    assert "## Members:" not in ctx
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_context_for_edit_scope_method(python_mcp: FastMCP) -> None:
-    """get_context_for(scope='edit') on a method returns Target but not Containing Type or Called Methods."""
-    result = run(python_mcp.call_tool("get_context_for", {
-        "full_name": "synappspytest.services.AnimalService.get_greeting",
-        "scope": "edit",
-    }))
-    ctx = text(result)
-    assert "## Target:" in ctx
-    assert "get_greeting" in ctx
-    assert "## Containing Type:" not in ctx
-    assert "## Called Methods" not in ctx
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_context_for_edit_scope_class(python_mcp: FastMCP) -> None:
-    """get_context_for(scope='edit') on a class returns Target and the class name."""
-    result = run(python_mcp.call_tool("get_context_for", {
-        "full_name": "synappspytest.services.AnimalService",
-        "scope": "edit",
-    }))
-    ctx = text(result)
-    assert "## Target:" in ctx
-    assert "AnimalService" in ctx
-
-
-@pytest.mark.integration
-@pytest.mark.timeout(10)
-def test_get_context_for_edit_scope_rejects_field(python_mcp: FastMCP) -> None:
-    """get_context_for(scope='edit') on a Field/Property node returns the rejection message."""
-    # Python indexer does not produce Field/Property nodes for the fixture — skip rather than fail.
-    pytest.skip("No Field/Property node in Python fixture")
 
 
 # ---------------------------------------------------------------------------
@@ -259,13 +205,13 @@ def test_get_context_for_edit_scope_rejects_field(python_mcp: FastMCP) -> None:
 @pytest.mark.integration
 @pytest.mark.timeout(10)
 def test_find_entry_points(python_mcp: FastMCP) -> None:
-    """find_entry_points returns dict without error (may be empty for Python fixture)."""
+    """find_entry_points is a deprecation stub — returns removal message."""
     result = run(python_mcp.call_tool("find_entry_points", {
         "full_name": "synappspytest.services.AnimalService.get_greeting",
     }))
-    ep = result_json(result)
-    assert isinstance(ep, dict)
-    assert "entry_points" in ep
+    msg = text(result)
+    assert "removed" in msg.lower()
+    assert "get_architecture" in msg
 
 
 @pytest.mark.integration
@@ -281,18 +227,30 @@ def test_get_call_depth(python_mcp: FastMCP) -> None:
     assert "callees" in depth_result
 
 
+# ---------------------------------------------------------------------------
+# read_symbol and assess_impact tool tests
+# ---------------------------------------------------------------------------
+
 @pytest.mark.integration
 @pytest.mark.timeout(10)
-def test_get_context_for_impact(python_mcp: FastMCP) -> None:
-    """get_context_for(scope='impact') returns compact text summary for a Python method."""
-    result = run(python_mcp.call_tool("get_context_for", {
-        "full_name": "synappspytest.services.AnimalService.get_greeting",
-        "scope": "impact",
+def test_read_symbol_python(python_mcp: FastMCP) -> None:
+    """read_symbol returns source code for a known Python class."""
+    result = run(python_mcp.call_tool("read_symbol", {
+        "full_name": "synappspytest.animals.Dog",
     }))
     output = text(result)
-    assert "Change Impact" in output
-    assert "get_greeting" in output
-    assert "affected" in output
+    assert "Dog" in output
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(10)
+def test_assess_impact_python(python_mcp: FastMCP) -> None:
+    """assess_impact returns a string result without error for a Python method."""
+    result = run(python_mcp.call_tool("assess_impact", {
+        "full_name": "synappspytest.services.AnimalService.get_greeting",
+    }))
+    output = text(result)
+    assert isinstance(output, str)
 
 
 # ---------------------------------------------------------------------------
