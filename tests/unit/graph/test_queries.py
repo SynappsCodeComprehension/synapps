@@ -12,6 +12,7 @@ from synapps.graph.lookups import (
     get_implemented_interfaces,
     resolve_full_name_with_labels,
     _TEST_PATH_PATTERN,
+    _preprocess_query,
 )
 from conftest import _MockNode
 
@@ -452,3 +453,30 @@ class TestTestPathPattern:
 
     def test_no_match_contest_py(self, pattern):
         assert not pattern.match("/app/src/contest.py")
+
+
+@pytest.mark.parametrize("query,expected", [
+    # Language keyword prefix with syntax — extracts identifier
+    ("def my_function(", "my_function"),
+    ("class MyService {", "MyService"),
+    # Multi-keyword prefix with return type — longest token wins
+    ("public void myMethod(int x)", "myMethod"),
+    # async function prefix
+    ("async function fetchData()", "fetchData"),
+    # Clean symbol name — unchanged
+    ("MyClass", "MyClass"),
+    ("Service", "Service"),
+    # All-keyword/syntax result — falls back to original query
+    ("class {", "class {"),
+    # Single keyword alone — preserved (Pitfall 3)
+    ("static", "static"),
+    ("def", "def"),
+    # Syntax-only prefix (@ decorator) — strips @, keeps remainder
+    ("@Override", "Override"),
+    # Colon syntax — strips colon, strips keyword
+    ("class:MyClass", "MyClass"),
+    # Qualified name — dots preserved, returned unchanged
+    ("MyNs.MyClass", "MyNs.MyClass"),
+])
+def test_preprocess_query(query: str, expected: str) -> None:
+    assert _preprocess_query(query) == expected

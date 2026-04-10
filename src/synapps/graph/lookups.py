@@ -14,6 +14,18 @@ _VALID_KINDS = frozenset({
     "File", "Directory", "Repository",
 })
 
+_LANGUAGE_KEYWORDS = frozenset({
+    "def", "class", "function", "async", "await",
+    "public", "private", "protected", "static", "void",
+    "abstract", "virtual", "readonly",
+    "return", "new", "var", "let", "const",
+    "interface", "enum", "struct", "namespace",
+    "import", "from", "package", "final", "synchronized",
+    "export", "type", "sealed", "partial", "extends", "implements",
+})
+
+_SYNTAX_CHARS = re.compile(r"[(){}\[\]:;=@,<>]")
+
 _TEST_PATH_PATTERN = (
     r"(?:"
     r".*[/\\][A-Za-z0-9.]*[Tt]ests?[/\\].*"
@@ -24,6 +36,28 @@ _TEST_PATH_PATTERN = (
     r"|.*[/\\]src[/\\]test[/\\].*"
     r")"
 )
+
+
+def _preprocess_query(query: str) -> str:
+    """Strip language keyword prefixes and syntax chars from grep-style queries.
+
+    Agents often paste grep output like `def my_function(` into search_symbols.
+    This strips the noise so the effective search term is the symbol name.
+    Dots are preserved so qualified names like MyNs.MyClass pass through unchanged.
+    """
+    cleaned = _SYNTAX_CHARS.sub(" ", query)
+    # Preserve single bare keywords like `static` or `def` — they may be valid symbol names.
+    # "Bare" means the original query is just the keyword with no attached syntax chars.
+    if query.strip() == cleaned.strip() and len(cleaned.split()) == 1 and cleaned.strip().lower() in _LANGUAGE_KEYWORDS:
+        return query
+    tokens = cleaned.split()
+    filtered = [t for t in tokens if t.lower() not in _LANGUAGE_KEYWORDS]
+    # Guard against over-stripping (e.g. `class {` → all keywords/syntax → use original).
+    if not filtered:
+        return query
+    # When multiple non-keyword tokens survive, use the longest one.
+    # Symbol names never contain spaces, so joining would produce zero matches.
+    return max(filtered, key=len)
 
 
 def get_symbol(conn: GraphConnection, full_name: str) -> dict | None:

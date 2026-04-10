@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **search_symbols grep-tolerance** — `search_symbols` now pre-processes queries via `_preprocess_query`, stripping language keywords (`def`, `class`, `function`, `public`, `static`, etc.) and syntax characters (`(`, `)`, `{`, `}`, `:`, `@`, etc.) so agents can paste grep-style queries like `def my_function(` and get useful results; dots are preserved for qualified names; single bare keywords are passed through unchanged
+
 ## [1.10.0] - 2026-04-08
 
 ### Added
