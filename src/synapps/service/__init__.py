@@ -477,6 +477,10 @@ class SynappsService:
         full_name = self._resolve(full_name, preference="concrete")
         return self._context.read_symbol(full_name, max_lines=max_lines)
 
+    def assess_impact(self, full_name: str) -> str:
+        full_name = self._resolve(full_name, preference="concrete")
+        return self._context.assess_impact(full_name)
+
     # --- Graph traversal & analysis ---
 
     def trace_call_chain(self, start: str, end: str, max_depth: int = 6) -> dict:

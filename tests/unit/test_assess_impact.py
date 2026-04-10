@@ -279,15 +279,17 @@ def test_empty_sections() -> None:
 def test_excludes_source_and_callees() -> None:
     """assess_impact output must not contain source code or callees sections."""
     svc = _service()
+    mock_source_info = MagicMock(return_value=None)
+    mock_find_callees = MagicMock(return_value=[])
     with patch.multiple(
         "synapps.service.context",
         find_callers_with_sites=lambda conn, fn: [],
         find_test_coverage=lambda conn, fn: [],
         get_served_endpoint=lambda conn, fn: None,
         find_http_callers=lambda conn, fn: [],
-        get_symbol_source_info=MagicMock(return_value=None),
-        find_callees=MagicMock(return_value=[]),
-    ) as mocks:
+        get_symbol_source_info=mock_source_info,
+        find_callees=mock_find_callees,
+    ):
         with patch("synapps.service.context.find_interface_contract", return_value=_empty_contract()):
             with patch("synapps.service.context.find_tests_for", return_value=[]):
                 result = svc.assess_impact("Ns.MyClass.DoThing")
@@ -296,8 +298,8 @@ def test_excludes_source_and_callees() -> None:
     assert "## Callees" not in result
     assert "## Direct Callees" not in result
     # Verify the graph functions for source/callees were NOT called
-    mocks["get_symbol_source_info"].assert_not_called()
-    mocks["find_callees"].assert_not_called()
+    mock_source_info.assert_not_called()
+    mock_find_callees.assert_not_called()
 
 
 def test_service_delegates_to_context() -> None:

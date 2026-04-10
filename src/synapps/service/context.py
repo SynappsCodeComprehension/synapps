@@ -12,6 +12,7 @@ from synapps.graph.lookups import (
     get_constructor, get_summary,
     find_callers_with_sites, find_callees,
     find_relevant_deps, find_all_deps, find_test_coverage,
+    find_tests_for,
     get_called_members, get_served_endpoint, find_http_callers,
     find_dependencies as query_find_dependencies,
 )
@@ -23,6 +24,10 @@ class ContextBuilder:
     _CALLER_LIMIT = 15
     _TYPE_CALLER_LIMIT = 10
     _TYPE_METHOD_LIMIT = 10
+    _ASSESS_DIRECT_LIMIT = 15
+    _ASSESS_TRANSITIVE_LIMIT = 10
+    _ASSESS_TEST_LIMIT = 5
+    _ASSESS_HTTP_LIMIT = 5
 
     def __init__(self, conn: GraphConnection, service: SynappsService | None = None) -> None:
         self._conn = conn
@@ -796,3 +801,113 @@ class ContextBuilder:
             return f"// {parent_info['file_path']}:{parent_line}\n{all_lines[parent_line - 1].rstrip()}"
         except (OSError, IndexError):
             return f"// Containing type: {parent_full_name}"
+
+    # --- assess_impact ---
+
+    def assess_impact(self, full_name: str) -> str:
+        sections: list[str] = []
+        sections.append(self._assess_direct_callers(full_name))
+        sections.append(self._assess_transitive_callers(full_name))
+        sections.append(self._assess_test_coverage(full_name))
+        sections.append(self._assess_interface_contract(full_name))
+        sections.append(self._assess_http_endpoint(full_name))
+        return "\n\n".join(sections)
+
+    def _assess_direct_callers(self, full_name: str) -> str:
+        results = find_callers_with_sites(self._conn, full_name)
+        if not results:
+            return "## Direct Callers\n\nNo direct callers found."
+        total = len(results)
+        limit = self._ASSESS_DIRECT_LIMIT
+        shown = min(total, limit)
+        header = f"## Direct Callers (showing {shown} of {total})" if total > limit else "## Direct Callers"
+        lines = []
+        for entry in results[:limit]:
+            caller_props = _p(entry["caller"])
+            sites = entry["call_sites"]
+            line_str = self._format_call_sites(sites)
+            fp = caller_props.get("file_path", "")
+            fn = caller_props["full_name"]
+            if line_str:
+                lines.append(f"- `{fn}` — {fp} ({line_str})")
+            else:
+                lines.append(f"- `{fn}` — {fp}")
+        return header + "\n\n" + "\n".join(lines)
+
+    def _assess_transitive_callers(self, full_name: str) -> str:
+        direct = find_callers_with_sites(self._conn, full_name)
+        exclude = {_p(e["caller"])["full_name"] for e in direct} | {full_name}
+        rows = self._conn.query(
+            "MATCH (target {full_name: $fn})<-[:CALLS*2..2]-(transitive) "
+            "WHERE NOT transitive.full_name IN $exclude "
+            "AND NOT any(l IN labels(transitive) WHERE l = 'TestMethod') "
+            "RETURN DISTINCT transitive",
+            {"fn": full_name, "exclude": list(exclude)},
+        )
+        results = [row["transitive"] for row in rows]
+        if not results:
+            return "## Transitive Callers\n\nNo transitive callers found."
+        total = len(results)
+        limit = self._ASSESS_TRANSITIVE_LIMIT
+        shown = min(total, limit)
+        header = f"## Transitive Callers (showing {shown} of {total})" if total > limit else "## Transitive Callers"
+        lines = []
+        for node in results[:limit]:
+            props = _p(node)
+            fn = props["full_name"]
+            fp = props.get("file_path", "")
+            lines.append(f"- `{fn}` — {fp}")
+        return header + "\n\n" + "\n".join(lines)
+
+    def _assess_test_coverage(self, full_name: str) -> str:
+        tests = find_tests_for(self._conn, full_name)
+        has_line = True
+        if not tests:
+            tests = find_test_coverage(self._conn, full_name)
+            has_line = False
+        if not tests:
+            return "## Test Coverage\n\nNo test coverage found."
+        total = len(tests)
+        limit = self._ASSESS_TEST_LIMIT
+        shown = min(total, limit)
+        header = f"## Test Coverage (showing {shown} of {total})" if total > limit else "## Test Coverage"
+        lines = []
+        for t in tests[:limit]:
+            fn = t["full_name"]
+            fp = t["file_path"]
+            line = t.get("line") if has_line else None
+            if line is not None:
+                lines.append(f"- `{fn}` — {fp}:{line}")
+            else:
+                lines.append(f"- `{fn}` — {fp}")
+        return header + "\n\n" + "\n".join(lines)
+
+    def _assess_interface_contract(self, full_name: str) -> str:
+        result = find_interface_contract(self._conn, full_name)
+        if result["interface"] is None:
+            return "## Interface Contract\n\nNo interface contract found."
+        lines = [
+            f"Implements `{result['contract_method']}` from `{result['interface']}`",
+        ]
+        if result["sibling_implementations"]:
+            lines.append("\nSibling implementations:")
+            for s in result["sibling_implementations"]:
+                lines.append(f"- `{s['class_name']}` — {s['file_path']}")
+        return "## Interface Contract\n\n" + "\n".join(lines)
+
+    def _assess_http_endpoint(self, full_name: str) -> str:
+        ep = get_served_endpoint(self._conn, full_name)
+        if ep is None:
+            return "## HTTP Endpoint\n\nNo HTTP endpoint found."
+        endpoint_line = f"{ep['http_method']} {ep['route']}"
+        http_callers = find_http_callers(self._conn, full_name)
+        if not http_callers:
+            return f"## HTTP Endpoint\n\n{endpoint_line}"
+        total = len(http_callers)
+        limit = self._ASSESS_HTTP_LIMIT
+        shown = min(total, limit)
+        header = f"## HTTP Endpoint (showing {shown} of {total})" if total > limit else "## HTTP Endpoint"
+        lines = [endpoint_line, ""]
+        for c in http_callers[:limit]:
+            lines.append(f"- `{c['full_name']}` — {c['file_path']}")
+        return header + "\n\n" + "\n".join(lines)
