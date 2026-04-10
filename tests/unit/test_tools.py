@@ -1,3 +1,6 @@
+import importlib
+import inspect
+import json
 from unittest.mock import MagicMock
 
 from synapps.mcp.tools import _GRAPH_SCHEMA
@@ -376,3 +379,102 @@ def test_find_entry_points_returns_deprecation_error() -> None:
     assert isinstance(result, str)
     assert "removed" in result.lower()
     assert "get_architecture" in result
+
+
+# --- bench logging tests (INST-03) ---
+
+def test_bench_wrap_writes_jsonl_record(tmp_path, monkeypatch) -> None:
+    import synapps.mcp.tools as tools_mod
+    from synapps.mcp.tools import _bench_wrap
+
+    log_file = tmp_path / "bench.jsonl"
+    monkeypatch.setattr(tools_mod, "_BENCH_LOG", str(log_file))
+
+    def my_tool(full_name: str = "") -> str:
+        return "hello world"
+
+    wrapped = _bench_wrap(my_tool, "my_tool")
+    result = wrapped(full_name="test")
+
+    assert result == "hello world"
+    lines = log_file.read_text().strip().splitlines()
+    assert len(lines) == 1
+    record = json.loads(lines[0])
+    assert record["tool"] == "my_tool"
+    assert record["bytes"] == len("hello world".encode("utf-8"))
+    assert record["args"]["full_name"] == "test"
+    assert record["ms"] >= 0
+    assert record["ts"] > 0
+
+
+def test_bench_wrap_handles_none_result(tmp_path, monkeypatch) -> None:
+    import synapps.mcp.tools as tools_mod
+    from synapps.mcp.tools import _bench_wrap
+
+    log_file = tmp_path / "bench.jsonl"
+    monkeypatch.setattr(tools_mod, "_BENCH_LOG", str(log_file))
+
+    def my_tool() -> None:
+        return None
+
+    wrapped = _bench_wrap(my_tool, "my_tool")
+    wrapped()
+
+    record = json.loads(log_file.read_text().strip())
+    assert record["bytes"] == 4  # len("null")
+
+
+def test_register_tools_activates_bench_logging(tmp_path, monkeypatch) -> None:
+    import synapps.mcp.tools as tools_mod
+
+    log_file = tmp_path / "bench.jsonl"
+    monkeypatch.setattr(tools_mod, "_BENCH_LOG", str(log_file))
+
+    mcp = MagicMock()
+    original_tool = mcp.tool
+
+    tools_mod.register_tools(mcp, MagicMock())
+
+    # When bench logging is active, mcp.tool is replaced by _instrumented_tool
+    assert mcp.tool is not original_tool
+
+
+# --- instructions content tests (INST-01, INST-02) ---
+
+def test_instructions_contain_primary_tools_section() -> None:
+    from synapps.mcp.instructions import SERVER_INSTRUCTIONS
+    assert "PRIMARY TOOLS" in SERVER_INSTRUCTIONS
+
+
+def test_instructions_primary_tools_list() -> None:
+    from synapps.mcp.instructions import SERVER_INSTRUCTIONS
+    assert "read_symbol" in SERVER_INSTRUCTIONS
+    assert "search_symbols" in SERVER_INSTRUCTIONS
+    assert "find_usages" in SERVER_INSTRUCTIONS
+
+
+def test_instructions_contain_grep_replacement_mappings() -> None:
+    from synapps.mcp.instructions import SERVER_INSTRUCTIONS
+    lower = SERVER_INSTRUCTIONS.lower()
+    assert "instead of" in lower
+
+
+def test_instructions_no_stale_scope_references() -> None:
+    from synapps.mcp.instructions import SERVER_INSTRUCTIONS
+    assert "scope=" not in SERVER_INSTRUCTIONS
+    assert 'scope="' not in SERVER_INSTRUCTIONS
+
+
+# --- get_context_for parameter shape tests (restoring Phase 18 tests) ---
+
+def test_get_context_for_tool_no_scope_param() -> None:
+    fns = _register(MagicMock())
+    sig = inspect.signature(fns["get_context_for"])
+    assert "scope" not in sig.parameters
+
+
+def test_get_context_for_tool_has_members_only_param() -> None:
+    fns = _register(MagicMock())
+    sig = inspect.signature(fns["get_context_for"])
+    assert "members_only" in sig.parameters
+    assert sig.parameters["members_only"].default is False
