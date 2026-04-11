@@ -4,7 +4,7 @@ All notable changes to Synapps will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.11.0] - 2026-04-11
 
 ### Fixed
 - **`read_symbol` error handling** — unknown symbols with "Did you mean" suggestions now return a helpful message instead of raising `ToolError` (matches `get_context_for`/`assess_impact` pattern)
