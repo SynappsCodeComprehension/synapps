@@ -379,7 +379,10 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
         When a short type name matches both an interface and concrete class, the concrete implementation is preferred.
         """
         _auto_sync_check()
-        result = service.read_symbol(full_name, max_lines=max_lines)
+        try:
+            result = service.read_symbol(full_name, max_lines=max_lines)
+        except ValueError as e:
+            return str(e)
         return result or "Symbol not found."
 
     @mcp.tool()

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Fixed
+- **`read_symbol` error handling** — unknown symbols with "Did you mean" suggestions now return a helpful message instead of raising `ToolError` (matches `get_context_for`/`assess_impact` pattern)
+
 ### Added
 - **`read_symbol` MCP tool** — returns a symbol's source code with containing class signature in fewer tokens than reading the full file; falls back to member signatures overview when source exceeds `max_lines`
 - **`assess_impact` MCP tool** — single-call risk assessment showing direct callers, transitive callers, test coverage, interface contract, and HTTP endpoint info with configurable limits
