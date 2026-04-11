@@ -1,8 +1,11 @@
 /**
- * Determine whether the "Get Hierarchy" option should be shown
- * in the context menu. Per D-05, only Class and Interface kinds
- * have meaningful hierarchies.
+ * Determine whether the "Find Implementations" option should be shown
+ * in the context menu. Only Class and Interface kinds have meaningful
+ * implementations to find.
  */
-export function shouldShowHierarchy(kind) {
+export function shouldShowImplementations(kind) {
   return kind === 'Class' || kind === 'Interface';
 }
+
+/** @deprecated Use shouldShowImplementations instead */
+export const shouldShowHierarchy = shouldShowImplementations;

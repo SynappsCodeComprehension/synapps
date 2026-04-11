@@ -3,7 +3,7 @@
   import Pagination from '../ui/Pagination.svelte';
   import D3Graph from '../graph/D3Graph.svelte';
   import NodeDetailPanel from '../graph/NodeDetailPanel.svelte';
-  import { calleesToElements, hierarchyToElements, usagesToElements, cypherToElements, neighborhoodToElements, isGraphResult, exploreToElements } from '../graph/transforms.js';
+  import { calleesToElements, usagesToElements, cypherToElements, neighborhoodToElements, isGraphResult, exploreToElements } from '../graph/transforms.js';
   import { removeNodeWithOrphans } from '../graph/graphUtils.js';
   import { apiCall } from '../api.js';
   import { tools } from './toolConfig.js';
@@ -29,8 +29,6 @@
       const queriedKind = result?.queried_kind;
       const calleeData = result?.callees || result;
       initial = calleesToElements(calleeData, rootName, queriedKind);
-    } else if (activeTool === 'get_hierarchy') {
-      initial = hierarchyToElements({ ...result, target: result.target || queryParams?.full_name || '' });
     } else if (activeTool === 'find_usages') {
       const queriedKind = result?.queried_kind;
       const usageData = result?.usages || result;
@@ -172,7 +170,7 @@
       />
     {/if}
   {:else if resultType === 'text'}
-    <pre class="text-result">{typeof result === 'string' ? result : JSON.stringify(result, null, 2)}</pre>
+    <pre class="text-result">{typeof result === 'string' ? result : (result?.content ?? JSON.stringify(result, null, 2))}</pre>
   {:else if resultType === 'context'}
     <!-- Impact scope: stats grid + DataTable sections -->
     {#if result.total_affected != null}

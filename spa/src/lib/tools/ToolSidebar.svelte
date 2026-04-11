@@ -6,6 +6,7 @@
       name: 'Search',
       tools: [
         { id: 'search_symbols', label: 'Search Symbols' },
+        { id: 'read_symbol', label: 'Read Symbol' },
         { id: 'execute_query', label: 'Cypher Query' },
       ],
     },
@@ -14,7 +15,7 @@
       tools: [
         { id: 'find_usages', label: 'Find Usages' },
         { id: 'find_callees', label: 'Find Callees' },
-        { id: 'get_hierarchy', label: 'Get Hierarchy' },
+        { id: 'find_implementations', label: 'Find Implementations' },
         { id: 'explore', label: 'Explore' },
       ],
     },
@@ -23,6 +24,7 @@
       tools: [
         { id: 'get_architecture', label: 'Architecture' },
         { id: 'get_context_for', label: 'Context' },
+        { id: 'assess_impact', label: 'Assess Impact' },
         { id: 'find_dead_code', label: 'Dead Code' },
       ],
     },

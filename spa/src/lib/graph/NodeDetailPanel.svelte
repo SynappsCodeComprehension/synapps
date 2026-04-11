@@ -1,5 +1,5 @@
 <script>
-  import { Info, Search, GitFork, Network, X } from 'lucide-svelte';
+  import { Info, Search, GitFork, Network, Activity, X } from 'lucide-svelte';
 
   const { node = null, onClose, onAction } = $props();
 
@@ -9,7 +9,7 @@
     node ? Object.entries(node).filter(([k, v]) => !SKIP_KEYS.has(k) && v !== undefined && v !== null && v !== '').sort(([a], [b]) => a.localeCompare(b)) : []
   );
 
-  const showHierarchy = $derived(
+  const showImplementations = $derived(
     node?.kind === 'Class' || node?.kind === 'Interface'
   );
 
@@ -80,11 +80,14 @@
       <button class="action-btn" onclick={() => onAction?.('find_callees', node)}>
         <GitFork size={14} /> Find Callees
       </button>
-      {#if showHierarchy}
-        <button class="action-btn" onclick={() => onAction?.('get_hierarchy', node)}>
-          <Network size={14} /> Get Hierarchy
+      {#if showImplementations}
+        <button class="action-btn" onclick={() => onAction?.('find_implementations', node)}>
+          <Network size={14} /> Find Implementations
         </button>
       {/if}
+      <button class="action-btn" onclick={() => onAction?.('assess_impact', node)}>
+        <Activity size={14} /> Assess Impact
+      </button>
     </div>
   </div>
 {/if}

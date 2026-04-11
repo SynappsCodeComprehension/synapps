@@ -31,7 +31,7 @@
     return `vscode://file/${symbolData.file_path}:${symbolData.line}:1`;
   }
 
-  const showHierarchy = $derived(
+  const showImplementations = $derived(
     symbolData?.kind === 'Class' || symbolData?.kind === 'Interface'
   );
   const editorUrl = $derived(vscodeUrl());
@@ -63,10 +63,10 @@
     <GitFork size={14} />
     Find Callees
   </button>
-  {#if showHierarchy}
-    <button class="menu-item" onclick={() => onAction?.('get_hierarchy', symbolData)} role="menuitem">
+  {#if showImplementations}
+    <button class="menu-item" onclick={() => onAction?.('find_implementations', symbolData)} role="menuitem">
       <Network size={14} />
-      Get Hierarchy
+      Find Implementations
     </button>
   {/if}
   {#if editorUrl}
