@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import NotRequired
 from typing_extensions import TypedDict
 
@@ -91,12 +89,12 @@ class GetArchitectureOverviewResult(TypedDict):
 
 class FindDeadCodeResult(TypedDict):
     methods: list
-    total: int
+    stats: dict
 
 
 class FindUntestedResult(TypedDict):
     methods: list
-    total: int
+    stats: dict
 
 
 # --- HTTP ---
