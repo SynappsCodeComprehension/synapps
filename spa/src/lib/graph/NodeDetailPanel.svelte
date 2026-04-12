@@ -25,7 +25,7 @@
 </script>
 
 {#if node}
-  <div class="detail-panel">
+  <div class="detail-panel" data-testid="node-detail-panel">
     <div class="panel-header">
       <div class="header-title">
         <h3>{node.label || node.name || node.full_name}</h3>
@@ -33,7 +33,7 @@
           <span class="kind-badge kind-{node.kind?.toLowerCase()}">{node.kind}</span>
         {/if}
       </div>
-      <button class="close-btn" onclick={() => onClose?.()} aria-label="Close panel">
+      <button class="close-btn" data-testid="node-detail-close" onclick={() => onClose?.()} aria-label="Close panel">
         <X size={16} />
       </button>
     </div>

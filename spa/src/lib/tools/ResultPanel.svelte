@@ -131,7 +131,7 @@
   const tableColumns = $derived(deriveColumns(tableRows));
 </script>
 
-<div class="result-panel">
+<div class="result-panel" data-testid="result-panel">
   {#if loading}
     <div class="loading-state">
       <p>Loading...</p>
@@ -154,7 +154,9 @@
         {/each}
       </div>
     {/if}
-    <DataTable columns={tableColumns} rows={tableRows} {onSymbolClick} {projectRoot} />
+    <div data-testid="result-table">
+      <DataTable columns={tableColumns} rows={tableRows} {onSymbolClick} {projectRoot} />
+    </div>
     {#if tools[activeTool]?.pagination && result?.stats}
       {@const pageSize = result.stats.limit || 15}
       {@const offset = result.stats.offset || 0}

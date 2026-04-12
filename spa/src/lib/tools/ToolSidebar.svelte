@@ -43,7 +43,7 @@
   }
 </script>
 
-<nav class="sidebar">
+<nav class="sidebar" data-testid="sidebar">
   {#each categories as category}
     {#if category.experimental}
       <hr class="section-divider" />
@@ -55,6 +55,7 @@
           class="tool-item"
           class:active={activeTool === tool.id}
           onclick={() => select(tool.id)}
+          data-testid="tool-btn-{tool.id}"
         >
           {tool.label}
         </button>

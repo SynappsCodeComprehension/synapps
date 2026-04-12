@@ -160,7 +160,7 @@
   {#if config.autoRun}
     <div class="tool-form">
       <h2 class="heading">{config.label}</h2>
-      <button type="button" class="submit-btn" onclick={() => onRefresh?.(toolId)}>
+      <button type="button" class="submit-btn" data-testid="tool-submit" onclick={() => onRefresh?.(toolId)}>
         {config.cta}
       </button>
     </div>
@@ -175,20 +175,21 @@
             {#if param.type === 'textarea'}
               <textarea
                 id={param.name}
+                data-testid="param-{param.name}"
                 bind:value={formValues[param.name]}
                 placeholder={param.placeholder || ''}
                 required={param.required}
                 rows="4"
               ></textarea>
             {:else if param.type === 'select'}
-              <select id={param.name} bind:value={formValues[param.name]}>
+              <select id={param.name} data-testid="param-{param.name}" bind:value={formValues[param.name]}>
                 {#each param.options as opt}
                   <option value={opt}>{opt || param.defaultLabel || '(any)'}</option>
                 {/each}
               </select>
             {:else if param.type === 'checkbox'}
               <label class="checkbox-label">
-                <input type="checkbox" bind:checked={formValues[param.name]} />
+                <input type="checkbox" data-testid="param-{param.name}" bind:checked={formValues[param.name]} />
                 {param.label}
               </label>
             {:else if param.autocomplete}
@@ -197,6 +198,7 @@
                 <input
                   id={param.name}
                   type="text"
+                  data-testid="param-{param.name}"
                   bind:value={formValues[param.name]}
                   placeholder={param.placeholder || ''}
                   required={param.required}
@@ -226,6 +228,7 @@
               <input
                 id={param.name}
                 type={param.type}
+                data-testid="param-{param.name}"
                 bind:value={formValues[param.name]}
                 placeholder={param.placeholder || ''}
                 required={param.required}
@@ -238,7 +241,7 @@
       {#if toolId === 'explore' && Number(formValues.depth) >= 3}
         <p class="depth-warning">Depth 3+ may return a large graph. Consider narrowing your query.</p>
       {/if}
-      <button type="submit" class="submit-btn" disabled={submitting}>
+      <button type="submit" class="submit-btn" data-testid="tool-submit" disabled={submitting}>
         {submitting ? 'Loading...' : config.cta}
       </button>
     </form>

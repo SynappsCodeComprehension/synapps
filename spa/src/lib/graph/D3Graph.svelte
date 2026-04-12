@@ -443,8 +443,8 @@
   });
 </script>
 
-<div class="graph-container" style="position: relative;">
-  <svg bind:this={svgEl} width="100%" height="100%"></svg>
+<div class="graph-container" data-testid="graph-container" style="position: relative;">
+  <svg bind:this={svgEl} data-testid="graph-svg" width="100%" height="100%"></svg>
   <div class="graph-tooltip" style={tooltipStyle}>
     {#each tooltipContent.split('\n') as line}
       <div>{line}</div>
