@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
+from neo4j.exceptions import Neo4jError
 from pydantic import BaseModel
 
 from synapps.service import SynappsService
@@ -19,7 +20,7 @@ def router(service: SynappsService) -> APIRouter:
         try:
             result = service.execute_query(body.cypher)
             return serialize_result(result)
-        except ValueError as e:
+        except (ValueError, Neo4jError) as e:
             raise HTTPException(status_code=400, detail=str(e))
 
     @r.get("/find_http_endpoints")
