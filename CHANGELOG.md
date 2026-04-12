@@ -4,6 +4,11 @@ All notable changes to Synapps will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **MCP schema unit tests** — `tests/unit/test_mcp_schema.py` with 5 tests validating tool registration metadata and naming conventions: all 21 tools have non-empty descriptions, valid `inputSchema` with `type==object`, correct tool count, no forbidden parameter names (`symbol`, `filepath`, `file`, `count`, etc.), and all parameters use snake_case
+
 ## [1.11.0] - 2026-04-11
 
 ### Fixed
