@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
-- **Contract fixtures module** — `tests/fixtures/contract_fixtures.py` with TypedDict shapes for all mocked `SynappsService` methods; `tests/fixtures/__init__.py` makes the directory a Python package; `pytest.ini` pythonpath updated to include `tests` so fixtures are importable from any test file
+- **Contract fixtures module** — `tests/fixtures/contract_fixtures.py` with 19 TypedDict shapes covering all mocked `SynappsService` methods (search, navigate, analysis, HTTP, misc); zero synapps runtime imports; `tests/fixtures/__init__.py` makes the directory a Python package; `pytest.ini` pythonpath updated to include `tests` so fixtures are importable from any test file
 
 ## [1.11.0] - 2026-04-11
 
