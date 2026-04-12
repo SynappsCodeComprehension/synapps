@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from synapps.service import SynappsService
 from synapps.web.routes.navigate import router as navigate_router
 
 
 def _make_client(service=None):
-    svc = service or MagicMock()
+    svc = service or create_autospec(SynappsService)
     app = FastAPI()
     app.include_router(navigate_router(svc), prefix="/api")
     return TestClient(app), svc
