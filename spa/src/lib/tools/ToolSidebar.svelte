@@ -36,6 +36,13 @@
         { id: 'find_http_endpoints', label: 'HTTP Endpoints' },
       ],
     },
+    {
+      name: 'Diagnostics',
+      experimental: true,
+      tools: [
+        { id: 'tool_history', label: 'Tool History' },
+      ],
+    },
   ];
 
   function select(toolId) {

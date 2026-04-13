@@ -578,3 +578,60 @@ class SynappsService:
     def find_untested(self, exclude_pattern: str = "", exclude_file_pattern: str = "", limit: int = 15, offset: int = 0, subdirectory: str = "") -> dict:
         return find_untested(self._conn, exclude_pattern=exclude_pattern, exclude_file_pattern=exclude_file_pattern, limit=limit, offset=offset, subdirectory=subdirectory)
 
+    def get_tool_history(
+        self,
+        tool: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict:
+        """Query ToolCall nodes, ordered by timestamp descending."""
+        from datetime import datetime, timezone
+
+        where_clauses: list[str] = []
+        params: dict = {"limit": limit, "offset": offset}
+
+        if tool:
+            where_clauses.append("t.tool = $tool")
+            params["tool"] = tool
+        if status:
+            where_clauses.append("t.status = $status")
+            params["status"] = status
+
+        where = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+        count_rows = self._conn.query(
+            f"MATCH (t:ToolCall) {where} RETURN count(t)",
+            params,
+        )
+        total = count_rows[0][0] if count_rows else 0
+
+        rows = self._conn.query(
+            f"MATCH (t:ToolCall) {where} "
+            "RETURN t.tool, t.args, t.ts, t.duration_ms, t.response_bytes, t.status, t.error_message "
+            "ORDER BY t.ts DESC SKIP $offset LIMIT $limit",
+            params,
+        )
+
+        calls = [
+            {
+                "tool": r[0],
+                "args": r[1],
+                "timestamp": datetime.fromtimestamp(r[2], tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "duration_ms": r[3],
+                "response_bytes": r[4],
+                "status": r[5],
+                "error_message": r[6],
+            }
+            for r in rows
+        ]
+
+        return {
+            "calls": calls,
+            "stats": {
+                "total_count": total,
+                "limit": limit,
+                "offset": offset,
+            },
+        }
+

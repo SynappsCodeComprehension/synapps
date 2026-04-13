@@ -5,12 +5,14 @@ import json
 import logging
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Literal
 
+from synapps.graph.connection import GraphConnection
 from synapps.indexer.git import is_git_repo, rev_parse_head, dirty_tracked_paths
 from synapps.graph.lookups import check_staleness
-from synapps.graph.nodes import get_last_indexed_commit
+from synapps.graph.nodes import get_last_indexed_commit, cleanup_old_tool_calls
 from synapps.service import SynappsService
 
 log = logging.getLogger(__name__)
@@ -51,6 +53,85 @@ def _bench_wrap(fn: callable, tool_name: str) -> callable:
         return result
 
     return wrapper
+
+
+_history_call_counter = 0
+_SKIP_HISTORY = frozenset({"index_project", "sync_project", "list_projects", "get_schema"})
+
+
+def _record_tool_call(
+    conn: GraphConnection,
+    tool_name: str,
+    args: dict,
+    duration_ms: float,
+    response_bytes: int,
+    status: str,
+    repo_path: str,
+    error_message: str = "",
+) -> None:
+    global _history_call_counter
+    conn.execute(
+        "CREATE (t:ToolCall {"
+        "  id: $id, repo_path: $repo_path, tool: $tool, args: $args,"
+        "  ts: $ts, duration_ms: $duration_ms, response_bytes: $response_bytes,"
+        "  status: $status, error_message: $error_message"
+        "})",
+        {
+            "id": str(uuid.uuid4()),
+            "repo_path": repo_path,
+            "tool": tool_name,
+            "args": json.dumps(
+                {k: v for k, v in args.items() if isinstance(v, (str, int, float, bool))},
+            ),
+            "ts": time.time(),
+            "duration_ms": round(duration_ms, 1),
+            "response_bytes": response_bytes,
+            "status": status,
+            "error_message": (error_message[:500] if error_message else ""),
+        },
+    )
+    _history_call_counter += 1
+    if _history_call_counter % 50 == 0:
+        try:
+            cleanup_old_tool_calls(conn, repo_path, keep=500)
+        except Exception:
+            log.debug("Tool call cleanup failed", exc_info=True)
+
+
+def _history_wrap(fn: callable, tool_name: str, service: SynappsService, repo_path: str) -> callable:
+    """Wrap a tool function to record invocations in the graph."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        t0 = time.monotonic()
+        status = "ok"
+        error_message = ""
+        result = None
+        try:
+            result = fn(*args, **kwargs)
+            return result
+        except Exception as e:
+            status = "error"
+            error_message = str(e)
+            raise
+        finally:
+            elapsed_ms = (time.monotonic() - t0) * 1000
+            if result is not None:
+                if isinstance(result, str):
+                    size = len(result.encode("utf-8"))
+                elif result is None:
+                    size = 4
+                else:
+                    size = len(json.dumps(result).encode("utf-8"))
+            else:
+                size = 0
+            try:
+                _record_tool_call(service._conn, tool_name, kwargs, elapsed_ms, size, status, repo_path, error_message)
+            except Exception:
+                log.debug("Failed to record tool call for %s", tool_name, exc_info=True)
+
+    return wrapper
+
 
 SymbolKindLiteral = Literal[
     "Class", "Interface", "Method", "Property", "Field",
@@ -157,6 +238,23 @@ def register_tools(mcp: object, service: SynappsService, project_path: str = "")
 
         mcp.tool = _instrumented_tool
         log.info("Bench logging enabled → %s", _BENCH_LOG)
+
+    # Always-on tool call history recording into the graph
+    _real_tool = mcp.tool
+
+    def _history_tool(*deco_args, **deco_kwargs):
+        decorator = _real_tool(*deco_args, **deco_kwargs)
+
+        def wrapping_decorator(fn):
+            if fn.__name__ not in _SKIP_HISTORY:
+                wrapped = _history_wrap(fn, fn.__name__, service, project_path)
+            else:
+                wrapped = fn
+            return decorator(wrapped)
+
+        return wrapping_decorator
+
+    mcp.tool = _history_tool
 
     def _auto_sync_check() -> None:
         _check_auto_sync(project_path, service)

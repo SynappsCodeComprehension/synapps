@@ -480,3 +480,56 @@ def test_get_context_for_tool_has_members_only_param() -> None:
     sig = inspect.signature(fns["get_context_for"])
     assert "members_only" in sig.parameters
     assert sig.parameters["members_only"].default is False
+
+
+# --- tool call history recording tests ---
+
+def _make_service_with_conn():
+    svc = MagicMock()
+    svc._conn = MagicMock()
+    return svc
+
+
+def test_history_wrap_records_successful_call() -> None:
+    from synapps.mcp.tools import _history_wrap
+    svc = _make_service_with_conn()
+    fn = lambda **kwargs: "result"
+    wrapped = _history_wrap(fn, "test_tool", svc, "/test/path")
+    result = wrapped(query="foo")
+    assert result == "result"
+    svc._conn.execute.assert_called_once()
+    cypher = svc._conn.execute.call_args[0][0]
+    params = svc._conn.execute.call_args[0][1]
+    assert "CREATE" in cypher
+    assert "ToolCall" in cypher
+    assert params["tool"] == "test_tool"
+    assert params["repo_path"] == "/test/path"
+    assert params["status"] == "ok"
+
+
+def test_history_wrap_records_failed_call() -> None:
+    from synapps.mcp.tools import _history_wrap
+    svc = _make_service_with_conn()
+
+    def failing_fn(**kwargs):
+        raise ValueError("boom")
+
+    wrapped = _history_wrap(failing_fn, "bad_tool", svc, "/test/path")
+    try:
+        wrapped(query="bar")
+    except ValueError:
+        pass
+    svc._conn.execute.assert_called_once()
+    params = svc._conn.execute.call_args[0][1]
+    assert params["status"] == "error"
+    assert "boom" in params["error_message"]
+
+
+def test_history_wrap_does_not_break_tool_on_recording_failure() -> None:
+    from synapps.mcp.tools import _history_wrap
+    svc = _make_service_with_conn()
+    svc._conn.execute.side_effect = RuntimeError("db down")
+    fn = lambda **kwargs: "ok"
+    wrapped = _history_wrap(fn, "test_tool", svc, "/test/path")
+    result = wrapped(query="foo")
+    assert result == "ok"

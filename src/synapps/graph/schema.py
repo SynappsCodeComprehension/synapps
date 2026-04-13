@@ -24,6 +24,8 @@ _INDEX_DEFS = [
     ("Field", "full_name"),
     ("Field", "name"),
     ("Endpoint", "route"),
+    ("ToolCall", "repo_path"),
+    ("ToolCall", "ts"),
 ]
 
 # Label-only indexes speed up label-filtered scans (Memgraph only)

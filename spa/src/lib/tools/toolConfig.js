@@ -169,4 +169,20 @@ export const tools = {
       { name: 'limit', label: 'Limit', type: 'number', required: false, default: 50 },
     ],
   },
+  tool_history: {
+    label: 'Tool History',
+    category: 'Diagnostics',
+    endpoint: 'tool_history',
+    method: 'GET',
+    cta: 'Load History',
+    resultType: 'table',
+    autoRun: true,
+    pagination: true,
+    params: [
+      { name: 'tool', label: 'Tool filter', type: 'text', required: false, placeholder: 'e.g. search_symbols' },
+      { name: 'status', label: 'Status', type: 'select', required: false, options: ['', 'ok', 'error'] },
+      { name: 'limit', label: 'Limit', type: 'number', required: false, default: 50, hidden: true },
+      { name: 'offset', label: 'Offset', type: 'number', required: false, default: 0, hidden: true },
+    ],
+  },
 };

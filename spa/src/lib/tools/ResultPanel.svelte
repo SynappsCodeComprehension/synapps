@@ -124,6 +124,8 @@
     if (data?.methods) return data.methods;
     // Search results with truncation: { results: [...], _truncated: true }
     if (data?.results) return data.results;
+    // Tool history: { calls: [...], stats: {...} }
+    if (data?.calls) return data.calls;
     return [];
   }
 
@@ -160,7 +162,7 @@
     {#if tools[activeTool]?.pagination && result?.stats}
       {@const pageSize = result.stats.limit || 15}
       {@const offset = result.stats.offset || 0}
-      {@const totalItems = result.stats.dead_count ?? result.stats.untested_count ?? 0}
+      {@const totalItems = result.stats.dead_count ?? result.stats.untested_count ?? result.stats.total_count ?? 0}
       {@const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))}
       {@const currentPage = Math.floor(offset / pageSize) + 1}
       <Pagination

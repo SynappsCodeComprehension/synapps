@@ -360,3 +360,22 @@ def delete_orphaned_symbols(
             {"fn": fn},
         )
     return len(orphans)
+
+
+def cleanup_old_tool_calls(conn: GraphConnection, repo_path: str, keep: int = 500) -> int:
+    """Delete oldest ToolCall nodes for a repo, keeping the most recent *keep* entries."""
+    rows = conn.query(
+        "MATCH (t:ToolCall {repo_path: $repo_path}) RETURN count(t) AS cnt",
+        {"repo_path": repo_path},
+    )
+    total = rows[0][0] if rows else 0
+    if total <= keep:
+        return 0
+    to_delete = total - keep
+    conn.execute(
+        "MATCH (t:ToolCall {repo_path: $repo_path}) "
+        "WITH t ORDER BY t.ts ASC LIMIT $limit "
+        "DELETE t",
+        {"repo_path": repo_path, "limit": to_delete},
+    )
+    return to_delete

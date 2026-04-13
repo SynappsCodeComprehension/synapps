@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [Unreleased]
 
 ### Added
+- **MCP tool call history** — always-on recording of MCP tool invocations as `ToolCall` nodes in Memgraph with timing, response size, and success/error status; lazy cleanup keeps at most 500 entries per project; new `GET /api/tool_history` endpoint with tool/status filtering and pagination; new "Tool History" view in the SPA under a Diagnostics sidebar category
 - **E2E test infrastructure** — `GET /api/health` endpoint returning `{"status": "ok"}`; `pytest-playwright>=0.7.0` dev dependency with Chromium binary; `e2e` pytest marker registered; `tests/e2e/conftest.py` with session-scoped `live_server` (uvicorn on 127.0.0.1:7480), `wait_for_server` (polls `/api/health`), and `app_page` fixtures
 - **data-testid attributes on all interactive Svelte elements** — `data-testid="sidebar"` and `data-testid="tool-btn-{id}"` on ToolSidebar, `data-testid="tool-submit"` and `data-testid="param-{name}"` on all ToolForm inputs, `data-testid="result-panel"` and `data-testid="result-table"` on ResultPanel, `data-testid="graph-container"` and `data-testid="graph-svg"` on D3Graph, `data-testid="node-detail-panel"` and `data-testid="node-detail-close"` on NodeDetailPanel; SPA rebuilt
 - **E2E browser tests — search workflow** — `tests/e2e/test_search_workflow.py` with `test_search_symbols_shows_table` (asserts result-table renders) and `test_find_callees_shows_graph` (asserts D3 `g.node` SVG elements render); all selectors use `data-testid` exclusively
